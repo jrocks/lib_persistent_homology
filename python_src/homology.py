@@ -48,8 +48,7 @@ def compute_persistence_pairs(simplices, dimensions, heights, boundaries):
             for d in range(dim, 0, -1):
                 for sj in all_sim[d]:
                     all_sim[d-1].update(boundaries[d][sj])
-                    
-           
+                               
             # add vertices (simplices without boundary)
             for vi in all_sim[0]:
                 if vi not in sim_to_col[0]:
@@ -88,8 +87,8 @@ def compute_persistence_pairs(simplices, dimensions, heights, boundaries):
     
     raw_pairs = boundary_matrix.compute_persistence_pairs()
 
-    ibirth = [[] for i in range(len(boundaries)+1)]
-    ideath = [[] for i in range(len(boundaries)+1)]
+    ipairs = [{} for i in range(len(boundaries)+1)]
+    
     for (i, j) in raw_pairs:
 
         d = columns[i][0]
@@ -97,16 +96,23 @@ def compute_persistence_pairs(simplices, dimensions, heights, boundaries):
         pj = sim_to_pindex[d+1][col_to_sim[j]]
         
         if pi != pj:
-            ibirth[d].append(pi)
-            ideath[d].append(pj)
+            
+            if (pi, pj) not in ipairs[d]:
+                ipairs[d][(pi, pj)] = 1
+            else:
+                ipairs[d][(pi, pj)] += 1
             
         alive[d].discard(i)
         alive[d+1].discard(j)
         
-    persist = [[] for i in range(len(boundaries)+1)]
+    persist = [{} for i in range(len(boundaries)+1)]
     for d in range(len(boundaries)+1):
         for i in alive[d]:
-            persist[d].append(sim_to_pindex[d][col_to_sim[i]])
+            pi = sim_to_pindex[d][col_to_sim[i]]
+            if pi not in persist[d]:
+                persist[d][pi] = 1
+            else:
+                persist[d][pi] += 1
     
     
-    return (ibirth, ideath, hsort, persist, sim_to_pindex)
+    return (ipairs, hsort, persist, sim_to_pindex)
