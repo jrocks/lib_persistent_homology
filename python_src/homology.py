@@ -3,12 +3,15 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../python_src/')
 import numpy as np
 import scipy as sp
+import numpy.linalg as la
 import phat
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib as mpl
 import skimage.morphology as morph
 import networkx as nx
+import queue
+
 
 class CellComplex:
     
@@ -154,10 +157,203 @@ def construct_lower_star_filtration(comp, verts):
             new_simps = set()
      
     return (simp_filt, dims)
+  
+    
+def compute_graph_segmentation(G, heights, euclidean=False, positions=None):
+    
+    # find level sets
+    level_sets = {}
+    for h in np.unique(heights):
+        level_sets[h] = list(np.where(heights==h)[0])
+    
+    # basin 0 is the watersheds
+    basins = np.full(G.order(), -1, int)
+    current_label = 0
         
+    # iterate through each level set
+    for ih, h in enumerate(level_sets):
+        if ih % 1000 == 0:
+            print("Level:", ih, h)
+        
+        level = level_sets[h]
+        
+        dist = {}
+        
+        if euclidean:
+            Q = queue.PriorityQueue()
+            closest = {}
+        else:
+            Q = queue.Queue()            
+        
+        # find neighbors in lower level sets
+        for vi in level:
+            
+            for nbr in G[vi]:
+                if basins[nbr] >= 0:
+                    
+                    if euclidean:
+                        new_dist = la.norm(positions[vi] - positions[nbr])                    
+                    else:
+                        new_dist = 1.0
+                    
+                    if vi not in dist or new_dist < dist[vi]:
+                        dist[vi] = new_dist
+                        Q.put((new_dist, vi))
+                        
+                        if euclidean:
+                            closest[vi] = nbr
+                    
+                    
+        unvisited = set(level)
+                
+        # breadth first search through connected part of level set
+        while not Q.empty():
+                        
+            (current_dist, vi) = Q.get()    
+            
+            if vi not in unvisited:
+                continue
+            
+            for nbr in G[vi]:
+                
+                
+                if euclidean:
+                    new_dist = la.norm(positions[nbr] - positions[closest[vi]])
+                else:
+                    new_dist = current_dist + 1
+                                
+                # neighbor has already been assigned to a basin or watershed
+                # and has a different distance (or no distance defined at all)
+                if basins[nbr] >= 0 and (nbr not in dist or dist[nbr] < current_dist):
+                    
+                    # neighbor in different basin
+                    if basins[nbr] > 0:
+                        
+                        # current node not visited yet, or was assigned to watershed
+                        if vi in unvisited or basins[vi] == 0:
+                            # assign current node to neighbor's basin
+                            basins[vi] = basins[nbr]
+                            unvisited.discard(vi)
+                        
+                        # current node already assigned to basin
+                        # and its basin is different from its neighbor's
+                        elif basins[vi] != basins[nbr]:
+                            # assign current node to watershed
+                            basins[vi] = 0
+                            unvisited.discard(vi)
+                        
+                    # neighbor is a watershed and current node is unvisited
+                    elif vi in unvisited:
+                        # assign current node to watershed
+                        basins[vi] = 0
+                        unvisited.discard(vi)
+                
+                # neighbor has not been visited and not been given a distance
+                elif nbr in unvisited and (nbr not in dist or new_dist < dist[nbr]):
+                    # append to queue
+                    
+                    dist[nbr] = new_dist
+                    Q.put((new_dist, nbr))
+                    
+                    if euclidean:
+                        closest[nbr] = closest[vi]
+            
+            
+        # breadth first search through separate components corresponding to new minima
+        while len(unvisited) > 0:
+                        
+            vi = unvisited.pop()
+            current_label += 1
+            basins[vi] = current_label
+            
+            Q.put((0,vi))
+            
+            while not Q.empty():
+                (d, vj) = Q.get()
+                
+                for nbr in G[vj]:
+                    if nbr in unvisited:
+                        Q.put((0,nbr))
+                        basins[nbr] = current_label
+                        unvisited.discard(nbr)
+            
+    
+    # iterate through each pixel and check if it has neighbor of lower valued basin
+    # add to watershed if it does
+    new_basins = []
+    for vi in range(G.order()):
+        if basins[vi] > 0:
+            for nbr in G[vi]:
+                 
+                # if in different basins then choose one of lower height
+                # if equal heights then choose one in lower basin
+                
+                if basins[nbr] != 0 and basins[nbr] != basins[vi]:
+                    if heights[vi] > heights[nbr]:
+                    # or (heights[vi] == heights[nbr] and basins[nbr] > basins[vi]):
+                        new_basins.append(vi)
+                
+                # if basins[nbr] != 0 and basins[nbr] > basins[vi]:
+                #     new_basins.append(vi)
+                #     break
+    
+    basins[new_basins] = 0
+    
+    segments = {i:set() for i in range(current_label+1)}
+    for i in range(G.order()):
+        segments[basins[i]].add(i)
+        
+    return segments
+    
+def compute_segment_cycle_basis(comp, segments):
+    
+    lower_basis = [set() for i in range(len(segments)-1)]
+    upper_basis = [set() for i in range(len(segments)-1)]
+    
+    for i in range(1, len(segments)):
+        pass
     
     
-def mesh_complex(nrows, ncols, compactify=False):
+    return
+    
+    
+    
+
+def construct_mesh_graph(nrows, ncols, diagonals=False, pos=False):
+    G = nx.Graph()
+    
+    positions = {}
+    
+    for i in range(nrows):
+        for j in range(ncols):
+            G.add_node(ncols*i + j)
+            if pos:
+                positions[ncols*i + j] = np.array([j, i])
+            
+            
+    for i in range(nrows):
+        for j in range(ncols-1):
+            G.add_edge(ncols*i + j, ncols*i + j+1)
+
+    for i in range(nrows-1):
+        for j in range(ncols):
+            G.add_edge(ncols*i + j, ncols*(i+1) + j)
+         
+    if diagonals:
+        for i in range(nrows-1):
+            for j in range(ncols-1):
+                G.add_edge(ncols*i + j, ncols*(i+1) + j+1)
+
+        for i in range(nrows-1):
+            for j in range(ncols-1):
+                G.add_edge(ncols*(i+1) + j, ncols*i + j+1)
+    
+    if pos:
+        return (G, positions)
+    else:
+        return G
+    
+def construct_mesh_complex(nrows, ncols, compactify=False):
     
     nverts = nrows*ncols
     if compactify:
@@ -220,292 +416,139 @@ def mesh_complex(nrows, ncols, compactify=False):
 
 
 
-
-def binary_dilation_filtration(mat, show=False):
+def compute_graph_dilation(G, sources, euclidean=False, positions=None):
+    dist = np.full(G.order(), -1, float)
     
-    pixels = []
-    heights = []
-
-    curr_height = 0
-
-    num_zeros = np.count_nonzero(mat==0)
-
-    print("Height:", curr_height)
-    print("Zeros:", num_zeros)
-
-    pixels.extend(np.nonzero(mat.flatten())[0])
-    heights.extend(np.full_like(pixels, curr_height))
-
-    print(len(pixels))
-
-    if show:
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.imshow(mat, cmap=plt.cm.gray)
-        # ax.axis('off')
-        plt.show()
-
-
-    max_radius = 4
-
-    base = mat
-    prev_dilated = mat
-    radius = 1
-
-    while num_zeros > 0:
-
-        selem = morph.disk(radius)
-
-    #     print(selem)
-
-        curr_height += 1
-
-        dilated = morph.dilation(base, selem)
-
-        new_nonzeros = np.nonzero((dilated - prev_dilated).flatten())[0]
-
-        num_zeros -= len(new_nonzeros)
-
-        print("Height:", curr_height, "Zeros:", num_zeros, "Radius", radius)
-
-        if show:
-            fig, ax = plt.subplots(figsize=(6,6))
-            ax.imshow(dilated, cmap=plt.cm.gray)
-            # ax.axis('off')
-            plt.show()
-
-        pixels.extend(new_nonzeros)
-        heights.extend(np.full_like(new_nonzeros, curr_height))
-
-        prev_dilated = dilated
-
-        if radius == max_radius:
-            base = dilated
-            radius = 1
-        else:
-            radius += 1
-
-    #     if curr_height >= 40:
-    #         break
-
-    pixels.append(mat.shape[0]*mat.shape[1])
-    heights.append(curr_height+1)
+    if euclidean:
+        Q = queue.PriorityQueue()
+        closest = np.full(G.order(), -1, int)
+    else:
+        Q = queue.Queue()      
     
-    return (pixels, heights)
-
-def laplace_dilation_filtration(mat, show=False):
+    unvisited = set(np.arange(G.order()))
     
-    image = np.zeros_like(mat, float)
-
-    i = 0
-    while True:
-
-        new_image = np.copy(mat.astype(float))
-
-        # bulk
-        new_image[1:mat.shape[0]-1, 1:mat.shape[1]-1] += (image[0:mat.shape[0]-2, 1:mat.shape[1]-1] 
-                                                          + image[1:mat.shape[0]-1, 0:mat.shape[1]-2] 
-                                                          + image[2:mat.shape[0], 1:mat.shape[1]-1] 
-                                                          + image[1:mat.shape[0]-1, 2:mat.shape[1]])
-
-        # top row
-        new_image[0, 1:mat.shape[1]-1] += (image[0, 0:mat.shape[1]-2] 
-                                          + image[1, 1:mat.shape[1]-1] 
-                                          + image[0, 2:mat.shape[1]])
-
-        # bottom row
-        new_image[mat.shape[0]-1, 1:mat.shape[1]-1] += (image[mat.shape[0]-2, 1:mat.shape[1]-1] 
-                                                          + image[mat.shape[0]-1, 0:mat.shape[1]-2] 
-                                                          + image[mat.shape[0]-1, 2:mat.shape[1]])
-
-        # left column
-        new_image[1:mat.shape[0]-1, 0] += (image[0:mat.shape[0]-2, 0] 
-                                                          + image[2:mat.shape[0], 0] 
-                                                          + image[1:mat.shape[0]-1, 1])
-
-        # right column
-        new_image[1:mat.shape[0]-1, mat.shape[1]-1] += (image[0:mat.shape[0]-2, mat.shape[1]-1] 
-                                                          + image[1:mat.shape[0]-1, mat.shape[1]-2] 
-                                                          + image[2:mat.shape[0], mat.shape[1]-1])
-
-        # upper left corner
-        new_image[0, 0] += (image[1, 0] 
-                              + image[0, 1])
-
-        # upper right corner
-        new_image[0, mat.shape[1]-1] += (image[0, mat.shape[1]-2] 
-                                          + image[1, mat.shape[1]-1])
-
-        # bottorm left corner
-        new_image[mat.shape[0]-1, 0] += (image[mat.shape[0]-2, 0] 
-                                            + image[mat.shape[0]-1, 1])
-
-        # bottom right corner
-        new_image[mat.shape[0]-1, mat.shape[1]-1] += (image[mat.shape[0]-2, mat.shape[1]-1] 
-                                                          + image[mat.shape[0]-1, mat.shape[1]-2])
-
-        new_image /= 6.0
-
+    for i in sources:
+        dist[i] = 0
+        Q.put((0, i))
         
-
-        max_delta = np.max(np.abs((image-new_image) / np.where(image==0, 1e-16, np.abs(image))))
-
-
-        if show and i %10 == 0:
-            print(i, max_delta)
-            
-            # norm = mcolors.LogNorm(vmin=1e-16, vmax=1.0)
-            # cmap = mpl.cm.GnBu
-            
-            norm = mcolors.SymLogNorm(vmin=-1.0, vmax=1.0, linthresh=1e-32)
-            # cmap = mpl.cm.RdBu_r
-            cmap = mpl.cm.RdYlGn
-            
-            fig, ax = plt.subplots(figsize=(8,8))
-            im = ax.imshow(new_image, cmap=cmap, norm=norm)
-            # plt.colorbar(im)
-            # ax.axis('off')
-            plt.show()
-
+        if euclidean:
+            closest[i] = i
         
-        if max_delta <= 1e-4:
-            image = new_image
-            break
-
-        image = new_image
-        i += 1
         
-    heights = list(np.sort(image.flatten()))
-    pixels = list(np.argsort(image.flatten()))
-    
-    pixels.append(mat.shape[0]*mat.shape[1])
-    heights.append(heights[-1]+1)
-    
-    return (pixels, heights)
-
-
-# def triangulate_complex(comp, vert_order):
-    
-#     cofaces = {}
-#     cofaces[0] = [[] for i in range(comp.nverts)]
-#     for d in range(1, comp.dim):
-#         cofaces[d] = [[] for i in range(len(comp.faces[d]))]
-    
-#     for d in range(1, comp.dim+1):
-#         for si, simplex in enumerate(comp.faces[d]):
-#             for sj in simplex:
-#                 cofaces[d-1][sj].append(si)
+    while not Q.empty():
+        
+        (current_dist, vi) = Q.get()
+        if vi not in unvisited:
+            continue
+            
+        unvisited.discard(vi)
                 
-#     for vi in vert_order:
-#         for ei in cofaces[0][vi]:
+        for nbr in G[vi]:
+            
+            if nbr in unvisited:
+                
+                if euclidean:
+                    new_dist = la.norm(positions[nbr] - positions[closest[vi]])
+                else:
+                    new_dist = current_dist + 1
+                                                                
+                if nbr in unvisited and (dist[nbr] == -1 or new_dist < dist[nbr]):
+                    dist[nbr] = new_dist 
+                    Q.put((new_dist, nbr))   
+                    
+                    if euclidean:
+                        closest[nbr] = closest[vi]
+                                    
+    return dist
+
+# def laplace_dilation_filtration(mat, show=False):
+    
+#     image = np.zeros_like(mat, float)
+
+#     i = 0
+#     while True:
+
+#         new_image = np.copy(mat.astype(float))
+
+#         # bulk
+#         new_image[1:mat.shape[0]-1, 1:mat.shape[1]-1] += (image[0:mat.shape[0]-2, 1:mat.shape[1]-1] 
+#                                                           + image[1:mat.shape[0]-1, 0:mat.shape[1]-2] 
+#                                                           + image[2:mat.shape[0], 1:mat.shape[1]-1] 
+#                                                           + image[1:mat.shape[0]-1, 2:mat.shape[1]])
+
+#         # top row
+#         new_image[0, 1:mat.shape[1]-1] += (image[0, 0:mat.shape[1]-2] 
+#                                           + image[1, 1:mat.shape[1]-1] 
+#                                           + image[0, 2:mat.shape[1]])
+
+#         # bottom row
+#         new_image[mat.shape[0]-1, 1:mat.shape[1]-1] += (image[mat.shape[0]-2, 1:mat.shape[1]-1] 
+#                                                           + image[mat.shape[0]-1, 0:mat.shape[1]-2] 
+#                                                           + image[mat.shape[0]-1, 2:mat.shape[1]])
+
+#         # left column
+#         new_image[1:mat.shape[0]-1, 0] += (image[0:mat.shape[0]-2, 0] 
+#                                                           + image[2:mat.shape[0], 0] 
+#                                                           + image[1:mat.shape[0]-1, 1])
+
+#         # right column
+#         new_image[1:mat.shape[0]-1, mat.shape[1]-1] += (image[0:mat.shape[0]-2, mat.shape[1]-1] 
+#                                                           + image[1:mat.shape[0]-1, mat.shape[1]-2] 
+#                                                           + image[2:mat.shape[0], mat.shape[1]-1])
+
+#         # upper left corner
+#         new_image[0, 0] += (image[1, 0] 
+#                               + image[0, 1])
+
+#         # upper right corner
+#         new_image[0, mat.shape[1]-1] += (image[0, mat.shape[1]-2] 
+#                                           + image[1, mat.shape[1]-1])
+
+#         # bottorm left corner
+#         new_image[mat.shape[0]-1, 0] += (image[mat.shape[0]-2, 0] 
+#                                             + image[mat.shape[0]-1, 1])
+
+#         # bottom right corner
+#         new_image[mat.shape[0]-1, mat.shape[1]-1] += (image[mat.shape[0]-2, mat.shape[1]-1] 
+#                                                           + image[mat.shape[0]-1, mat.shape[1]-2])
+
+#         new_image /= 6.0
+
         
 
-# def compute_morse_complex(comp, vert_order):
+#         max_delta = np.max(np.abs((image-new_image) / np.where(image==0, 1e-16, np.abs(image))))
+
+
+#         if show and i %10 == 0:
+#             print(i, max_delta)
+            
+#             # norm = mcolors.LogNorm(vmin=1e-16, vmax=1.0)
+#             # cmap = mpl.cm.GnBu
+            
+#             norm = mcolors.SymLogNorm(vmin=-1.0, vmax=1.0, linthresh=1e-32)
+#             # cmap = mpl.cm.RdBu_r
+#             cmap = mpl.cm.RdYlGn
+            
+#             fig, ax = plt.subplots(figsize=(8,8))
+#             im = ax.imshow(new_image, cmap=cmap, norm=norm)
+#             # plt.colorbar(im)
+#             # ax.axis('off')
+#             plt.show()
+
+        
+#         if max_delta <= 1e-4:
+#             image = new_image
+#             break
+
+#         image = new_image
+#         i += 1
+        
+#     heights = list(np.sort(image.flatten()))
+#     pixels = list(np.argsort(image.flatten()))
     
-#     cofaces = {}
-#     cofaces[0] = [[] for i in range(comp.nverts)]
-#     for d in range(1, comp.dim):
-#         cofaces[d] = [[] for i in range(len(comp.faces[d]))]
+#     pixels.append(mat.shape[0]*mat.shape[1])
+#     heights.append(heights[-1]+1)
     
-#     for d in range(1, comp.dim+1):
-#         for si, simplex in enumerate(comp.faces[d]):
-#             for sj in simplex:
-#                 cofaces[d-1][sj].append(si)
-                
-#     heights = {}
-#     for i, vi in enumerate(vert_order):
-#         heights[vi] = i
-        
-        
-#     paths = []
-#     end_points = {}
-            
-#     for vi in vert_order:
-        
-#         lstar = {d:{} for d in range(1, comp.dim+1)}
-#         ustar = {d:{} for d in range(1, comp.dim+1)}
-        
-#         for ei in cofaces[0][vi]:
-#             vj = (set(comp.faces[1][ei]) - set([vi])).pop()
-            
-#             if vj in heights:
-#                 if heights[vj] < heights[vi]:
-#                     lstar[1][ei] =  [vj]
-#                 else:
-#                     ustar[1][ei] =  [vj]
-                
-#         for d in range(1, comp.dim):
-#             for si in lstar[d]:
-#                 for sj in cofaces[d][si]:
-#                     if sj not in lstar[d+1]:
-#                         lstar[d+1][sj] = [si]
-#                     else:
-#                         lstar[d+1][sj].append(si)
-                        
-#             for si in ustar[d]:
-#                 for sj in cofaces[d][si]:
-#                     if sj not in ustar[d+1]:
-#                         ustar[d+1][sj] = [si]
-#                     else:
-#                         ustar[d+1][sj].append(si)
-           
-                
-#         for d in range(comp.dim, 1, -1):
-            
-#             while len(lstar[d]) > 0:
-#                 c, c_list = lstar[d].popitem()
-                
-#                 si = c_list.pop()
-#                 while len(c_list) > 0:
-#                     sj = c_list.pop()
-#                     if sj in lstar[d-1]:
-#                         sj_list = lstar[d-1].pop(sj)
-#                         lstar[d-1][si].extend(sj_list)
-                 
-#             lstar.pop(d)
-            
-#             while len(ustar[d]) > 0:
-#                 c, c_list = ustar[d].popitem()
-                
-#                 si = c_list.pop()
-#                 while len(c_list) > 0:
-#                     sj = c_list.pop()
-#                     if sj in ustar[d-1]:
-#                         sj_list = ustar[d-1].pop(sj)
-#                         ustar[d-1][si].extend(sj_list)
-                 
-#             ustar.pop(d)
-            
-            
-            
-            
-#         lower = list(lstar[1].values())
-        
-#         upper = list(ustar[1].values())
-                
-#         print(lower, upper)
-        
-        
-        
-#         # minimum
-#         if len(lower) == 0:
-#             print(vi, "min")
-#             pass
-        
-#         # regular
-#         elif len(lower) == 1 and len(upper) == 1:
-#             print(vi, "regular")
-#             pass
-        
-#         # maximum
-#         elif len(upper) == 0:
-#             print(vi, "max")
-#             pass
-        
-#         #saddle
-#         else:
-#             print(vi, "saddle")
-#             pass
-        
-        
-            
+#     return (pixels, heights)
+
         
