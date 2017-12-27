@@ -3,486 +3,879 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../python_src/')
 import numpy as np
 import scipy as sp
-import numpy.linalg as la
-import phat
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib as mpl
-import skimage.morphology as morph
-import networkx as nx
+import itertools as it
+# import numpy.linalg as la
+# import phat
+# import matplotlib.pyplot as plt
+# import matplotlib.colors as mcolors
+# import matplotlib as mpl
+# import skimage.morphology as morph
+# import networkx as nx
 import queue
+import collections as co
 
-
-class CellComplex:
+class Complex:
     
-    def __init__(self, dim):
+    def __init__(self, dim, ordered=True):
         self.dim = dim
-        self.faces = [{} for i in range(dim+1)]
-        
-    def add(self, dim, label, cell):
-        self.faces[dim][label] = cell
-        
-        
-# simp_filt - ordered list of simplices used in filtration
-# 
-# dimensions - the corresponding list of lists of simplex dimensions
-# 
-# heights - ordered list of heights used for filtration (just defined for vertices)
-# 
-# comp - full simplicial complex
-# 
-# returns lists of persistence pairs
-def compute_persistence_pairs(simp_filt, dims, heights, comp):
-        
-   
-    columns = []
-    
-    sim_to_col = [{} for d in range(comp.dim+1)]
-    col_to_sim = [] 
-    
-    sim_to_pindex = [{} for d in range(comp.dim+1)]
-        
-    # go through groups of simplices in order from lowest to highest
-    hbins = np.unique(heights)
-    isim = 0
-    ih = 0
-    for pi, h in enumerate(hbins):
-                
-        while isim < len(simp_filt):
-            si = simp_filt[isim]
-            d = dims[isim]
-            
-            
-            
-            if d == 0:
-                if heights[ih] <= h:
-                    ih += 1
-                else:
-                    break            
-            col = []
-
-            if d > 0:
-                for fi in comp.faces[d][si]:
-                    col.append(sim_to_col[d-1][fi])
-
-            columns.append((d, sorted(col)))
-
-            sim_to_col[d][si] = isim
-            isim += 1
-
-            sim_to_pindex[d][si] = pi
-            col_to_sim.append(si)
-                        
-    boundary_matrix = phat.boundary_matrix(columns=columns)
-    
-    alive = [set() for i in range(comp.dim+1)]
-    for i, col in enumerate(columns):
-        alive[col[0]].add(i)
-        
-    raw_pairs = boundary_matrix.compute_persistence_pairs()
-    
-    ipairs = [{} for i in range(comp.dim+1)]
-    
-    for (i, j) in raw_pairs:
-
-        d = columns[i][0]
-        pi = sim_to_pindex[d][col_to_sim[i]]
-        pj = sim_to_pindex[d+1][col_to_sim[j]]
-        
-        if pi != pj:
-            
-            if (pi, pj) not in ipairs[d]:
-                ipairs[d][(pi, pj)] = 1
-            else:
-                ipairs[d][(pi, pj)] += 1
-            
-        alive[d].discard(i)
-        alive[d+1].discard(j)
-        
-    persist = [{} for i in range(comp.dim+1)]
-    for d in range(comp.dim+1):
-        for i in alive[d]:
-            pi = sim_to_pindex[d][col_to_sim[i]]
-            if pi not in persist[d]:
-                persist[d][pi] = 1
-            else:
-                persist[d][pi] += 1
-    
-    
-    return (ipairs, hbins, persist, sim_to_pindex)       
-  
-
-# comp - simplicial complex
-# verts - ordered list of vertices used in filtration. 
-# heights - list of heights for all verts
-# Does not need to include all possible vertices.
-# def construct_lower_star_filtration(comp, verts, heights):
-    
-#     cofaces = {}
-#     cofaces[0] = [[] for i in range(comp.nverts)]
-#     for d in range(1, comp.dim):
-#         cofaces[d] = [[] for i in range(len(comp.faces[d]))]
-    
-#     for d in range(1, comp.dim+1):
-#         for si, simplex in enumerate(comp.faces[d]):
-#             for sj in simplex:
-#                 cofaces[d-1][sj].append(si)
-    
-#     simp_filt = []
-#     dims = []
-#     filt_heights = []
-    
-#     marked = {i: set() for i in range(comp.dim+1)}
-    
-#     # go through vertices from lowest to highest
-#     for vi in verts:
-        
-#         curr_simps = set([vi])
-#         new_simps = set()
-        
-#         simp_filt.append(vi)
-#         dims.append(0)
-#         filt_heights.append(heights[vi])
-#         marked[0].add(vi)
-                
-#         for d in range(comp.dim):
-#             for cfi in curr_simps:
-#                 for cfj in cofaces[d][cfi]:
-#                     faces = set(comp.faces[d+1][cfj])
-#                     if cfj not in marked[d+1] and faces <= marked[d]:
-#                         simp_filt.append(cfj)
-#                         dims.append(d+1)
-#                         filt_heights.append(heights[vi])
-#                         marked[d+1].add(cfj)
-#                         new_simps.add(cfj)
-                                      
-#             curr_simps = new_simps
-#             new_simps = set()
-     
-#     return (simp_filt, dims, filt_heights)
-
-
-def compute_graph_segmentation(G, heights, euclidean=False, positions=None):
-    
-#     print("Finding unique heights")
-    
-    unique = np.unique(heights)
-    
-#     print("Finding Level Sets")
-#     # find level sets
-#     level_sets = []
-#     for i, h in enumerate(unique):
-#         if i % 10000 == 0:
-#             print("Level:", i, "/", len(unique))
-#         level_sets.append(set(np.where(heights==h)[0]))
-    
-    # basin 0 is the watersheds
-    basins = np.full(G.order(), -1, int)
-    revisit = set()
-    
-    current_label = 0
-    
-    min_dist = 1.0
-     
-    print("Sorting heights")
-        
-    # iterate through each level set
-    # for ih in range(len(level_sets)):
-    
-    arg_heights = np.argsort(heights)
-    
-    ih = 0
-    h = heights[arg_heights[ih]]
-    
-    print("Iterating through levels")
-    
-    while ih < len(arg_heights):
-        
-        unvisited = revisit.copy()
-        
-        while True:
-            
-            if ih % 100000 == 0:
-                print("Level:", ih, "/", len(arg_heights), h)
-            
-            h = heights[arg_heights[ih]]
-            unvisited.add(arg_heights[ih])
-            
-            ih += 1
-            
-            
-            if ih >= len(arg_heights) or h != heights[arg_heights[ih]]:
-                break
-            
-                
-        
-        # level = level_sets[ih]
-        
-        dist = {}
-        
-        if euclidean:
-            Q = queue.PriorityQueue()
-            closest = {}
+        self.ordered = ordered
+        if self.ordered:
+            self.dims = []
+            self.facets = []
         else:
-            Q = queue.Queue()            
+            self.dims = {}
+            self.facets = {}
         
+    def add_cell(self, d, f, label=None):
+        if self.ordered:
+            if label is None:
+                self.dims.append(d)
+                self.facets.append(f)
+            else:
+                self.dims.insert(label, d)
+                self.facets.insert(label, f)
+        else:
+            if label is None:
+                self.dims[len(self.dims)] = d
+                self.facets[len(self.facets)] = f
+            else:
+                self.dims[label] = d
+                self.facets[label] = f
+            
+            
         
+    def construct_cofacets(self):
         
-        
-        # if ih % 10000 == 0:
-        #     print("Level:", ih, "/", len(level_sets), unique[ih])
-        #     print("Visiting:", len(unvisited))   
+        if self.ordered:
+            self.cofacets = [set() for i in range(len(self.facets))]
 
-            
-        # find neighbors in lower level sets
-        for vi in unvisited:
-            
-            for nbr in G[vi]:
-                if basins[nbr] > 0:
+            for i in range(len(self.facets)):
+                for j in self.facets[i]:
+                    self.cofacets[j].add(i)
                     
-                    if euclidean:
-                        new_dist = la.norm(positions[vi] - positions[nbr])                    
-                    else:
-                        new_dist = 1.0
-                    
-                    if vi not in dist or new_dist < dist[vi]:
-                        dist[vi] = new_dist
-                        Q.put((new_dist, vi))
-                        
-                        if euclidean:
-                            closest[vi] = nbr
-                                    
-        # breadth first search through connected part of level set
-        while not Q.empty():
-                        
-            (current_dist, vi) = Q.get()    
+        else:
+            self.cofacets = {i:{} for i in self.facets}
             
-            if vi not in unvisited:
-                continue
+            for i in self.facets:
+                for j in self.facets[i]:
+                    self.cofacets[j].add(i) 
             
-            for nbr in G[vi]:
+
+def construct_cubical_complex(shape):
+        
+    dim = len(shape)
+    
+    comp = Complex(dim)
+    
+    if dim == 2:
+        nrows = shape[0]
+        ncols = shape[1]
                 
-                if euclidean:
-                    new_dist = la.norm(positions[nbr] - positions[closest[vi]])
-                else:
-                    new_dist = current_dist + 1                        
-                        
-                # neighbor has already been assigned to a basin
-                # 1. has been assigned a basin in a previous level sweep (not in dist)
-                # 2. assigned a basin because it has a smaller distance (dist[nbr] < current_dist)
-                if basins[nbr] > 0 and (nbr not in dist or dist[nbr] < current_dist):
-                    
-                    # haven't visited this node yet
-                    if vi in unvisited:
-                        # set to neighbor's basin and mark as visited
-                        basins[vi] = basins[nbr]
-                        unvisited.discard(vi)
-                        
-                        # if was a watershed then remove from watershed
-                        revisit.discard(vi)
-                        
-                    # have already visited but the neighbor is in a different basin
-                    # if already in watershed, this does nothing
-                    elif basins[vi] != basins[nbr]:
-                        basins[vi] = 0
-                        
-                        if dist[vi] > min_dist:
-                            revisit.add(vi)
-                
-                # neighbor has not been visited and not been given a distance
-                elif nbr in unvisited and (nbr not in dist or new_dist < dist[nbr]):
-                    # append to queue
-                    
-                    dist[nbr] = new_dist
-                    Q.put((new_dist, nbr))
-                    
-                    if euclidean:
-                        closest[nbr] = closest[vi]
-            
-            
-        # breadth first search through separate components corresponding to new minima
-        while len(unvisited) > 0:
-                        
-            vi = unvisited.pop()
-            current_label += 1
-            basins[vi] = current_label
-            
-            Q.put((0,vi))
-            
-            while not Q.empty():
-                (d, vj) = Q.get()
-                
-                for nbr in G[vj]:
-                    if nbr in unvisited:
-                        Q.put((0,nbr))
-                        basins[nbr] = current_label
-                        unvisited.discard(nbr)
-
-    
-    segments = {i:set() for i in range(current_label+1)}
-    for i in range(G.order()):
-        segments[basins[i]].add(i)
+        for i in range(nrows*ncols):
+            comp.add_cell(0, {})
         
-    return segments
-    
+        for i in range(nrows):
+            for j in range(ncols-1):
+                comp.add_cell(1, set([ncols*i + j, ncols*i + j+1]))
 
-def construct_mesh_graph(nrows, ncols, diagonals=False, pos=False):
-    G = nx.Graph()
-    
-    positions = {}
-    
-    for i in range(nrows):
-        for j in range(ncols):
-            G.add_node(ncols*i + j)
-            if pos:
-                positions[ncols*i + j] = np.array([j, i])
-            
-            
-    for i in range(nrows):
-        for j in range(ncols-1):
-            G.add_edge(ncols*i + j, ncols*i + j+1)
-
-    for i in range(nrows-1):
-        for j in range(ncols):
-            G.add_edge(ncols*i + j, ncols*(i+1) + j)
-         
-    if diagonals:
+        for i in range(nrows-1):
+            for j in range(ncols):
+                comp.add_cell(1, set([ncols*i + j, ncols*(i+1) + j]))
+        
         for i in range(nrows-1):
             for j in range(ncols-1):
-                G.add_edge(ncols*i + j, ncols*(i+1) + j+1)
-
-        for i in range(nrows-1):
-            for j in range(ncols-1):
-                G.add_edge(ncols*(i+1) + j, ncols*i + j+1)
+                comp.add_cell(2, set([nrows*ncols + (ncols-1)*i + j, 
+                             nrows*ncols + (ncols-1)*nrows + ncols*i + j+1, 
+                             nrows*ncols + (ncols-1)*(i+1) + j, 
+                             nrows*ncols + (ncols-1)*nrows + ncols*i + j]))         
+        
     
-    if pos:
-        return (G, positions)
-    else:
-        return G
-    
-def construct_mesh_complex(nrows, ncols, compactify=False):
-    
-    nverts = nrows*ncols
-    if compactify:
-        nverts += 1
-    comp = CellComplex(2)
-
-    for i in range(nverts):
-        comp.add(0, i, [])
-    
-    iedge = 0
-    for i in range(nrows):
-        for j in range(ncols-1):
-            comp.add(1, iedge, [ncols*i + j, ncols*i + j+1])
-            iedge += 1
-
-    for i in range(nrows-1):
-        for j in range(ncols):
-            comp.add(1, iedge, [ncols*i + j, ncols*(i+1) + j])
-            iedge += 1
-            
-    iface = 0
-    for i in range(nrows-1):
-        for j in range(ncols-1):
-            comp.add(2, iface, [(ncols-1)*i + j, 
-                         (ncols-1)*nrows + ncols*i + j+1, 
-                         (ncols-1)*(i+1) + j, 
-                         (ncols-1)*nrows + ncols*i + j])
-            iface += 1
-            
-    if compactify:
-        for j in range(ncols-1):
-            comp.add(1, iedge, [j, nrows*ncols])
-            iedge += 1
         
-        for i in range(nrows-1):
-            comp.add(1, iedge, [ncols*i + ncols-1, ncols*nrows])
-            iedge += 1
-            
-        for j in range(ncols-1, 0, -1):
-            comp.add(1, iedge, [ncols*(nrows-1) + j, ncols*nrows])
-            iedge += 1
-            
-        for i in range(nrows-1, 0, -1):
-            comp.add(1, iedge, [ncols*i, ncols*nrows])
-            iedge += 1
-        
-        for j in range(ncols-1):
-            comp.add(2, iface, [j, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + j, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + j+1])
-            iface += 1
-            
-        for i in range(nrows-1):
-            comp.add(2, iface, [(ncols-1)*nrows + ncols-1 + ncols*i, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + i, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + i+1])
-            iface += 1
-        
-        for j in range(ncols-1):
-            comp.add(2, iface, [(ncols-1)*nrows - 1 - j , 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + j, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + j+1])
-        
-        iface += 1
-        for i in range(nrows-2):
-            comp.add(2, iface, [(ncols-1)*nrows + ncols*(nrows-1) - ncols - ncols*i, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + i, 
-                         (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + i+1])
-            iface += 1
-        
-        comp.add(2, iface, [(ncols-1)*nrows + ncols*(nrows-1) - ncols - ncols*(nrows-2), 
-                     (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + nrows-2, 
-                     (ncols-1)*nrows + ncols*(nrows-1)])
-            
     return comp
-
-
-
-def compute_graph_dilation(G, sources, euclidean=False, positions=None):
-    dist = np.full(G.order(), -1, float)
+        
+def construct_discrete_gradient(comp, vert_func):
     
-    if euclidean:
-        Q = queue.PriorityQueue()
-        closest = np.full(G.order(), -1, int)
-    else:
-        Q = queue.Queue()      
-    
-    unvisited = set(np.arange(G.order()))
-    
-    for i in sources:
-        dist[i] = 0
-        Q.put((0, i))
+    def get_lower_star(x):
         
-        if euclidean:
-            closest[i] = i
+        fx = lex_order[x][0]
         
+        lstar = set()
         
-    while not Q.empty():
+        Q = co.deque()
+        Q.append(x)
         
-        (current_dist, vi) = Q.get()
-        if vi not in unvisited:
-            continue
+        while len(Q) > 0:
+            i = Q.popleft()
             
-        unvisited.discard(vi)
-                
-        for nbr in G[vi]:
+            if all(k <= fx for k in lex_order[i]):
+                lstar.add(i)
+                Q.extend(comp.cofacets[i])
+        
+        return lstar
+        
+    # get faces from a set of cells (not including self)
+    def get_faces(alpha, cells):
+
+        faces = set()
+        
+        Q = co.deque()
+        Q.append(alpha)
+        
+        while len(Q) > 0:
+            i = Q.popleft()
             
-            if nbr in unvisited:
+            if i in cells or i == alpha:
+                Q.extend(comp.facets[i])
+                faces.add(i)
+               
+        faces.discard(alpha)
+            
+        return faces
+        
+       
+    # get cofaces from a set of cells (not including self)
+    def get_cofaces(alpha, cells):
+        
+        cofaces = set()
+        
+        Q = co.deque()
+        Q.append(alpha)
+        
+        while len(Q) > 0:
+            i = Q.popleft()
+                        
+            if i in cells or i == alpha:
+                Q.extend(comp.cofacets[i])
+                cofaces.add(i)
+               
+        cofaces.discard(alpha)
                 
-                if euclidean:
-                    new_dist = la.norm(positions[nbr] - positions[closest[vi]])
-                else:
-                    new_dist = current_dist + 1
-                                                                
-                if nbr in unvisited and (dist[nbr] == -1 or new_dist < dist[nbr]):
-                    dist[nbr] = new_dist 
-                    Q.put((new_dist, nbr))   
+        return cofaces
+        
+    
+    lex_order = []
+    
+    for i in range(len(comp.facets)):
+         
+        lex_val = set()
+        
+        Q = co.deque()
+        Q.append(i)
+        
+        while len(Q) > 0:
+            j = Q.popleft()
+            
+            if comp.dims[j] == 0:
+                lex_val.add(vert_func[j])
+              
+            Q.extend(comp.facets[j])
+
+
+        lex_order.append(sorted(lex_val, reverse=True))
+
+        
+    V = {}
+        
+    # iterate through each vertex
+    for x in range(len(comp.facets)):
+        if comp.dims[x] > 0:
+            break
+                       
+        # get lower star of vertex
+        lstar = get_lower_star(x)
+                
+        # if the vertex is the only cell in the lower star then add new critical cell
+        if len(lstar) == 1:
+            V[x] = x
+         
+        # otherwise process lower star
+        else:
+            
+            # minimum one cell
+            delta = None
+            
+            # all other one cells
+            one_cells = set()
+            
+            for i in lstar:
+                if comp.dims[i] == 1:
+                    one_cells.add(i)
                     
-                    if euclidean:
-                        closest[nbr] = closest[vi]
+                    if delta is None or lex_order[i] < lex_order[delta]:
+                        delta = i
+                    
+            one_cells.discard(delta)
+                        
+            # add (x, delta) to gradient list and remove both from lstar
+            V[x] = delta
+            lstar.discard(x)
+            lstar.discard(delta)
+            
+            # priority queue for one cells
+            PQone = queue.PriorityQueue()
+            
+            for i in one_cells:
+                PQone.put((lex_order[i], i))
+            
+            # priority queue for higher dimension cells
+            PQother = queue.PriorityQueue()
+                        
+            for alpha in get_cofaces(delta, lstar):
+                
+                # if cell is a coface of delta and only has one unpaired face that is in lstar
+                if len(get_faces(alpha, lstar)) == 1:
+                    PQother.put((lex_order[alpha], alpha))
+                
+            while not PQone.empty() or not PQother.empty():
+                while not PQother.empty():
+                    (lex, alpha) = PQother.get()
+                    
+                    faces = get_faces(alpha, lstar)
+                    faces.discard(alpha)
+                    # if no unpaired faces
+                    if len(faces) == 0:
+                        PQone.put((lex_order[alpha], alpha))
+                        continue
+                        
+                    # add pair
+                    pair_alpha = faces.pop()
+                    V[pair_alpha] = alpha
+
+                    lstar.discard(alpha)
+                    lstar.discard(pair_alpha)
+                    
+                    for beta in get_cofaces(alpha, lstar):
+                        if len(get_faces(beta, lstar)) == 1:
+                            PQother.put((lex_order[beta], beta))
+                            
+                    for beta in get_cofaces(pair_alpha, lstar):
+                        if len(get_faces(beta, lstar)) == 1:
+                            PQother.put((lex_order[beta], beta))
+                        
+                        
+                while not PQone.empty():
+                    (lex, gamma) = PQone.get()
+                    if gamma not in lstar:
+                        continue
+                       
+                    V[gamma] = gamma
+                    lstar.discard(gamma)
+                    
+                    for alpha in get_cofaces(gamma, lstar):
+                        if len(get_faces(alpha, lstar)) == 1:
+                            PQother.put((lex_order[alpha], alpha))
+    
+    return V
+    
+def reverse_discrete_gradient(V):
+    
+    coV = {}
+    for x in V:
+        coV[V[x]] = x
+        
+    return coV
+    
+
+def traverse_flow(s, V, I, coordinated=False):
+    
+    if coordinated:
+        nrIn = {}
+        k = {}
+        for (a, b, c) in traverse_flow(s, V, I):
+            if c not in nrIn:
+                nrIn[c] = 1
+            else:
+                nrIn[c] += 1
+            
+    Q = co.deque([s])
+    seen = {s}
+    
+    while len(Q) > 0:
+        a = Q.popleft()
+        for b in I[a]:
+            if b in V and V[b] != a:
+                c = V[b]
+                yield (a, b, c)
+                if c not in seen and c != b:
+                    if coordinated:
+                        if c not in k:
+                            k[c] = 1
+                        else:
+                            k[c] += 1
+                            
+                        if k[c] != nrIn[c]:
+                            continue
+                            
+                    Q.append(c)
+                    seen.add(c)
+                
+                
+            
+def find_basins(coV, coI, dims, d):
+        
+    basins = {}
+    
+    for s in coV:
+        if coV[s] == s and dims[s] == d:
+            basins[s] = set([s])
+            for (a, b, c) in traverse_flow(s, coV, coI):
+                if dims[c] == d:
+                    basins[s].add(c)
+                
+                
+    return basins
+    
+# returns all critical cells that are boundaries of s in the morse complex
+# counts = 1: there is a single path and (s, c) are a cancellable close pair
+# counts = 2: there are an even number of paths and c is not a boundary
+# counts = 3: there are an odd number of paths and (s, c) are not a cancellable close pair
+def calc_morse_boundary(s, V, I):
+    
+    counts = {s:1}
+    boundary = set()
+    
+    for (a, b, c) in traverse_flow(s, V, I, True):
+        n = counts[a]
+        if c in counts:
+            n += counts[c]
+            
+        if n <= 3:
+            counts[c] = n
+        else:
+            counts[c] = n % 2 + 2
+        
+        if b == c:
+            boundary.add(c)
+            
+    for c in boundary:
+        yield (c, counts[c])
+
+        
+# find path from s to t
+def find_connections(s, t, V, coV, I, coI):
+    
+    active = set([t])
+    for (a, b, c) in traverse_flow(t, coV, coI):
+        active.add(c)
+        
+    for (a, b, c) in traverse_flow(s, V, I):
+        if b in active:
+            yield (a, b, c)
+
+            
+def construct_morse_complex(V, I, comp):
+    
+    mcomp = Complex(comp.dim, ordered=False)
+    
+    for s in V:
+        if V[s] == s:
+            facets = {c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1}
+            mcomp.add_cell(comp.dims[s], facets, s)
+            
+    return mcomp
+            
+    
+    
+def find_morse_skeleton(V, coV, I, coI, dims, d):
+    
+    skeleton = set()
+    for s in V:
+        if V[s] == s and dims[s] == d:
+            for (t, count) in calc_morse_boundary(s, V, I):
+                for (a, b, c) in find_connections(s, t, V, coV, I, coI):
+                    skeleton.add(b)
+                    
+                    
+    return skeleton
+                
+                
+
+            
+        
+# class CellComplex:
+    
+#     def __init__(self, dim):
+#         self.dim = dim
+#         self.faces = [{} for i in range(dim+1)]
+        
+#     def add(self, dim, label, cell):
+#         self.faces[dim][label] = cell
+        
+        
+        
+# def compute_persistence_pairs(comp, cells, dims, heights):
+        
+#     order = np.lexsort((dims, heights))
+
+#     columns = []
+    
+#     cell_to_col = [{} for d in range(comp.dim+1)]
+#     col_to_cell = [] 
+    
+#     cell_to_pindex = [{} for d in range(comp.dim+1)]
+    
+#     pi = 0
+#     hbins = [heights[order[0]]]
+       
+#     icol = 0
+    
+#     for i in range(len(order)):
+        
+#         ci = cells[order[i]]
+#         d = dims[order[i]]
+#         h = heights[order[i]]
+        
+#         col = []
+#         for cj in comp.faces[d][ci]:
+#             if cj not in cell_to_col[d-1]:
+#                 print(ci, cj, d, h, comp.faces[d][ci])
+#             col.append(cell_to_col[d-1][cj])
+            
+#         columns.append((d, sorted(col)))
+        
+        
+#         cell_to_col[d][ci] = icol
+#         icol += 1
+#         col_to_cell.append(ci)
+
+#         cell_to_pindex[d][ci] = pi
+        
+#         if i < len(order)-1 and h != heights[order[i+1]]:
+#             pi += 1
+#             hbins.append(heights[order[i+1]])
+        
+                        
+#     boundary_matrix = phat.boundary_matrix(columns=columns)
+    
+#     alive = [set() for i in range(comp.dim+1)]
+#     for i, col in enumerate(columns):
+#         alive[col[0]].add(i)
+        
+#     raw_pairs = boundary_matrix.compute_persistence_pairs()
+    
+#     ipairs = [{} for i in range(comp.dim+1)]
+    
+#     for (i, j) in raw_pairs:
+
+#         d = columns[i][0]
+#         pi = cell_to_pindex[d][col_to_cell[i]]
+#         pj = cell_to_pindex[d+1][col_to_cell[j]]
+        
+#         if pi != pj:
+            
+#             if (pi, pj) not in ipairs[d]:
+#                 ipairs[d][(pi, pj)] = 1
+#             else:
+#                 ipairs[d][(pi, pj)] += 1
+            
+#         alive[d].discard(i)
+#         alive[d+1].discard(j)
+        
+#     persist = [{} for i in range(comp.dim+1)]
+#     for d in range(comp.dim+1):
+#         for i in alive[d]:
+#             pi = cell_to_pindex[d][col_to_cell[i]]
+#             if pi not in persist[d]:
+#                 persist[d][pi] = 1
+#             else:
+#                 persist[d][pi] += 1
+    
+    
+#     return (ipairs, hbins, persist, cell_to_pindex) 
+    
+
+
+# def compute_graph_segmentation(G, heights, euclidean=False, positions=None):
+    
+# #     print("Finding unique heights")
+        
+#     # basin 0 is the watersheds
+#     basins = np.full(G.order(), -1, int)
+#     revisit = set()
+    
+#     current_label = 0
+    
+#     min_dist = 1.0
+         
+#     print("Sorting heights")
+        
+#     # iterate through each level set
+#     # for ih in range(len(level_sets)):
+    
+#     arg_heights = np.argsort(heights)
+    
+#     ih = 0
+#     h = heights[arg_heights[ih]]
+    
+#     print("Iterating through levels")
+    
+#     while ih < len(arg_heights):
+        
+#         unvisited = revisit.copy()
+                
+#         while True:
+            
+#             if ih % 1000 == 0:
+#                 print("Level:", ih, "/", len(arg_heights), h, len(revisit))
+            
+#             vi = arg_heights[ih]
+            
+#             h = heights[vi]
+#             unvisited.add(vi)
+            
+#             ih += 1
+                        
+#             if ih >= len(arg_heights) or h != heights[arg_heights[ih]]:
+#                 break
+                    
+#         dist = {}
+        
+#         if euclidean:
+#             Q = queue.PriorityQueue()
+#             closest = {}
+#         else:
+#             Q = queue.Queue()            
+        
+            
+#         # find neighbors in lower level sets
+#         counter = 0
+#         for vi in unvisited:
+            
+#             for nbr in G[vi]:
+#                 if basins[nbr] > 0:
+                                        
+#                     if euclidean:
+#                         new_dist = la.norm(positions[vi] - positions[nbr])                    
+#                     else:
+#                         new_dist = 1.0
+                    
+#                     if vi not in dist or new_dist < dist[vi]:
+#                         dist[vi] = new_dist
+#                         Q.put([new_dist, counter, vi])
+#                         counter += 1
+                        
+#                         if euclidean:
+#                             closest[vi] = nbr
+                            
+     
                                     
-    return dist
+#         # breadth first search through connected part of level set
+        
+#         while not Q.empty():
+                        
+#             [current_dist, counter, vi] = Q.get()    
+            
+#             if vi not in unvisited:
+#                 continue
+            
+#             for nbr in G[vi]:
+                
+#                 if euclidean:
+#                     new_dist = la.norm(positions[nbr] - positions[closest[vi]])
+#                 else:
+#                     new_dist = current_dist + 1.0   
+                        
+#                 # neighbor has already been assigned to a basin
+#                 # 1. has been assigned a basin in a previous level sweep (not in dist)
+#                 # 2. assigned a basin because it has a smaller distance (dist[nbr] < current_dist)
+#                 if basins[nbr] > 0 and (nbr not in dist or dist[nbr] < current_dist):
+                    
+#                     # haven't visited this node yet
+#                     if vi in unvisited:
+#                         # set to neighbor's basin and mark as visited
+#                         basins[vi] = basins[nbr]
+#                         unvisited.discard(vi)
+                        
+#                         # if was a watershed then remove from watershed
+#                         revisit.discard(vi)
+                        
+#                     # have already visited but the neighbor is in a different basin
+#                     # if already in watershed, this does nothing
+#                     elif basins[vi] != basins[nbr]:
+#                         basins[vi] = 0
+                        
+#                         if dist[vi] > min_dist:
+#                             revisit.add(vi)
+                
+#                 # neighbor has not been visited and not been given a distance
+#                 elif nbr in unvisited and (nbr not in dist or new_dist < dist[nbr]):
+#                     # append to queue
+                    
+#                     if vi == 5535 and nbr == 5611:
+#                         print("hello")
+                    
+                    
+#                     dist[nbr] = new_dist
+#                     Q.put([new_dist, counter, nbr])
+#                     counter += 1
+                    
+#                     if euclidean:
+#                         closest[nbr] = closest[vi]
+                        
+#         # look for components only connected via watershed and assign them to watershed
+#         counter = 0
+#         for vi in unvisited:
+#             for nbr in G[vi]:
+#                 if basins[nbr] == 0:
+#                     Q.put([counter,vi])
+#                     counter += 1
+                    
+#         while not Q.empty():
+#             (d, vi) = Q.get()
+#             basins[vi] = 0
+#             revisit.add(vi)
+#             unvisited.discard(vi)
+            
+#             for nbr in G[vi]:
+#                 if nbr in unvisited:
+#                     Q.put([counter, nbr])
+#                     counter += 1
+                    
+                    
+        
+        
+#         # breadth first search through separate components corresponding to new minima
+#         counter = 0
+#         while len(unvisited) > 0:
+                        
+#             vi = unvisited.pop()
+                        
+#             for nbr in G[vi]:
+#                 if heights[nbr] < heights[vi]:
+#                     print(vi, nbr)
+#                     print(heights[vi], heights[nbr])
+#                     print(basins[vi], basins[nbr])
+            
+            
+#             current_label += 1
+#             basins[vi] = current_label
+            
+#             Q.put([counter,vi])
+#             counter += 1
+            
+            
+                    
+#             while not Q.empty():
+#                 (d, vj) = Q.get()
+                
+#                 for nbr in G[vj]:
+#                     if nbr in unvisited:
+#                         Q.put([counter, nbr])
+#                         counter += 1
+#                         basins[nbr] = current_label
+#                         unvisited.discard(nbr)
+
+    
+#     segments = {i:set() for i in range(current_label+1)}
+#     for i in range(G.order()):
+#         segments[basins[i]].add(i)
+                
+#     return segments
+    
+    
+# def construct_mesh_graph(nrows, ncols, triangulate=True, get_pos=False):
+#     G = nx.Graph()
+    
+#     pos = {}
+    
+#     for i in range(nrows):
+#         for j in range(ncols):
+#             G.add_node(ncols*i + j)
+#             if get_pos:
+#                 pos[ncols*i + j] = np.array([j, i])
+            
+            
+#     for i in range(nrows):
+#         for j in range(ncols-1):
+#             G.add_edge(ncols*i + j, ncols*i + j+1)
+
+#     for i in range(nrows-1):
+#         for j in range(ncols):
+#             G.add_edge(ncols*i + j, ncols*(i+1) + j)
+
+            
+#     if triangulate:
+        
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 if i % 2 == j % 2:
+#                     G.add_edge(ncols*i + j, ncols*(i+1) + j+1)
+#                 else:
+#                     G.add_edge(ncols*(i+1) + j, ncols*i + j+1)
+    
+#     if get_pos:
+#         return (G, pos)
+#     else:
+#         return G
+    
+# def construct_mesh_complex(nrows, ncols, triangulate=True, compactify=False):
+    
+#     nverts = nrows*ncols
+#     if compactify:
+#         nverts += 1
+#     comp = CellComplex(2)
+
+#     for i in range(nverts):
+#         comp.add(0, i, [])
+    
+#     iedge = 0
+#     for i in range(nrows):
+#         for j in range(ncols-1):
+#             comp.add(1, iedge, [ncols*i + j, ncols*i + j+1])
+#             iedge += 1
+
+#     for i in range(nrows-1):
+#         for j in range(ncols):
+#             comp.add(1, iedge, [ncols*i + j, ncols*(i+1) + j])
+#             iedge += 1
+            
+#     if triangulate:
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 if i % 2 == j % 2:
+#                     comp.add(1, iedge, [ncols*i + j, ncols*(i+1) + j+1])
+#                 else:
+#                     comp.add(1, iedge, [ncols*(i+1) + j, ncols*i + j+1])
+#                 iedge += 1
+                                
+#         iface = 0
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 if i % 2 == j % 2:
+#                     comp.add(2, iface, [(ncols-1)*i + j, 
+#                                  (ncols-1)*nrows + ncols*i + j+1,
+#                                  (ncols-1)*nrows + ncols*(nrows-1) + (ncols-1)*i + j])
+                    
+#                     iface += 1
+                    
+#                     comp.add(2, iface, [(ncols-1)*(i+1) + j, 
+#                                  (ncols-1)*nrows + ncols*i + j,
+#                                  (ncols-1)*nrows + ncols*(nrows-1) + (ncols-1)*i + j])
+                    
+#                     iface += 1
+                    
+#                 else:
+#                     comp.add(2, iface, [(ncols-1)*i + j, 
+#                                  (ncols-1)*nrows + ncols*(nrows-1) + (ncols-1)*i + j,
+#                                  (ncols-1)*nrows + ncols*i + j])
+                
+#                     iface += 1
+                    
+#                     comp.add(2, iface, [(ncols-1)*(i+1) + j, 
+#                                  (ncols-1)*nrows + ncols*(nrows-1) + (ncols-1)*i + j,
+#                                  (ncols-1)*nrows + ncols*i + j+1])
+                
+#                     iface += 1
+      
+
+#     else:
+#         iface = 0
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 comp.add(2, iface, [(ncols-1)*i + j, 
+#                              (ncols-1)*nrows + ncols*i + j+1, 
+#                              (ncols-1)*(i+1) + j, 
+#                              (ncols-1)*nrows + ncols*i + j]) 
+#                 iface += 1
+                             
+                                    
+                                    
+                                    
+#                              # (ncols-1)*(i+1) + j, 
+#                              # (ncols-1)*nrows + ncols*i + j])
+#                 iface += 1
+            
+# #     if compactify:
+# #         for j in range(ncols-1):
+# #             comp.add(1, iedge, [j, nrows*ncols])
+# #             iedge += 1
+        
+# #         for i in range(nrows-1):
+# #             comp.add(1, iedge, [ncols*i + ncols-1, ncols*nrows])
+# #             iedge += 1
+            
+# #         for j in range(ncols-1, 0, -1):
+# #             comp.add(1, iedge, [ncols*(nrows-1) + j, ncols*nrows])
+# #             iedge += 1
+            
+# #         for i in range(nrows-1, 0, -1):
+# #             comp.add(1, iedge, [ncols*i, ncols*nrows])
+# #             iedge += 1
+        
+# #         for j in range(ncols-1):
+# #             comp.add(2, iface, [j, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + j, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + j+1])
+# #             iface += 1
+            
+# #         for i in range(nrows-1):
+# #             comp.add(2, iface, [(ncols-1)*nrows + ncols-1 + ncols*i, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + i, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + i+1])
+# #             iface += 1
+        
+# #         for j in range(ncols-1):
+# #             comp.add(2, iface, [(ncols-1)*nrows - 1 - j , 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + j, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + j+1])
+        
+# #         iface += 1
+# #         for i in range(nrows-2):
+# #             comp.add(2, iface, [(ncols-1)*nrows + ncols*(nrows-1) - ncols - ncols*i, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + i, 
+# #                          (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + i+1])
+# #             iface += 1
+        
+# #         comp.add(2, iface, [(ncols-1)*nrows + ncols*(nrows-1) - ncols - ncols*(nrows-2), 
+# #                      (ncols-1)*nrows + ncols*(nrows-1) + ncols-1 + nrows-1 + ncols-1 + nrows-2, 
+# #                      (ncols-1)*nrows + ncols*(nrows-1)])
+            
+#     return comp
+    
+# def compute_graph_dilation(G, sources, euclidean=False, positions=None):
+#     dist = np.full(G.order(), -1, float)
+    
+#     if euclidean:
+#         Q = queue.PriorityQueue()
+#         closest = np.full(G.order(), -1, int)
+#     else:
+#         Q = queue.Queue()      
+    
+#     unvisited = set(np.arange(G.order()))
+    
+#     for i in sources:
+#         dist[i] = 0
+#         Q.put((0, i))
+        
+#         if euclidean:
+#             closest[i] = i
+        
+        
+#     while not Q.empty():
+        
+#         (current_dist, vi) = Q.get()
+#         if vi not in unvisited:
+#             continue
+            
+#         unvisited.discard(vi)
+                
+#         for nbr in G[vi]:
+            
+#             if nbr in unvisited:
+                
+#                 if euclidean:
+#                     new_dist = la.norm(positions[nbr] - positions[closest[vi]])
+#                 else:
+#                     new_dist = current_dist + 1
+                                                                
+#                 if nbr in unvisited and (dist[nbr] == -1 or new_dist < dist[nbr]):
+#                     dist[nbr] = new_dist 
+#                     Q.put((new_dist, nbr))   
+                    
+#                     if euclidean:
+#                         closest[nbr] = closest[vi]
+                                    
+#     return dist
 
 # def laplace_dilation_filtration(mat, show=False):
     
