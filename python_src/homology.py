@@ -5,7 +5,7 @@ import numpy as np
 import scipy as sp
 import itertools as it
 # import numpy.linalg as la
-# import phat
+import phat
 # import matplotlib.pyplot as plt
 # import matplotlib.colors as mcolors
 # import matplotlib as mpl
@@ -42,7 +42,15 @@ class Complex:
                 self.dims[label] = d
                 self.facets[label] = f
             
-            
+    def get_cells(self):
+        
+        if self.ordered:
+            for i in range(len(self.facets)):
+                yield i
+                
+        else:
+            for i in self.facets:
+                yield i
         
     def construct_cofacets(self):
         
@@ -92,8 +100,26 @@ def construct_cubical_complex(shape):
     
         
     return comp
+   
+def get_lex_val(c, I, dims, F):
+    
+    lex_val = set()
         
-def construct_discrete_gradient(comp, vert_func):
+    Q = co.deque()
+    Q.append(c)
+
+    while len(Q) > 0:
+        j = Q.popleft()
+
+        if dims[j] == 0:
+            lex_val.add(F[j])
+
+        Q.extend(I[j])
+        
+    return sorted(lex_val, reverse=True)
+        
+    
+def construct_discrete_gradient(comp, F):
     
     def get_lower_star(x):
         
@@ -153,26 +179,10 @@ def construct_discrete_gradient(comp, vert_func):
         return cofaces
         
     
-    lex_order = []
-    
-    for i in range(len(comp.facets)):
-         
-        lex_val = set()
-        
-        Q = co.deque()
-        Q.append(i)
-        
-        while len(Q) > 0:
-            j = Q.popleft()
-            
-            if comp.dims[j] == 0:
-                lex_val.add(vert_func[j])
-              
-            Q.extend(comp.facets[j])
-
-
-        lex_order.append(sorted(lex_val, reverse=True))
-
+    if comp.ordered:
+        lex_order = [get_lex_val(i, comp.facets, comp.dims, F) for i in comp.get_cells()]
+    else:
+        lex_order = {i:get_lex_val(i, comp.facets, comp.dims, F) for i in comp.get_cells()}
         
     V = {}
         
@@ -374,7 +384,15 @@ def construct_morse_complex(V, I, comp):
             
     return mcomp
             
+def construct_filtration(I, dims, comp, F):
     
+    Q = queue.PriorityQueue()
+    for i in comp.get_cells():
+        Q.put((get_lex_val(i, I, dims, F), i))
+        
+    while not Q.empty():
+        (lex, c) = Q.get()
+        yield (max(lex), c)
     
 def find_morse_skeleton(V, coV, I, coI, dims, d):
     
@@ -389,99 +407,65 @@ def find_morse_skeleton(V, coV, I, coI, dims, d):
     return skeleton
                 
                 
-
-            
-        
-# class CellComplex:
+def compute_persistence_pairs(comp, filtration, show_zero=False):
     
-#     def __init__(self, dim):
-#         self.dim = dim
-#         self.faces = [{} for i in range(dim+1)]
-        
-#     def add(self, dim, label, cell):
-#         self.faces[dim][label] = cell
-        
-        
-        
-# def compute_persistence_pairs(comp, cells, dims, heights):
-        
-#     order = np.lexsort((dims, heights))
-
-#     columns = []
+    columns = []
     
-#     cell_to_col = [{} for d in range(comp.dim+1)]
-#     col_to_cell = [] 
+    cell_to_col = {}
+    col_to_cell = []
     
-#     cell_to_pindex = [{} for d in range(comp.dim+1)]
+    cell_index = {}
     
-#     pi = 0
-#     hbins = [heights[order[0]]]
+    pi = 0
+    hbins = []
        
-#     icol = 0
+    icol = 0
     
-#     for i in range(len(order)):
+    for h, ci in filtration:
         
-#         ci = cells[order[i]]
-#         d = dims[order[i]]
-#         h = heights[order[i]]
         
-#         col = []
-#         for cj in comp.faces[d][ci]:
-#             if cj not in cell_to_col[d-1]:
-#                 print(ci, cj, d, h, comp.faces[d][ci])
-#             col.append(cell_to_col[d-1][cj])
+        
+        if len(hbins) == 0: 
+            hbins.append(h)
+        elif h != hbins[-1]:
+            hbins.append(h)
+            pi += 1    
+        
+        d = comp.dims[ci]
+        
+        # print(pi, h, ci, d)
+        
+        col = []
+        for cj in comp.facets[ci]:
+            if cj not in cell_to_col:
+                print(ci, cj, d, h, comp.facets[ci])
+            col.append(cell_to_col[cj])
             
-#         columns.append((d, sorted(col)))
+        columns.append((d, sorted(col)))
         
         
-#         cell_to_col[d][ci] = icol
-#         icol += 1
-#         col_to_cell.append(ci)
+        cell_to_col[ci] = icol
+        icol += 1
+        col_to_cell.append(ci)
 
-#         cell_to_pindex[d][ci] = pi
-        
-#         if i < len(order)-1 and h != heights[order[i+1]]:
-#             pi += 1
-#             hbins.append(heights[order[i+1]])
-        
+        cell_index[ci] = (pi, h)             
                         
-#     boundary_matrix = phat.boundary_matrix(columns=columns)
+    boundary_matrix = phat.boundary_matrix(columns=columns)
     
-#     alive = [set() for i in range(comp.dim+1)]
-#     for i, col in enumerate(columns):
-#         alive[col[0]].add(i)
+    alive = set(range(len(columns)))
         
-#     raw_pairs = boundary_matrix.compute_persistence_pairs()
+    pairs = []
+    for (i, j) in boundary_matrix.compute_persistence_pairs():
+        pairs.append((col_to_cell[i], col_to_cell[j]))
+        alive.discard(i)
+        alive.discard(j)
+        
+    for i in alive:
+        pairs.append((col_to_cell[i], None))
+            
     
-#     ipairs = [{} for i in range(comp.dim+1)]
-    
-#     for (i, j) in raw_pairs:
+    return (pairs, cell_index)
 
-#         d = columns[i][0]
-#         pi = cell_to_pindex[d][col_to_cell[i]]
-#         pj = cell_to_pindex[d+1][col_to_cell[j]]
-        
-#         if pi != pj:
-            
-#             if (pi, pj) not in ipairs[d]:
-#                 ipairs[d][(pi, pj)] = 1
-#             else:
-#                 ipairs[d][(pi, pj)] += 1
-            
-#         alive[d].discard(i)
-#         alive[d+1].discard(j)
-        
-#     persist = [{} for i in range(comp.dim+1)]
-#     for d in range(comp.dim+1):
-#         for i in alive[d]:
-#             pi = cell_to_pindex[d][col_to_cell[i]]
-#             if pi not in persist[d]:
-#                 persist[d][pi] = 1
-#             else:
-#                 persist[d][pi] += 1
-    
-    
-#     return (ipairs, hbins, persist, cell_to_pindex) 
     
 
 
