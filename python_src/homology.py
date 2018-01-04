@@ -62,7 +62,7 @@ class Complex:
                     self.cofacets[j].add(i)
                     
         else:
-            self.cofacets = {i:{} for i in self.facets}
+            self.cofacets = {i:set() for i in self.facets}
             
             for i in self.facets:
                 for j in self.facets[i]:
@@ -80,7 +80,7 @@ def construct_cubical_complex(shape):
         ncols = shape[1]
                 
         for i in range(nrows*ncols):
-            comp.add_cell(0, {})
+            comp.add_cell(0, set())
         
         for i in range(nrows):
             for j in range(ncols-1):
@@ -407,7 +407,7 @@ def find_morse_skeleton(V, coV, I, coI, dims, d):
     return skeleton
                 
                 
-def compute_persistence_pairs(comp, filtration, show_zero=False):
+def compute_persistence(comp, filtration, show_zero=False, extended=False, birth_cycles=False, optimal_cycles=False):
     
     columns = []
     
@@ -423,49 +423,142 @@ def compute_persistence_pairs(comp, filtration, show_zero=False):
     
     for h, ci in filtration:
         
-        
-        
         if len(hbins) == 0: 
             hbins.append(h)
         elif h != hbins[-1]:
             hbins.append(h)
             pi += 1    
         
-        d = comp.dims[ci]
+        
         
         # print(pi, h, ci, d)
         
         col = []
         for cj in comp.facets[ci]:
             if cj not in cell_to_col:
-                print(ci, cj, d, h, comp.facets[ci])
+                # print(ci, cj, comp.dims[ci], h, comp.facets[ci])
             col.append(cell_to_col[cj])
-            
-        columns.append((d, sorted(col)))
         
+        # just calculate persistence pairs using standard algorithm
+        if not extended and not birth_cycles and not optimal_cycles:
+            columns.append((comp.dims[ci], sorted(col)))
+                        
+        # use oriented cells if need optimal cycles
+        elif optimal_cycles:
+            pass
+           
+        # use non-oriented cells
+        else:
+            columns.append(set(col))
         
         cell_to_col[ci] = icol
         icol += 1
         col_to_cell.append(ci)
 
         cell_index[ci] = (pi, h)             
-                        
-    boundary_matrix = phat.boundary_matrix(columns=columns)
+     
+    # extend boundary matrix
+    if extended:
+        pass
     
-    alive = set(range(len(columns)))
+    if not extended and not birth_cycles and not optimal_cycles:
+    
+        boundary_matrix = phat.boundary_matrix(columns=columns)
+
+        alive = set(range(len(columns)))
+
+        pairs = []
+        for (i, j) in boundary_matrix.compute_persistence_pairs():
+            alive.discard(i)
+            alive.discard(j)
+
+            ci = col_to_cell[i]
+            cj = col_to_cell[j]
+            if not show_zero and cell_index[ci] == cell_index[cj]:
+                continue
+
+            pairs.append((ci, cj))
+
+
+        for ci in alive:
+            pairs.append((col_to_cell[ci], None))
         
-    pairs = []
-    for (i, j) in boundary_matrix.compute_persistence_pairs():
-        pairs.append((col_to_cell[i], col_to_cell[j]))
-        alive.discard(i)
-        alive.discard(j)
+    elif optimal_cycles:
+        pass
+    
+    else:
         
-    for i in alive:
-        pairs.append((col_to_cell[i], None))
+        # pivot row of each column if it has one
+        pivot_row = {}
+        # row to reduced column with pivot in that row
+        pivot_col = {}
+        
+        # initial each potential birth cycle to its birth cell
+        if birth_cycles:
+            g = []
             
+        for j in range(len(columns)):
+            
+            if birth_cycles:
+                g.append(set([j]))
+            
+            while len(columns[j]) > 0 and pivot_row[j] in pivot_col:
+                
+                pivot_row[j] = max(columns[j])
+                
+                l = pivot_col[pivot_row[j]]
+                columns[j] ^= columns[l]
+                
+                if birth_cycles:
+                    g[j] ^= g[l]
+                    
+            if len(columns[j]) > 0:
+                pivot_col[pivot_row[j]] = j
+            elif j in pivot_row:
+                del pivot_row[j]
+                
+                
+        alive = set(range(len(columns)))
+
+        pairs = []
+        for (j, i) in pivot_row.itoms():
+            alive.discard(i)
+            alive.discard(j)
+
+            ci = col_to_cell[i]
+            cj = col_to_cell[j]
+            if not show_zero and cell_index[ci] == cell_index[cj]:
+                continue
+
+            pairs.append((ci, cj))
+
+
+        for ci in alive:
+            pairs.append((col_to_cell[ci], None))
     
     return (pairs, cell_index)
+    
 
+def level_bfs(s, h, I, coI, F):
+    
+    
+    Q = co.deque([s])
+    seen = {s}
+    
+    while len(Q) > 0:
+        a = Q.popleft()
+        for b in coI[a]:
+            if F[b][1] >= h:
+                continue
+            for c in I[b]:
+                if c != a and c not in seen:
+                    Q.append(c)
+                    seen.add(c)
+            
+            
+            
+    return seen
+    
     
 
 
