@@ -3,6 +3,8 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../python_src/')
 import numpy as np
 import scipy as sp
+import scipy.sparse as sparse
+import scipy.optimize as opt
 import itertools as it
 # import numpy.linalg as la
 import phat
@@ -16,9 +18,11 @@ import collections as co
 
 class Complex:
     
-    def __init__(self, dim, ordered=True):
+    def __init__(self, dim, regular=True, oriented=False, ordered=True):
         self.dim = dim
         self.ordered = ordered
+        self.regular = regular
+        self.oriented=oriented
         if self.ordered:
             self.dims = []
             self.facets = []
@@ -26,20 +30,25 @@ class Complex:
             self.dims = {}
             self.facets = {}
         
-    def add_cell(self, d, f, label=None):
+    def add_cell(self, dim, facets, label=None, coeffs=None):
+        if self.oriented or not self.regular:
+            f = {facet:coeff for (facet, coeff) in zip(facets, coeffs)}
+        else:
+            f = set(facets)            
+             
         if self.ordered:
             if label is None:
-                self.dims.append(d)
+                self.dims.append(dim)
                 self.facets.append(f)
             else:
-                self.dims.insert(label, d)
+                self.dims.insert(label, dim)
                 self.facets.insert(label, f)
         else:
             if label is None:
-                self.dims[len(self.dims)] = d
+                self.dims[len(self.dims)] = dim
                 self.facets[len(self.facets)] = f
             else:
-                self.dims[label] = d
+                self.dims[label] = dim
                 self.facets[label] = f
             
     def get_cells(self):
@@ -69,38 +78,84 @@ class Complex:
                     self.cofacets[j].add(i) 
             
 
-def construct_cubical_complex(shape):
+def construct_cubical_complex(shape, oriented=False):
         
     dim = len(shape)
     
-    comp = Complex(dim)
+    comp = Complex(dim, regular=True, oriented=oriented, ordered=True)
     
     if dim == 2:
         nrows = shape[0]
         ncols = shape[1]
                 
         for i in range(nrows*ncols):
-            comp.add_cell(0, set())
+            
+            if oriented:
+                coeffs = []
+            else:
+                coeffs = None
+            comp.add_cell(0, [], coeffs=coeffs)
         
         for i in range(nrows):
             for j in range(ncols-1):
-                comp.add_cell(1, set([ncols*i + j, ncols*i + j+1]))
+                if oriented:
+                    coeffs = [-1, 1]
+                else:
+                    coeffs = None
+                comp.add_cell(1, [ncols*i + j, ncols*i + j+1], coeffs=coeffs)
 
         for i in range(nrows-1):
             for j in range(ncols):
-                comp.add_cell(1, set([ncols*i + j, ncols*(i+1) + j]))
+                if oriented:
+                    coeffs = [-1, 1]
+                else:
+                    coeffs = None
+                comp.add_cell(1, [ncols*i + j, ncols*(i+1) + j], coeffs=coeffs)
         
         for i in range(nrows-1):
             for j in range(ncols-1):
-                comp.add_cell(2, set([nrows*ncols + (ncols-1)*i + j, 
+                if oriented:
+                    coeffs = [1, 1, -1, -1]
+                else:
+                    coeffs = None
+                comp.add_cell(2, [nrows*ncols + (ncols-1)*i + j, 
                              nrows*ncols + (ncols-1)*nrows + ncols*i + j+1, 
                              nrows*ncols + (ncols-1)*(i+1) + j, 
-                             nrows*ncols + (ncols-1)*nrows + ncols*i + j]))         
+                             nrows*ncols + (ncols-1)*nrows + ncols*i + j], coeffs=coeffs)         
         
     
         
     return comp
    
+def check_boundary_op(comp):
+    
+    valid = True
+    for i in comp.get_cells():
+        if comp.dims[i] > 0:
+            
+            if not comp.regular or comp.oriented:
+                sub_faces = {}
+                for j in comp.facets[i]:
+                    for k in comp.facets[j]:
+                        sub_faces[k] = sub_faces.get(k, 0) + comp.facets[i][j] * comp.facets[j][k]
+                        
+                for j in sub_faces:
+                    if (comp.oriented and sub_faces[j] != 0) or (not comp.oriented and sub_faces[j] % 2 != 0):
+                        print("Error:", i, j, sub_faces[j])
+                        valid = False
+            else:
+                sub_faces = set()
+                for j in comp.facets[i]:
+                    sub_faces ^= comp.facets[j]
+                   
+                if len(sub_faces) != 0:
+                    print("Error:", i, sub_faces)
+                    valid = False
+                    
+    return valid
+            
+    
+    
 def get_lex_val(c, I, dims, F):
     
     lex_val = set()
@@ -292,74 +347,86 @@ def traverse_flow(s, V, I, coordinated=False):
         nrIn = {}
         k = {}
         for (a, b, c) in traverse_flow(s, V, I):
-            if c not in nrIn:
-                nrIn[c] = 1
-            else:
-                nrIn[c] += 1
+            nrIn[c] = nrIn.get(c, 0) + 1
             
     Q = co.deque([s])
-    seen = {s}
     
+    seen = {s}
+
     while len(Q) > 0:
         a = Q.popleft()
-        for b in I[a]:
+        for b in I[a]:                
+            
             if b in V and V[b] != a:
-                c = V[b]
-                yield (a, b, c)
+                c = V[b]     
+                    
+                yield (a, b, c)    
+                
                 if c not in seen and c != b:
                     if coordinated:
-                        if c not in k:
-                            k[c] = 1
-                        else:
-                            k[c] += 1
-                            
+                        k[c] = k.get(c, 0) + 1
                         if k[c] != nrIn[c]:
                             continue
                             
                     Q.append(c)
                     seen.add(c)
                 
-                
-            
-def find_basins(coV, coI, dims, d):
-        
-    basins = {}
-    
-    for s in coV:
-        if coV[s] == s and dims[s] == d:
-            basins[s] = set([s])
-            for (a, b, c) in traverse_flow(s, coV, coI):
-                if dims[c] == d:
-                    basins[s].add(c)
-                
-                
-    return basins
-    
+
 # returns all critical cells that are boundaries of s in the morse complex
 # counts = 1: there is a single path and (s, c) are a cancellable close pair
 # counts = 2: there are an even number of paths and c is not a boundary
 # counts = 3: there are an odd number of paths and (s, c) are not a cancellable close pair
-def calc_morse_boundary(s, V, I):
+def calc_morse_boundary(s, V, I, oriented=False):
     
     counts = {s:1}
     boundary = set()
     
+    if oriented:
+        mult = {s:1}
+    
     for (a, b, c) in traverse_flow(s, V, I, True):
-        n = counts[a]
-        if c in counts:
-            n += counts[c]
-            
-        if n <= 3:
-            counts[c] = n
-        else:
-            counts[c] = n % 2 + 2
+        # n = counts[a] + counts.get(c, 0)
+        # counts[c] = n if n <= 3 else n % 2 + 2
+        
+        counts[c] = counts[a] + counts.get(c, 0)
         
         if b == c:
             boundary.add(c)
             
+            if oriented:
+                mult[c] = mult.get(c, 0) + mult[a] * ( -I[a][b] )
+            
+        elif oriented:
+            mult[c] = mult.get(c, 0) + mult[a] * ( -I[a][b] * I[c][b] )
+            
     for c in boundary:
-        yield (c, counts[c])
-
+        if oriented:
+            yield (c, counts[c], mult[c])  
+        else:
+            yield (c, counts[c], counts[c] % 2) 
+    
+def construct_morse_complex(V, I, comp, oriented=False):
+    
+    mcomp = Complex(comp.dim, ordered=False, oriented=oriented, regular=False)
+    
+    for s in V:
+        if V[s] == s:
+            facets = []
+            coeffs = []
+            for (c, k, m) in calc_morse_boundary(s, V, I, oriented=oriented):
+                facets.append(c)
+                coeffs.append(m)
+                
+                if abs(m) > 1:
+                    print("Large Coefficient", k, m, comp.dims[c], comp.dims[s])
+            
+         
+            # facets = [c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1]
+                
+            mcomp.add_cell(comp.dims[s], facets, label=s, coeffs=coeffs)
+            
+    return mcomp
+    
         
 # find path from s to t
 def find_connections(s, t, V, coV, I, coI):
@@ -373,16 +440,7 @@ def find_connections(s, t, V, coV, I, coI):
             yield (a, b, c)
 
             
-def construct_morse_complex(V, I, comp):
-    
-    mcomp = Complex(comp.dim, ordered=False)
-    
-    for s in V:
-        if V[s] == s:
-            facets = {c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1}
-            mcomp.add_cell(comp.dims[s], facets, s)
-            
-    return mcomp
+
             
 def construct_filtration(I, dims, comp, F):
     
@@ -393,19 +451,7 @@ def construct_filtration(I, dims, comp, F):
     while not Q.empty():
         (lex, c) = Q.get()
         yield (max(lex), c)
-    
-def find_morse_skeleton(V, coV, I, coI, dims, d):
-    
-    skeleton = set()
-    for s in V:
-        if V[s] == s and dims[s] == d:
-            for (t, count) in calc_morse_boundary(s, V, I):
-                for (a, b, c) in find_connections(s, t, V, coV, I, coI):
-                    skeleton.add(b)
-                    
-                    
-    return skeleton
-                
+
                 
 def compute_persistence(comp, filtration, show_zero=False, extended=False, birth_cycles=False, optimal_cycles=False):
     
@@ -429,39 +475,41 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
             hbins.append(h)
             pi += 1    
         
-        
-        
         # print(pi, h, ci, d)
         
-        col = []
-        for cj in comp.facets[ci]:
-            if cj not in cell_to_col:
-                # print(ci, cj, comp.dims[ci], h, comp.facets[ci])
-            col.append(cell_to_col[cj])
         
-        # just calculate persistence pairs using standard algorithm
-        if not extended and not birth_cycles and not optimal_cycles:
-            columns.append((comp.dims[ci], sorted(col)))
-                        
-        # use oriented cells if need optimal cycles
-        elif optimal_cycles:
-            pass
-           
-        # use non-oriented cells
+        # Z2 coefficients
+        if not optimal_cycles:
+            col = set()
+            for cj in comp.facets[ci]:
+                if comp.regular:
+                    col.add(cell_to_col[cj])
+                else:
+                    if comp.facets[ci][cj] != 0:
+                        col.add(cell_to_col[cj])
+                
+            if birth_cycles:
+                columns.append(col)
+            else:
+                columns.append((comp.dims[ci], sorted(col)))
+                
+        # general coefficients
         else:
-            columns.append(set(col))
+            col = {}
+            for cj in comp.facets[ci]:
+                if comp.facets[ci][cj] != 0:
+                    col[cell_to_col[cj]] = comp.facets[ci][cj]
+
+            columns.append(col)
         
         cell_to_col[ci] = icol
         icol += 1
         col_to_cell.append(ci)
 
         cell_index[ci] = (pi, h)             
-     
-    # extend boundary matrix
-    if extended:
-        pass
+
     
-    if not extended and not birth_cycles and not optimal_cycles:
+    if not optimal_cycles and not birth_cycles:
     
         boundary_matrix = phat.boundary_matrix(columns=columns)
 
@@ -483,45 +531,45 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
         for ci in alive:
             pairs.append((col_to_cell[ci], None))
         
-    elif optimal_cycles:
-        pass
+        return (pairs, cell_index)
     
-    else:
-        
+    elif not optimal_cycles and birth_cycles:
+    
         # pivot row of each column if it has one
         pivot_row = {}
         # row to reduced column with pivot in that row
         pivot_col = {}
         
-        # initial each potential birth cycle to its birth cell
-        if birth_cycles:
-            g = []
+        g = []
             
         for j in range(len(columns)):
             
-            if birth_cycles:
-                g.append(set([j]))
+            g.append(set([j]))
+            
+            if len(columns[j]) > 0:
+                pivot_row[j] = max(columns[j])
             
             while len(columns[j]) > 0 and pivot_row[j] in pivot_col:
-                
-                pivot_row[j] = max(columns[j])
                 
                 l = pivot_col[pivot_row[j]]
                 columns[j] ^= columns[l]
                 
-                if birth_cycles:
-                    g[j] ^= g[l]
+                g[j] ^= g[l]
+                
+                if len(columns[j]) > 0:
+                    pivot_row[j] = max(columns[j])
+                else:
+                    del pivot_row[j]
+                
+                
                     
             if len(columns[j]) > 0:
                 pivot_col[pivot_row[j]] = j
-            elif j in pivot_row:
-                del pivot_row[j]
-                
-                
+           
         alive = set(range(len(columns)))
 
         pairs = []
-        for (j, i) in pivot_row.itoms():
+        for (j, i) in pivot_row.items():
             alive.discard(i)
             alive.discard(j)
 
@@ -535,12 +583,233 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
 
         for ci in alive:
             pairs.append((col_to_cell[ci], None))
-    
-    return (pairs, cell_index)
-    
 
-def level_bfs(s, h, I, coI, F):
+        bcycles = {}
+        for i in range(len(columns)):
+            if len(columns[i]) > 0 or comp.dims[col_to_cell[i]] == 0:
+                continue
+
+            ci = col_to_cell[i]
+
+            bcycles[ci] = set()
+            for j in g[i]:
+                bcycles[ci].add(col_to_cell[j])
+                                            
+        return (pairs, cell_index, bcycles)
     
+        
+    elif optimal_cycles:
+                
+        # pivot row of each column if it has one
+        pivot_row = {}
+        # row to reduced column with pivot in that row
+        pivot_col = {}
+        
+        g = []
+        
+        cell_counts = {i:0 for i in range(1, comp.dim+1)}
+        
+        x_to_cell = {i:{} for i in range(1, comp.dim+1)}
+        cell_to_x = {i:{} for i in range(1, comp.dim+1)}
+        
+        B = {i+1:{} for i in range(1, comp.dim+1)}
+        
+        Z = {i:{} for i in range(1, comp.dim+1)}
+            
+        for j in range(len(columns)):
+            
+            g.append({j:1})
+            
+            if len(columns[j]) > 0:
+                pivot_row[j] = max(columns[j])
+               
+            d = comp.dims[col_to_cell[j]]
+            if d > 0:
+                x_to_cell[d][cell_counts[d]] = col_to_cell[j]
+                cell_to_x[d][col_to_cell[j]] = cell_counts[d]
+                cell_counts[d] += 1
+                
+            
+            while len(columns[j]) > 0 and pivot_row[j] in pivot_col:
+                
+                p = pivot_row[j]
+                l = pivot_col[p]
+                
+                r = 1.0 * columns[j][p] / columns[l][p]
+                
+                for k in columns[l]:
+                    columns[j][k] = columns[j].get(k, 0) - r * columns[l][k]
+                    if columns[j][k] == 0.0:
+                        del columns[j][k]
+                    
+                for k in g[l]:
+                    g[j][k] = g[j].get(k, 0) - r * g[l][k]
+                    if g[j][k] == 0.0:
+                        del g[j][k]
+                                    
+                if len(columns[j]) > 0:
+                    pivot_row[j] = max(columns[j])
+                else:
+                    del pivot_row[j]
+                
+            if len(columns[j]) == 0 and d > 0:
+                
+                c = np.ones(2*(cell_counts[d]+len(B[d+1])+len(Z[d])), float)
+                c[0:2*cell_counts[d]] = 1.0
+                
+                A_i = []
+                A_j = []
+                A_val = []
+                
+                for k in range(cell_counts[d]):
+                    A_i.append(k)
+                    A_j.append(k)
+                    A_val.append(1.0)
+                    
+                    A_i.append(k)
+                    A_j.append(k+cell_counts[d])
+                    A_val.append(-1.0)
+                    
+                    
+                # change B and Z to list of column dictionaries
+                
+                for bi, kj in enumerate(B[d+1]):
+                    for ki in B[d+1][kj]:
+                        A_i.append(cell_to_x[d][ki])
+                        A_j.append(2*cell_counts[d] + bi)
+                        A_val.append(-B[d+1][kj][ki])
+                        
+                        A_i.append(cell_to_x[d][ki])
+                        A_j.append(2*cell_counts[d] + len(B[d+1]) + bi)
+                        A_val.append(B[d+1][kj][ki])
+                        
+                for zi, kj in enumerate(Z[d]):
+                    for ki in Z[d][kj]:
+                        A_i.append(cell_to_x[d][ki])
+                        A_j.append(2*cell_counts[d] + 2*len(B[d+1]) + zi)
+                        A_val.append(Z[d][kj][ki])
+                        
+                        A_i.append(cell_to_x[d][ki])
+                        A_j.append(2*cell_counts[d] + 2*len(B[d+1]) + len(Z[d]) + zi)
+                        A_val.append(Z[d][kj][ki])
+                
+#                 for (Bi, Bj, Bval) in B[d+1]:
+#                     A_i.append(Bi)
+#                     A_i.append(2*cell_counts[d] + Bj)
+#                     A_val.append(-Bval)
+                    
+#                     A_i.append(Bi)
+#                     A_i.append(2*cell_counts[d] + bound_counts[d+1] + Bj)
+#                     A_val.append(Bval)
+                    
+#                 for (Zi, Zj, Zval) in Z[d+1]:
+#                     A_i.append(Zi)
+#                     A_i.append(2*cell_counts[d] + 2*bound_counts[d+1] + Zj)
+#                     A_val.append(Zval)
+                    
+#                     A_i.append(Zi)
+#                     A_i.append(2*cell_counts[d] + 2*bound_counts[d+1] + rel_counts[d] + Zj)
+#                     A_val.append(-Zval)
+                               
+                
+                b_eq = np.zeros(cell_counts[d], float)
+                # print(g[j])
+                for k in g[j]:
+                    b_eq[cell_to_x[d][col_to_cell[k]]] = g[j][k]
+                
+                bounds = [(0, None) for k in range(2*(cell_counts[d] + len(B[d+1]) + len(Z[d])))]
+                
+                # print(cell_counts[d], len(B[d+1]), len(Z[d]))
+                # print(sparse.coo_matrix((A_val, (A_i, A_j))).todense())
+                # print(b_eq)
+                
+                res = opt.linprog(c, A_eq=sparse.coo_matrix((A_val, (A_i, A_j))).todense(), 
+                                  b_eq=b_eq, bounds=bounds, method='simplex', options={'disp':True})
+                
+                print(res)
+                
+                print(np.sum(np.abs(b_eq)), "->", res.fun)
+                
+                z = res.x[0:cell_counts[d]] - res.x[cell_counts[d]:2*cell_counts[d]]
+                
+                # print(z)
+                
+                col = {}
+                for k in range(cell_counts[d]):
+                    if z[k] != 0.0:
+                        col[x_to_cell[d][k]] = z[k]
+                Z[d][j] = col
+                    
+                    
+            elif len(columns[j]) > 0:
+                p = pivot_row[j]
+                pivot_col[p] = j
+                
+                if d > 1:
+                    col = {}
+                    for k in columns[j]:
+                        if columns[j][k] != 0.0:
+                            col[col_to_cell[k]] = columns[j][k]
+                    B[d][j] = col
+                
+                    del Z[d-1][p]
+                            
+           
+        alive = set(range(len(columns)))
+
+        pairs = []
+        for (j, i) in pivot_row.items():
+            alive.discard(i)
+            alive.discard(j)
+
+            ci = col_to_cell[i]
+            cj = col_to_cell[j]
+            if not show_zero and cell_index[ci] == cell_index[cj]:
+                continue
+
+            pairs.append((ci, cj))
+
+
+        for ci in alive:
+            pairs.append((col_to_cell[ci], None))
+
+        if birth_cycles:
+            
+            bcycles = {}
+            for i in range(len(columns)):
+                if len(columns[i]) > 0 or comp.dims[col_to_cell[i]] == 0:
+                    continue
+
+                ci = col_to_cell[i]
+
+                bcycles[ci] = set()
+                for j in g[i]:
+                    bcycles[ci].add(col_to_cell[j])
+            
+            ocycles = {}
+                
+            return (pairs, cell_index, bcycles, ocycles)
+        else:
+            return (pairs, cell_index, ocycles)
+        
+    
+            
+def find_basins(coV, coI, dims, d):
+        
+    basins = {}
+    
+    for s in coV:
+        if coV[s] == s and dims[s] == d:
+            basins[s] = set([s])
+            for (a, b, c) in traverse_flow(s, coV, coI):
+                if dims[c] == d:
+                    basins[s].add(c)
+                
+                
+    return basins
+    
+    
+def level_bfs(s, h, I, coI, F):
     
     Q = co.deque([s])
     seen = {s}
@@ -559,9 +828,41 @@ def level_bfs(s, h, I, coI, F):
             
     return seen
     
+# might want to use calc_morse_boundary instead of the Z_2 morse complex
+def find_segment(i, j, basins, cell_index, mcomp):
     
+    seen = level_bfs(i, cell_index[j][1], mcomp.facets, mcomp.cofacets, cell_index)
 
+    segment = set()
+    for i in seen:
+        segment.update(basins[i])
+        
+    return segment
 
+def find_cycle(mcycle, mcomp, V, coV, I, coI):
+    
+    cycle = set()
+    for s in mcycle:
+        for (t, m) in mcomp.facets[s].items():
+        # for (t, count) in calc_morse_boundary(s, V, I):
+            for (a, b, c) in find_connections(s, t, V, coV, I, coI):
+                cycle.add(b)
+    
+    return cycle
+
+    
+def find_morse_skeleton(mcomp, V, coV, I, coI, dims, d):
+    
+    skeleton = set()
+    for s in V:
+        if V[s] == s and dims[s] == d:
+            for (t, m) in mcomp.facets[s].items():
+                for (a, b, c) in find_connections(s, t, V, coV, I, coI):
+                    skeleton.add(b)
+                                 
+    return skeleton
+                
+        
 # def compute_graph_segmentation(G, heights, euclidean=False, positions=None):
     
 # #     print("Finding unique heights")
