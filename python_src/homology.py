@@ -355,7 +355,8 @@ def traverse_flow(s, V, I, coordinated=False):
 
     while len(Q) > 0:
         a = Q.popleft()
-        for b in I[a]:                
+        
+        for b in I[a]:    
             
             if b in V and V[b] != a:
                 c = V[b]     
@@ -451,9 +452,30 @@ def construct_filtration(I, dims, comp, F):
     while not Q.empty():
         (lex, c) = Q.get()
         yield (max(lex), c)
-
+        
+        
+def get_morse_weights(mcomp, V, coV, I, coI):
+    
+    weights = {}
+    for s in mcomp.get_cells():
+        if mcomp.dims[s] == 0:
+            weights[s] = 1
+            continue
+            
+        cell = set()
+        for (t, m) in mcomp.facets[s].items():
+            for (a, b, c) in find_connections(s, t, V, coV, I, coI):
+                cell.add(a)
+         
+        weights[s] = len(cell)
+    
+    
+    return weights
+    
+    
                 
-def compute_persistence(comp, filtration, show_zero=False, extended=False, birth_cycles=False, optimal_cycles=False):
+def compute_persistence(comp, filtration, show_zero=False, extended=False, birth_cycles=False, optimal_cycles=False,
+                       weights=None, relative_cycles=False):
     
     columns = []
     
@@ -507,7 +529,6 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
         col_to_cell.append(ci)
 
         cell_index[ci] = (pi, h)             
-
     
     if not optimal_cycles and not birth_cycles:
     
@@ -544,7 +565,7 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
             
         for j in range(len(columns)):
             
-            g.append(set([j]))
+            g.append({j})
             
             if len(columns[j]) > 0:
                 pivot_row[j] = max(columns[j])
@@ -565,7 +586,8 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                     
             if len(columns[j]) > 0:
                 pivot_col[pivot_row[j]] = j
-           
+ 
+        
         alive = set(range(len(columns)))
 
         pairs = []
@@ -606,6 +628,8 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
         pivot_col = {}
         
         g = []
+        
+        ocycles = {}
         
         cell_counts = {i:0 for i in range(1, comp.dim+1)}
         
@@ -655,7 +679,12 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
             if len(columns[j]) == 0 and d > 0:
                 
                 c = np.ones(2*(cell_counts[d]+len(B[d+1])+len(Z[d])), float)
-                c[0:2*cell_counts[d]] = 1.0
+                if weights is not None:
+                    for k in range(cell_counts[d]):
+                        c[k] = weights[x_to_cell[d][k]]
+                        c[k+cell_counts[d]] = weights[x_to_cell[d][k]]
+                else:
+                    c[0:2*cell_counts[d]] = 1.0
                 
                 A_i = []
                 A_j = []
@@ -670,9 +699,7 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                     A_j.append(k+cell_counts[d])
                     A_val.append(-1.0)
                     
-                    
-                # change B and Z to list of column dictionaries
-                
+                                    
                 for bi, kj in enumerate(B[d+1]):
                     for ki in B[d+1][kj]:
                         A_i.append(cell_to_x[d][ki])
@@ -682,53 +709,33 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                         A_i.append(cell_to_x[d][ki])
                         A_j.append(2*cell_counts[d] + len(B[d+1]) + bi)
                         A_val.append(B[d+1][kj][ki])
-                        
+                 
                 for zi, kj in enumerate(Z[d]):
                     for ki in Z[d][kj]:
                         A_i.append(cell_to_x[d][ki])
                         A_j.append(2*cell_counts[d] + 2*len(B[d+1]) + zi)
                         A_val.append(Z[d][kj][ki])
-                        
+
                         A_i.append(cell_to_x[d][ki])
                         A_j.append(2*cell_counts[d] + 2*len(B[d+1]) + len(Z[d]) + zi)
                         A_val.append(Z[d][kj][ki])
-                
-#                 for (Bi, Bj, Bval) in B[d+1]:
-#                     A_i.append(Bi)
-#                     A_i.append(2*cell_counts[d] + Bj)
-#                     A_val.append(-Bval)
-                    
-#                     A_i.append(Bi)
-#                     A_i.append(2*cell_counts[d] + bound_counts[d+1] + Bj)
-#                     A_val.append(Bval)
-                    
-#                 for (Zi, Zj, Zval) in Z[d+1]:
-#                     A_i.append(Zi)
-#                     A_i.append(2*cell_counts[d] + 2*bound_counts[d+1] + Zj)
-#                     A_val.append(Zval)
-                    
-#                     A_i.append(Zi)
-#                     A_i.append(2*cell_counts[d] + 2*bound_counts[d+1] + rel_counts[d] + Zj)
-#                     A_val.append(-Zval)
-                               
+
                 
                 b_eq = np.zeros(cell_counts[d], float)
                 # print(g[j])
                 for k in g[j]:
                     b_eq[cell_to_x[d][col_to_cell[k]]] = g[j][k]
                 
-                bounds = [(0, None) for k in range(2*(cell_counts[d] + len(B[d+1]) + len(Z[d])))]
+                res = opt.linprog(c, A_eq=sparse.coo_matrix((A_val, (A_i, A_j))), 
+                                  b_eq=b_eq, method='interior-point', 
+                                  options={'disp':False, 'maxiter': 100000, 'sparse': True, 
+                                           'ip': False, 'permc_spec':'COLAMD'})
                 
-                # print(cell_counts[d], len(B[d+1]), len(Z[d]))
-                # print(sparse.coo_matrix((A_val, (A_i, A_j))).todense())
-                # print(b_eq)
+                if res.status != 0:
+                    print(res)
+                                
                 
-                res = opt.linprog(c, A_eq=sparse.coo_matrix((A_val, (A_i, A_j))).todense(), 
-                                  b_eq=b_eq, bounds=bounds, method='simplex', options={'disp':True})
-                
-                print(res)
-                
-                print(np.sum(np.abs(b_eq)), "->", res.fun)
+                print(j, "/", len(columns), "size", len(c), "nit", res.nit, "Change", np.sum([weights[x_to_cell[d][k]] for k in np.where(b_eq != 0)[0]]), "->", int(round(res.fun)))
                 
                 z = res.x[0:cell_counts[d]] - res.x[cell_counts[d]:2*cell_counts[d]]
                 
@@ -736,10 +743,14 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                 
                 col = {}
                 for k in range(cell_counts[d]):
-                    if z[k] != 0.0:
-                        col[x_to_cell[d][k]] = z[k]
-                Z[d][j] = col
+                    h = int(round(z[k]))
+                    if h != 0:
+                        col[x_to_cell[d][k]] = h
+                        
+                if relative_cycles:
+                    Z[d][j] = col
                     
+                ocycles[col_to_cell[j]] = set(col.keys())
                     
             elif len(columns[j]) > 0:
                 p = pivot_row[j]
@@ -752,7 +763,8 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                             col[col_to_cell[k]] = columns[j][k]
                     B[d][j] = col
                 
-                    del Z[d-1][p]
+                    if relative_cycles:
+                        del Z[d-1][p]
                             
            
         alive = set(range(len(columns)))
@@ -785,8 +797,6 @@ def compute_persistence(comp, filtration, show_zero=False, extended=False, birth
                 bcycles[ci] = set()
                 for j in g[i]:
                     bcycles[ci].add(col_to_cell[j])
-            
-            ocycles = {}
                 
             return (pairs, cell_index, bcycles, ocycles)
         else:
@@ -828,7 +838,6 @@ def level_bfs(s, h, I, coI, F):
             
     return seen
     
-# might want to use calc_morse_boundary instead of the Z_2 morse complex
 def find_segment(i, j, basins, cell_index, mcomp):
     
     seen = level_bfs(i, cell_index[j][1], mcomp.facets, mcomp.cofacets, cell_index)
@@ -839,17 +848,102 @@ def find_segment(i, j, basins, cell_index, mcomp):
         
     return segment
 
-def find_cycle(mcycle, mcomp, V, coV, I, coI):
+def convert_morse_to_complex(mfeature, mcomp, comp, V, coV):
+
+    feature = set()
+    for s in mfeature:
+        feature.add(s)
+        for (a, b, c) in traverse_flow(s, V, comp.facets):
+            if b != c:
+                feature.add(c)
+    
+    return feature
+
+
+def expand_death_cycle(i, j, cell_index, mcomp):
+    
+    h = cell_index[i][1]
+        
+    Q = co.deque([j])
+    seen = {j}
+    
+    # cycle = set([k for k in mcomp.facets[j] if mcomp.facets[j][k] != 0])
+         
+    # print(cycle)
+    
+    while len(Q) > 0:
+        a = Q.popleft()
+  
+        for b in mcomp.facets[a]:
+            if cell_index[b][1] <= h:
+                continue
+            
+            for c in mcomp.cofacets[b]:                
+                if c != a and c not in seen:
+                    Q.append(c)
+                    seen.add(c)
+                    # print(set([k for k in mcomp.facets[c] if mcomp.facets[c][k] != 0]))
+                    # cycle ^= set([k for k in mcomp.facets[c] if mcomp.facets[c][k] != 0])
+                    # print(cycle)
+                    
+          
+    return seen
+
+def get_boundary_cycle(cells, comp):
     
     cycle = set()
-    for s in mcycle:
-        for (t, m) in mcomp.facets[s].items():
-        # for (t, count) in calc_morse_boundary(s, V, I):
-            for (a, b, c) in find_connections(s, t, V, coV, I, coI):
-                cycle.add(b)
     
+    for c in cells:
+        cycle ^= set([k for k in comp.facets[c] if comp.facets[c][k] != 0])
+        
     return cycle
 
+def get_vertices(cells, comp):
+    
+    verts = set()
+    for c in cells:
+        d = comp.dims[c]
+        if d == 0:
+            verts.add(c)
+        elif d == 1:
+            verts.update(comp.facets[c])
+        elif d == 2:
+            for b in comp.facets[c]:
+                verts.update(comp.facets[b])
+                
+    return verts
+                
+        
+    
+    
+def fill_cycle(s, cycle, comp):
+    
+    Q = co.deque([s])
+    seen = {s}
+    
+    fill = set()
+         
+    # print(cycle)
+    
+    while len(Q) > 0:
+        a = Q.popleft()
+  
+        for b in comp.facets[a]:
+            if set(comp.facets[b]).issubset(cycle):
+                continue
+            else:
+                fill.update(comp.facets[b])
+            
+            for c in comp.cofacets[b]:                
+                if c != a and c not in seen:
+                    Q.append(c)
+                    seen.add(c)
+                    
+    return fill
+                    
+                    
+    
+    
     
 def find_morse_skeleton(mcomp, V, coV, I, coI, dims, d):
     
