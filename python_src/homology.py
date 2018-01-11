@@ -76,8 +76,9 @@ class Complex:
             for i in self.facets:
                 for j in self.facets[i]:
                     self.cofacets[j].add(i) 
+        
+    
             
-
 def construct_cubical_complex(shape, oriented=False):
         
     dim = len(shape)
@@ -374,9 +375,10 @@ def traverse_flow(s, V, I, coordinated=False):
                 
 
 # returns all critical cells that are boundaries of s in the morse complex
-# counts = 1: there is a single path and (s, c) are a cancellable close pair
-# counts = 2: there are an even number of paths and c is not a boundary
-# counts = 3: there are an odd number of paths and (s, c) are not a cancellable close pair
+# return tuples (c, count, mult)
+# c is the critical boundary cell
+# count is the total number of V-paths to from s to c
+# mult is the coefficient of the boundary operator
 def calc_morse_boundary(s, V, I, oriented=False):
     
     counts = {s:1}
@@ -441,18 +443,131 @@ def find_connections(s, t, V, coV, I, coI):
             yield (a, b, c)
 
             
+def construct_time_of_insertion_map(comp, vertex_time):
+    
+    if comp.ordered:
+        time_insert = []
+    else:
+        time_insert = {}
+    
+    for c in comp.get_cells():
+        ti = get_lex_val(c, comp.facets, comp.dims, vertex_time)[0]
+        if comp.ordered:
+            time_insert.append(ti)
+        else:
+            time_insert[c] = ti
 
+
+    return time_insert
+    
+
+
+def simplify_morse_complex(threshold, V, coV, comp, time_insert):
+    
+    # print(crit_cells)
+    
+    n = 0
+    while True:
+         
+        print("Pass:", n)
             
-def construct_filtration(I, dims, comp, F):
+        close_pairs = []
+        
+        crit_cells = {s for s in V if V[s] == s}
+        
+        # print(sorted(crit_cells))
+        print("Number Critical Cells", len(crit_cells))
+        
+        pair_set = set()
+        
+        for s in crit_cells:
+            
+            if comp.dims[s] == 0 or s in pair_set:
+                continue
+                
+            # print("s", s, time_insert[s], comp.dims[s])
+            
+            close_alpha = None
+            close_alpha_time = None
+            for (c, k, m) in calc_morse_boundary(s, V, comp.facets, oriented=comp.oriented):
+
+                if k == 1:
+                    if close_alpha is None or time_insert[c] > close_alpha_time:
+                        close_alpha = {c}
+                        close_alpha_time = time_insert[c]
+                    elif time_insert[c] == close_alpha_time:
+                        close_alpha.add(c)
+                    
+            if close_alpha is None:
+                continue
+                
+                
+            for alpha in close_alpha:
+                
+                close_beta = None
+                close_beta_time = None
+                for (c, k, m) in calc_morse_boundary(alpha, coV, comp.cofacets, oriented=comp.oriented):
+                    if k == 1:
+                        if close_beta is None or time_insert[c] < close_beta_time:
+                            close_beta = {c}
+                            close_beta_time = time_insert[c]
+                        elif time_insert[c] == close_beta_time:
+                            close_beta.add(c)
+               
+   
+                if s in close_beta and alpha not in pair_set:
+                    close_pairs.append((time_insert[s] - time_insert[alpha], (alpha, s)))
+                    pair_set.add(s)
+                    pair_set.add(alpha)
+                    
+                    break
+        
+        close_pairs = sorted(close_pairs)
+        
+        print("Close Pairs:", len(close_pairs))
+        
+        if len(close_pairs) == 0 or close_pairs[0][0] > threshold:
+            print("Cancelled Pairs:", 0)
+            break
+          
+        i = 0
+        for (time, (t, s)) in close_pairs:
+            if time > threshold:
+                break
+        
+            # print(i, time, t, s, comp.dims[t], comp.dims[s])
+            i += 1
+            reverse_pairs = []
+            for (a, b, c) in find_connections(s, t, V, coV, comp.facets, comp.cofacets):
+                reverse_pairs.append((a, b))
+                
+            for (a, b) in reverse_pairs:                
+                V[b] = a
+                
+                coV[a] = b
+                
+                if a in V:
+                    del V[a]
+                if b in coV:
+                    del coV[b]
+               
+        print("Cancelled Pairs:", i)
+            
+        n += 1
+                
+    return (V, coV)
+    
+    
+def construct_filtration(comp, time_insert):
     
     Q = queue.PriorityQueue()
     for i in comp.get_cells():
-        Q.put((get_lex_val(i, I, dims, F), i))
+        Q.put((time_insert[i], i))
         
     while not Q.empty():
-        (lex, c) = Q.get()
-        yield (max(lex), c)
-        
+        (time, c) = Q.get()
+        yield (time, c)
+    
         
 def get_morse_weights(mcomp, V, coV, I, coI):
     
