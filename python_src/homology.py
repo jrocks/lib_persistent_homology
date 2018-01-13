@@ -442,47 +442,53 @@ def find_connections(s, t, V, coV, I, coI):
         if b in active:
             yield (a, b, c)
 
-            
-def construct_time_of_insertion_map(comp, vertex_time):
+
+# construct map of cells to insertion times
+# insertion times are a pair of (time, insertion index)
+# where the insertion index is found by computing the lexicographic order of the cells
+def construct_time_of_insertion_map(comp, vertex_time, vertex_order):
+    
+    order_to_time = vertex_time[np.argsort(vertex_order)]
+        
+    lex = []
+    for c in comp.get_cells():
+        lex.append((get_lex_val(c, comp.facets, comp.dims, vertex_order), c))
+        
+    lex = sorted(lex)
     
     if comp.ordered:
-        time_insert = []
+        time_insert = [None for c in comp.get_cells()]
     else:
         time_insert = {}
     
-    for c in comp.get_cells():
-        ti = get_lex_val(c, comp.facets, comp.dims, vertex_time)[0]
-        if comp.ordered:
-            time_insert.append(ti)
-        else:
-            time_insert[c] = ti
-
+    for i, (lex_val, c) in enumerate(lex):
+        time_insert[c] = (order_to_time[lex_val[0]], i)  
 
     return time_insert
     
 
 
 def simplify_morse_complex(threshold, V, coV, comp, time_insert):
-    
-    # print(crit_cells)
-    
+     
+    crit_cells = {s for s in V if V[s] == s}
+        
     n = 0
     while True:
+        
+        n += 1
+        
+        # need to cancel pairs in order of dimension so that don't necessarily need to check if s is already paired
          
         print("Pass:", n)
             
         close_pairs = []
         
-        crit_cells = {s for s in V if V[s] == s}
-        
         # print(sorted(crit_cells))
-        print("Number Critical Cells", len(crit_cells))
-        
-        pair_set = set()
-        
+        print("Critical Cells", len(crit_cells))
+                
         for s in crit_cells:
             
-            if comp.dims[s] == 0 or s in pair_set:
+            if comp.dims[s] == 0:
                 continue
                 
             # print("s", s, time_insert[s], comp.dims[s])
@@ -493,34 +499,34 @@ def simplify_morse_complex(threshold, V, coV, comp, time_insert):
 
                 if k == 1:
                     if close_alpha is None or time_insert[c] > close_alpha_time:
-                        close_alpha = {c}
+                        close_alpha = c
                         close_alpha_time = time_insert[c]
-                    elif time_insert[c] == close_alpha_time:
-                        close_alpha.add(c)
                     
             if close_alpha is None:
                 continue
                 
-                
-            for alpha in close_alpha:
-                
-                close_beta = None
-                close_beta_time = None
-                for (c, k, m) in calc_morse_boundary(alpha, coV, comp.cofacets, oriented=comp.oriented):
-                    if k == 1:
-                        if close_beta is None or time_insert[c] < close_beta_time:
-                            close_beta = {c}
-                            close_beta_time = time_insert[c]
-                        elif time_insert[c] == close_beta_time:
-                            close_beta.add(c)
+                                
+            close_beta = None
+            close_beta_time = None
+            for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.cofacets, oriented=comp.oriented):
+                if k == 1:
+                    if close_beta is None or time_insert[c] < close_beta_time:
+                        close_beta = c
+                        close_beta_time = time_insert[c]
                
-   
-                if s in close_beta and alpha not in pair_set:
-                    close_pairs.append((time_insert[s] - time_insert[alpha], (alpha, s)))
-                    pair_set.add(s)
-                    pair_set.add(alpha)
-                    
-                    break
+           
+            if s == close_beta:
+                close_pairs.append((time_insert[s][0] - time_insert[close_alpha][0], (close_alpha, s)))
+            
+#             if s in close_beta and alpha not in pair_set:
+#                 close_pairs.append((time_insert[s] - time_insert[alpha], (alpha, s)))
+#                 pair_set.add(s)
+#                 pair_set.add(alpha)
+
+#                 break
+                
+    
+        
         
         close_pairs = sorted(close_pairs)
         
@@ -550,10 +556,15 @@ def simplify_morse_complex(threshold, V, coV, comp, time_insert):
                     del V[a]
                 if b in coV:
                     del coV[b]
+                    
+            crit_cells.remove(t)
+            crit_cells.remove(s)
                
         print("Cancelled Pairs:", i)
+        
+        print("Remaining Critical Cells", len(crit_cells))
             
-        n += 1
+        
                 
     return (V, coV)
     
@@ -566,7 +577,7 @@ def construct_filtration(comp, time_insert):
         
     while not Q.empty():
         (time, c) = Q.get()
-        yield (time, c)
+        yield (time[0], c)
     
         
 def get_morse_weights(mcomp, V, coV, I, coI):
@@ -1057,19 +1068,28 @@ def fill_cycle(s, cycle, comp):
     return fill
                     
                     
-    
-    
-    
-def find_morse_skeleton(mcomp, V, coV, I, coI, dims, d):
-    
+def find_morse_skeleton(mcomp, comp, V, coV, d):
     skeleton = set()
+    
     for s in V:
-        if V[s] == s and dims[s] == d:
-            for (t, m) in mcomp.facets[s].items():
-                for (a, b, c) in find_connections(s, t, V, coV, I, coI):
-                    skeleton.add(b)
-                                 
+        if V[s] == s and mcomp.dims[s] == d:
+            feature = convert_morse_to_complex({s}, mcomp, comp, V, coV)
+            verts = get_vertices(feature, comp)
+            skeleton.update(verts)
+            
     return skeleton
+    
+    
+# def find_morse_skeleton(mcomp, V, coV, I, coI, dims, d):
+    
+#     skeleton = set()
+#     for s in V:
+#         if V[s] == s and dims[s] == d:
+#             for (t, m) in mcomp.facets[s].items():
+#                 for (a, b, c) in find_connections(s, t, V, coV, I, coI):
+#                     skeleton.add(b)
+                                 
+    
                 
         
 # def compute_graph_segmentation(G, heights, euclidean=False, positions=None):
