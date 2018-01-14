@@ -173,7 +173,31 @@ def get_lex_val(c, I, dims, F):
         Q.extend(I[j])
         
     return sorted(lex_val, reverse=True)
+      
+    
+# construct map of cells to insertion times
+# insertion times are a pair of (time, insertion index)
+# where the insertion index is found by computing the lexicographic order of the cells
+def construct_time_of_insertion_map(comp, vertex_time, vertex_order):
+    
+    order_to_time = vertex_time[np.argsort(vertex_order)]
         
+    lex = []
+    for c in comp.get_cells():
+        lex.append((get_lex_val(c, comp.facets, comp.dims, vertex_order), c))
+        
+    lex = sorted(lex)
+    
+    if comp.ordered:
+        time_insert = [None for c in comp.get_cells()]
+    else:
+        time_insert = {}
+    
+    for i, (lex_val, c) in enumerate(lex):
+        time_insert[c] = (order_to_time[lex_val[0]], i)  
+
+    return time_insert
+    
     
 def construct_discrete_gradient(comp, F):
     
@@ -441,30 +465,6 @@ def find_connections(s, t, V, coV, I, coI):
     for (a, b, c) in traverse_flow(s, V, I):
         if b in active:
             yield (a, b, c)
-
-
-# construct map of cells to insertion times
-# insertion times are a pair of (time, insertion index)
-# where the insertion index is found by computing the lexicographic order of the cells
-def construct_time_of_insertion_map(comp, vertex_time, vertex_order):
-    
-    order_to_time = vertex_time[np.argsort(vertex_order)]
-        
-    lex = []
-    for c in comp.get_cells():
-        lex.append((get_lex_val(c, comp.facets, comp.dims, vertex_order), c))
-        
-    lex = sorted(lex)
-    
-    if comp.ordered:
-        time_insert = [None for c in comp.get_cells()]
-    else:
-        time_insert = {}
-    
-    for i, (lex_val, c) in enumerate(lex):
-        time_insert[c] = (order_to_time[lex_val[0]], i)  
-
-    return time_insert
     
 
 
@@ -578,6 +578,148 @@ def construct_filtration(comp, time_insert):
     while not Q.empty():
         (time, c) = Q.get()
         yield (time[0], c)
+    
+    
+           
+        
+def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None):
+    
+    
+    vertex_order = np.zeros(len(vertex_time), int)
+        
+    submerged = np.zeros(len(vertex_time), bool)
+        
+    vertex_argsort = list(np.argsort(vertex_time)[::-1])
+        
+    
+    visited = set()
+    count = 0
+    
+    ti = 0
+    while len(vertex_argsort) > 0:
+        unvisited = set()
+            
+        # find all vertices in level set
+        while True:
+ 
+            vi = vertex_argsort.pop()
+                    
+            t = vertex_time[vi]
+            unvisited.add(vi)
+                        
+            if len(vertex_argsort) == 0 or t != vertex_time[vertex_argsort[-1]]:
+                break
+          
+
+        count += len(unvisited)
+        
+        # if only a single vertex, then take a shortcut
+        if len(unvisited) == 1:
+            vi = unvisited.pop()
+            submerged[vi] = True
+            vertex_order[vi] = ti
+            ti += 1
+            
+            visited.add(vi)
+            
+            continue
+            
+        
+        # set up queue
+        dist = {}
+        if euclidean:
+            Q = queue.PriorityQueue()
+            closest = {}
+        else:
+            Q = queue.Queue() 
+            
+        # put vertices in queue if they have a previously submerged neighbor
+        for a in unvisited:
+            for b in comp.cofacets[a]:
+                for c in comp.facets[b]:
+                    if submerged[c]:
+                        
+                        if euclidean:
+                            new_dist = la.norm(positions[a] - positions[c])                    
+                        else:
+                            new_dist = 1.0
+                            
+                        if a not in dist or new_dist < dist[a]:
+                            dist[a] = new_dist
+                            Q.put([new_dist, a])
+                            
+                            if euclidean:
+                                closest[a] = c
+                            
+
+        # perform BFS on level set
+        while not Q.empty():
+                        
+            [current_dist, a] = Q.get()    
+                        
+            visited.add(a)
+                
+            if a not in unvisited:
+                continue
+                    
+            unvisited.remove(a)
+            submerged[a] = True
+            vertex_order[a] = ti
+            ti += 1
+              
+            for b in comp.cofacets[a]:
+                for c in comp.facets[b]:
+                    if c in unvisited:
+                    
+                        if euclidean:
+                            new_dist = la.norm(positions[c] - positions[closest[a]])
+                        else:
+                            new_dist = current_dist + 1.0  
+                          
+                        if c not in dist or new_dist < dist[c]:
+                            dist[c] = new_dist
+                            Q.put([new_dist, c])
+                            
+                            if euclidean:
+                                closest[c] = closest[a]
+      
+    
+        # search through new segments
+        while len(unvisited) > 0:
+
+            a = unvisited.pop()
+            
+            Q.put([0, a])
+            
+            if euclidean:
+                closest[a] = a
+            
+            while not Q.empty():
+                [current_dist, a] = Q.get()
+                
+                visited.add(a)
+                
+                unvisited.discard(a)
+                submerged[a] = True
+                vertex_order[a] = ti
+                ti += 1
+                
+                for b in comp.cofacets[a]:
+                    for c in comp.facets[b]:
+                        if c in unvisited:
+
+                            if euclidean:
+                                new_dist = la.norm(positions[c] - positions[closest[a]])
+                            else:
+                                new_dist = current_dist + 1.0  
+
+                            if c not in dist or new_dist < dist[c]:
+                                dist[c] = new_dist
+                                Q.put([new_dist, c])
+
+                                if euclidean:
+                                    closest[c] = closest[a]    
+    return vertex_order  
     
         
 def get_morse_weights(mcomp, V, coV, I, coI):
