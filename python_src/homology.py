@@ -176,7 +176,10 @@ def get_lex_val(c, I, dims, F):
       
     
 # construct map of cells to insertion times
-# insertion times are a pair of (time, insertion index)
+# insertion times are a triple of 
+# [insertion time, 
+# lower star insertion index (index ordering on just vertices), 
+# lexicographic insertion index (index ordering on all cells)]
 # where the insertion index is found by computing the lexicographic order of the cells
 def construct_time_of_insertion_map(comp, vertex_time, vertex_order):
     
@@ -189,21 +192,24 @@ def construct_time_of_insertion_map(comp, vertex_time, vertex_order):
     lex = sorted(lex)
     
     if comp.ordered:
-        time_insert = [None for c in comp.get_cells()]
+        insert_order = [None for c in comp.get_cells()]
     else:
-        time_insert = {}
+        insert_order = {}
     
     for i, (lex_val, c) in enumerate(lex):
-        time_insert[c] = (order_to_time[lex_val[0]], i)  
+        insert_order[c] = (order_to_time[lex_val[0]], lex_val[0], i)  
 
-    return time_insert
+    return insert_order
     
     
-def construct_discrete_gradient(comp, F):
+def construct_discrete_gradient(comp, insert_order):
+    
+    LSTAR = 1
+    LEX = 2
     
     def get_lower_star(x):
         
-        fx = lex_order[x][0]
+        fx = insert_order[x][LSTAR]
         
         lstar = set()
         
@@ -213,7 +219,7 @@ def construct_discrete_gradient(comp, F):
         while len(Q) > 0:
             i = Q.popleft()
             
-            if all(k <= fx for k in lex_order[i]):
+            if insert_order[i][LSTAR] == fx:
                 lstar.add(i)
                 Q.extend(comp.cofacets[i])
         
@@ -258,12 +264,6 @@ def construct_discrete_gradient(comp, F):
                 
         return cofaces
         
-    
-    if comp.ordered:
-        lex_order = [get_lex_val(i, comp.facets, comp.dims, F) for i in comp.get_cells()]
-    else:
-        lex_order = {i:get_lex_val(i, comp.facets, comp.dims, F) for i in comp.get_cells()}
-        
     V = {}
         
     # iterate through each vertex
@@ -291,7 +291,7 @@ def construct_discrete_gradient(comp, F):
                 if comp.dims[i] == 1:
                     one_cells.add(i)
                     
-                    if delta is None or lex_order[i] < lex_order[delta]:
+                    if delta is None or insert_order[i][LEX] < insert_order[delta][LEX]:
                         delta = i
                     
             one_cells.discard(delta)
@@ -305,7 +305,7 @@ def construct_discrete_gradient(comp, F):
             PQone = queue.PriorityQueue()
             
             for i in one_cells:
-                PQone.put((lex_order[i], i))
+                PQone.put((insert_order[i][LEX], i))
             
             # priority queue for higher dimension cells
             PQother = queue.PriorityQueue()
@@ -314,7 +314,7 @@ def construct_discrete_gradient(comp, F):
                 
                 # if cell is a coface of delta and only has one unpaired face that is in lstar
                 if len(get_faces(alpha, lstar)) == 1:
-                    PQother.put((lex_order[alpha], alpha))
+                    PQother.put((insert_order[alpha][LEX], alpha))
                 
             while not PQone.empty() or not PQother.empty():
                 while not PQother.empty():
@@ -324,7 +324,7 @@ def construct_discrete_gradient(comp, F):
                     faces.discard(alpha)
                     # if no unpaired faces
                     if len(faces) == 0:
-                        PQone.put((lex_order[alpha], alpha))
+                        PQone.put((insert_order[alpha][LEX], alpha))
                         continue
                         
                     # add pair
@@ -336,11 +336,11 @@ def construct_discrete_gradient(comp, F):
                     
                     for beta in get_cofaces(alpha, lstar):
                         if len(get_faces(beta, lstar)) == 1:
-                            PQother.put((lex_order[beta], beta))
+                            PQother.put((insert_order[beta][LEX], beta))
                             
                     for beta in get_cofaces(pair_alpha, lstar):
                         if len(get_faces(beta, lstar)) == 1:
-                            PQother.put((lex_order[beta], beta))
+                            PQother.put((insert_order[beta][LEX], beta))
                         
                         
                 while not PQone.empty():
@@ -353,7 +353,7 @@ def construct_discrete_gradient(comp, F):
                     
                     for alpha in get_cofaces(gamma, lstar):
                         if len(get_faces(alpha, lstar)) == 1:
-                            PQother.put((lex_order[alpha], alpha))
+                            PQother.put((insert_order[alpha][LEX], alpha))
     
     return V
     
@@ -468,8 +468,11 @@ def find_connections(s, t, V, coV, I, coI):
     
 
 
-def simplify_morse_complex(threshold, V, coV, comp, time_insert):
+def simplify_morse_complex(threshold, V, coV, comp, insert_order):
      
+    TIME = 0
+    LEX = 2
+        
     crit_cells = {s for s in V if V[s] == s}
         
     n = 0
@@ -491,16 +494,16 @@ def simplify_morse_complex(threshold, V, coV, comp, time_insert):
             if comp.dims[s] == 0:
                 continue
                 
-            # print("s", s, time_insert[s], comp.dims[s])
+            # print("s", s, insert_order[s], comp.dims[s])
             
             close_alpha = None
             close_alpha_time = None
             for (c, k, m) in calc_morse_boundary(s, V, comp.facets, oriented=comp.oriented):
 
                 if k == 1:
-                    if close_alpha is None or time_insert[c] > close_alpha_time:
+                    if close_alpha is None or ((insert_order[c][TIME], insert_order[c][LEX]) > close_alpha_time):
                         close_alpha = c
-                        close_alpha_time = time_insert[c]
+                        close_alpha_time = (insert_order[c][TIME], insert_order[c][LEX])
                     
             if close_alpha is None:
                 continue
@@ -510,13 +513,13 @@ def simplify_morse_complex(threshold, V, coV, comp, time_insert):
             close_beta_time = None
             for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.cofacets, oriented=comp.oriented):
                 if k == 1:
-                    if close_beta is None or time_insert[c] < close_beta_time:
+                    if close_beta is None or ((insert_order[c][TIME], insert_order[c][LEX]) < close_beta_time):
                         close_beta = c
-                        close_beta_time = time_insert[c]
+                        close_beta_time = (insert_order[c][TIME], insert_order[c][LEX])
                
            
             if s == close_beta:
-                close_pairs.append((time_insert[s][0] - time_insert[close_alpha][0], (close_alpha, s)))
+                close_pairs.append((insert_order[s][TIME] - insert_order[close_alpha][TIME], (close_alpha, s)))
             
 #             if s in close_beta and alpha not in pair_set:
 #                 close_pairs.append((time_insert[s] - time_insert[alpha], (alpha, s)))
@@ -569,11 +572,14 @@ def simplify_morse_complex(threshold, V, coV, comp, time_insert):
     return (V, coV)
     
     
-def construct_filtration(comp, time_insert):
+def construct_filtration(comp, insert_order):
+    
+    TIME = 0
+    LEX = 2
     
     Q = queue.PriorityQueue()
     for i in comp.get_cells():
-        Q.put((time_insert[i], i))
+        Q.put(((insert_order[i][TIME], insert_order[i][LEX]), i))
         
     while not Q.empty():
         (time, c) = Q.get()
