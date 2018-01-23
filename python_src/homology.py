@@ -3,26 +3,156 @@ sys.path.insert(0, '../')
 sys.path.insert(0, '../python_src/')
 import numpy as np
 import scipy as sp
+import numpy.linalg as la
 import scipy.sparse as sparse
 import scipy.optimize as opt
 import itertools as it
-# import numpy.linalg as la
 import phat
-# import matplotlib.pyplot as plt
-# import matplotlib.colors as mcolors
-# import matplotlib as mpl
-# import skimage.morphology as morph
-# import networkx as nx
 import queue
 import collections as co
 
-class Complex:
+
+# class CellComplex:
+    
+    
+#     def __init__(self, dim, reserve=64, regular=True, oriented=False, ordered=True):
+        
+#         self.dim = dim
+#         self.ncells = 0
+#         self.nfacets = 0
+        
+#         self.ordered = ordered
+#         self.regular = regular
+#         self.oriented = oriented
+        
+        
+#         if not self.ordered:
+#             self.cell_to_index = {}
+            
+#         self.dims = np.empty(reserve, int)
+            
+#         self.facet_ind = np.empty(reserve+1, int)
+#         self.facet_ind[0] = 0
+#         self.facets = np.empty(reserve, int)
+   
+#         if not self.regular or self.oriented:
+#             self.coeffs = np.empty(reserve, int)
+            
+        
+#     # label only relevant if not ordered
+#     # coeffs only relevant if not regular or is oriented
+#     def add_cell(self, dim, facets, label=None, coeffs=None):
+        
+#         # check if arrays need to be resized
+#         if self.ncells + 1 > len(self.dims):
+#             self.dims.resize(2*self.ncells)
+#             self.facet_ind.resize(2*self.ncells+1)
+            
+#         if self.nfacets + len(facets) > len(self.facets):
+#             self.facets.resize(2*self.nfacets)
+#             if not self.regular or self.oriented:
+#                 self.coeffs.resize(2*self.nfacets)
+        
+#         if not self.ordered:
+#             self.cell_to_index[label] = self.ncells
+                
+#         self.dims[self.ncells] = dim
+#         self.facet_ind[self.ncells+1] = self.facet_ind[self.ncells] + len(facets)
+        
+#         self.facets[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = facets
+#         if not self.regular or self.oriented:
+#             self.coeffs[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = coeffs
+        
+#         self.ncells += 1
+#         self.nfacets += len(facets)
+        
+        
+#     def compress():
+#         self.dims.resize(self.ncells)
+#         self.facet_ind.resize(self.ncells+1)
+#         self.facets.resize(self.nfacets)
+#         if not self.regular or self.oriented:
+#             self.coeffs.resize(self.nfacets)
+        
+    
+#     def get_dim(self, alpha):
+#         if self.ordered:
+#             return self.dims[alpha]
+#         else:
+#             return self.dims[cell_to_index[alpha]]
+    
+#     def get_facets(self, alpha):
+#         if self.ordered:
+#             index = alpha
+#         else:
+#             index = cell_to_index[alpha]
+            
+#         facets = self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
+#         if self.oriented or not self.regular:
+#             coeffs = self.coeffs[self.facet_ind[index]:self.facet_ind[index+1]]
+#             return dict(zip(facets, coeffs))        
+#         else:
+#             return facets
+    
+#     def get_cofacets(self, alpha):
+#         if self.ordered:
+#             index = alpha
+#         else:
+#             index = cell_to_index[alpha]
+            
+#         return self.cofacets[self.cofacet_ind[index]:self.cofacet_ind[index+1]]
+    
+            
+#     def get_cells(self):
+        
+#         if self.ordered:
+#             for i in range(self.ncells):
+#                 yield i     
+#         else:
+#             for i in cell_to_index:
+#                 yield i
+        
+#     def construct_cofacets(self):
+        
+#         self.cofacet_ind = np.empty(self.ncells+1)
+#         self.cofacet_ind[0] = 0
+#         self.cofacets = np.empty(self.nfacets)
+        
+#         if self.ordered:
+#             cell_list = [[] for i in range(self.ncells)]
+#             for i in range(self.ncells):
+#                 for j in self.facets[self.facet_ind[i]:self.facet_ind[i+1]]:
+#                     cell_list[j].append(i)
+                    
+#             for i in range(self.ncells):
+#                 self.cofacet_ind[i+1] = self.cofacet_ind[i] + len(cell_list[i])
+#                 self.cofacets[self.cofacet_ind[i]:self.cofacet_ind[i+1]] = cell_list[i]
+        
+        
+        
+        
+        
+#         if self.ordered:
+#             self.cofacets = [set() for i in range(len(self.facets))]
+
+#             for i in range(len(self.facets)):
+#                 for j in self.facets[i]:
+#                     self.cofacets[j].add(i)
+                    
+#         else:
+#             self.cofacets = {i:set() for i in self.facets}
+            
+#             for i in self.facets:
+#                 for j in self.facets[i]:
+#                     self.cofacets[j].add(i) 
+
+class CellComplex:
     
     def __init__(self, dim, regular=True, oriented=False, ordered=True):
         self.dim = dim
         self.ordered = ordered
         self.regular = regular
-        self.oriented=oriented
+        self.oriented = oriented
         if self.ordered:
             self.dims = []
             self.facets = []
@@ -83,7 +213,7 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
         
     dim = len(shape)
     
-    comp = Complex(dim, regular=True, oriented=oriented, ordered=True)
+    comp = CellComplex(dim, regular=True, oriented=oriented, ordered=True)
     
     if dim == 2 and not dual:
         nrows = shape[0]
@@ -417,10 +547,10 @@ def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False)
         # 3. lexicographic ordering of function values of vertices from high to low
         for c in comp.get_cells():
             lex_val = get_lex_val(c, comp.facets, 0, comp.dims, vertex_order)
-            lex.append((lex_val[0][0], comp.dims[c], lex_val, c, lex_val[-1][1]))
-        
+            lex.append((lex_val[0][0], comp.dims[c], lex_val, c, lex_val[0][1]))
+      
     lex = sorted(lex)
-        
+    
     if comp.ordered:
         insert_order = [None for c in comp.get_cells()]
     else:
@@ -430,131 +560,13 @@ def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False)
         insert_order[c] = (order_to_time[star_val], star, i)  
 
     return insert_order
-    
-    
-# def get_lex_val(c, I, dims, F, Fdim):
-    
-#     lex_val = set()
-        
-#     Q = co.deque()
-#     Q.append(c)
-
-#     while len(Q) > 0:
-#         j = Q.popleft()
-
-#         if dims[j] == Fdim:
-#             lex_val.add(F[j])
-
-#         Q.extend(I[j])
-        
-#     return sorted(lex_val, reverse=True)
-      
-    
-# # construct map of cells to insertion times
-# # insertion times are a triple of 
-# # [insertion time, 
-# # lower star (upper costar) insertion index (index ordering on just vertices (or dual)), 
-# # lexicographic insertion index (index ordering on all cells)]
-# # where the insertion index is found by computing the lexicographic order of the cells
-# def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False):
-    
-#     order_to_time = vertex_time[np.argsort(vertex_order)]
-                
-#     lex = []
-    
-#     if dual:
-#         # Order by:
-#         # 1. function value of cell whose upper costar this cell belongs to
-#         # 2. cell dimension
-#         # 3. lexicographic ordering of function values of highest dimension cofaces from high to low
-#         for c in comp.get_cells():
-#             lex_val = get_lex_val(c, comp.cofacets, comp.dims, vertex_order, comp.dim)
-#             lex.append((lex_val[-1], comp.dims[c], lex_val, c))
-#     else:
-#         # Order by:
-#         # 1. function value of vertex whose lower star this cell belongs to
-#         # 2. cell dimension
-#         # 3. lexicographic ordering of function values of vertices from high to low
-#         for c in comp.get_cells():
-#             lex_val = get_lex_val(c, comp.facets, comp.dims, vertex_order, 0)
-#             lex.append((lex_val[0], comp.dims[c], lex_val, c))
-        
-#     lex = sorted(lex)
-        
-#     if comp.ordered:
-#         insert_order = [None for c in comp.get_cells()]
-#     else:
-#         insert_order = {}
-    
-#     for i, (star, d, lex_val, c) in enumerate(lex):
-#         insert_order[c] = (order_to_time[star], star, i)  
-
-#     return insert_order
+ 
     
     
 def construct_discrete_gradient(comp, insert_order, dual=False):
     
     STAR = 1
-    LEX = 2
-    
-#     def get_ulstar(x, I):
-        
-#         fx = insert_order[x][STAR]
-        
-#         star = set()
-        
-#         Q = co.deque()
-#         Q.append(x)
-        
-#         while len(Q) > 0:
-#             i = Q.popleft()
-            
-#             if insert_order[i][STAR] == fx:
-#                 star.add(i)
-#                 Q.extend(I[i])
-        
-#         return star
-        
-#     # get faces from a set of cells (not including self)
-#     def get_faces(alpha, cells):
-
-#         faces = set()
-        
-#         Q = co.deque()
-#         Q.append(alpha)
-        
-#         while len(Q) > 0:
-#             i = Q.popleft()
-            
-#             if i in cells or i == alpha:
-#                 Q.extend(comp.facets[i])
-#                 faces.add(i)
-               
-#         faces.discard(alpha)
-            
-#         return faces
-        
-       
-#     # get cofaces from a set of cells (not including self)
-#     def get_cofaces(alpha, cells):
-        
-#         cofaces = set()
-        
-#         Q = co.deque()
-#         Q.append(alpha)
-        
-#         while len(Q) > 0:
-#             i = Q.popleft()
-                        
-#             if i in cells or i == alpha:
-#                 Q.extend(comp.cofacets[i])
-#                 cofaces.add(i)
-               
-#         cofaces.discard(alpha)
-                
-#         return cofaces
-                
-        
+    LEX = 2     
         
     V = {}
         
@@ -736,7 +748,7 @@ def calc_morse_boundary(s, V, I, oriented=False):
     
 def construct_morse_complex(V, I, comp, oriented=False):
     
-    mcomp = Complex(comp.dim, ordered=False, oriented=oriented, regular=False)
+    mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
     
     for s in V:
         if V[s] == s:
@@ -781,9 +793,7 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
     while True:
         
         n += 1
-        
-        # need to cancel pairs in order of dimension so that don't necessarily need to check if s is already paired
-         
+                 
         print("Pass:", n)
             
         close_pairs = []
@@ -822,15 +832,6 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
            
             if s == close_beta:
                 close_pairs.append((insert_order[s][TIME] - insert_order[close_alpha][TIME], (close_alpha, s)))
-            
-#             if s in close_beta and alpha not in pair_set:
-#                 close_pairs.append((time_insert[s] - time_insert[alpha], (alpha, s)))
-#                 pair_set.add(s)
-#                 pair_set.add(alpha)
-
-#                 break
-                
-    
         
         
         close_pairs = sorted(close_pairs)
@@ -872,21 +873,7 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
         
                 
     return (V, coV)
-    
-    
-# def construct_filtration(comp, insert_order):
-    
-#     TIME = 0
-#     LEX = 2
-    
-#     Q = queue.PriorityQueue()
-#     for i in comp.get_cells():
-#         Q.put(((insert_order[i][TIME], insert_order[i][LEX]), i))
-        
-#     while not Q.empty():
-#         (time, c) = Q.get()
-#         yield (time[0], c)
-        
+       
         
 def construct_filtration(comp, insert_order):
     
