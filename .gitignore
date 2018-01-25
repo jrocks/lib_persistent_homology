@@ -2,3 +2,11 @@
 python_src/__pycache__/*
 notebooks/.ipynb_checkpoints/*
 sample_data
+build
+*.jpg
+*.mat
+*.pkl
+*.so
+*.cprof
+tmp
+*.png

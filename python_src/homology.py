@@ -10,210 +10,142 @@ import itertools as it
 import phat
 import queue
 import collections as co
-
-
-# class CellComplex:
-    
-    
-#     def __init__(self, dim, reserve=64, regular=True, oriented=False, ordered=True):
-        
-#         self.dim = dim
-#         self.ncells = 0
-#         self.nfacets = 0
-        
-#         self.ordered = ordered
-#         self.regular = regular
-#         self.oriented = oriented
-        
-        
-#         if not self.ordered:
-#             self.cell_to_index = {}
-            
-#         self.dims = np.empty(reserve, int)
-            
-#         self.facet_ind = np.empty(reserve+1, int)
-#         self.facet_ind[0] = 0
-#         self.facets = np.empty(reserve, int)
-   
-#         if not self.regular or self.oriented:
-#             self.coeffs = np.empty(reserve, int)
-            
-        
-#     # label only relevant if not ordered
-#     # coeffs only relevant if not regular or is oriented
-#     def add_cell(self, dim, facets, label=None, coeffs=None):
-        
-#         # check if arrays need to be resized
-#         if self.ncells + 1 > len(self.dims):
-#             self.dims.resize(2*self.ncells)
-#             self.facet_ind.resize(2*self.ncells+1)
-            
-#         if self.nfacets + len(facets) > len(self.facets):
-#             self.facets.resize(2*self.nfacets)
-#             if not self.regular or self.oriented:
-#                 self.coeffs.resize(2*self.nfacets)
-        
-#         if not self.ordered:
-#             self.cell_to_index[label] = self.ncells
-                
-#         self.dims[self.ncells] = dim
-#         self.facet_ind[self.ncells+1] = self.facet_ind[self.ncells] + len(facets)
-        
-#         self.facets[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = facets
-#         if not self.regular or self.oriented:
-#             self.coeffs[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = coeffs
-        
-#         self.ncells += 1
-#         self.nfacets += len(facets)
-        
-        
-#     def compress():
-#         self.dims.resize(self.ncells)
-#         self.facet_ind.resize(self.ncells+1)
-#         self.facets.resize(self.nfacets)
-#         if not self.regular or self.oriented:
-#             self.coeffs.resize(self.nfacets)
-        
-    
-#     def get_dim(self, alpha):
-#         if self.ordered:
-#             return self.dims[alpha]
-#         else:
-#             return self.dims[cell_to_index[alpha]]
-    
-#     def get_facets(self, alpha):
-#         if self.ordered:
-#             index = alpha
-#         else:
-#             index = cell_to_index[alpha]
-            
-#         facets = self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
-#         if self.oriented or not self.regular:
-#             coeffs = self.coeffs[self.facet_ind[index]:self.facet_ind[index+1]]
-#             return dict(zip(facets, coeffs))        
-#         else:
-#             return facets
-    
-#     def get_cofacets(self, alpha):
-#         if self.ordered:
-#             index = alpha
-#         else:
-#             index = cell_to_index[alpha]
-            
-#         return self.cofacets[self.cofacet_ind[index]:self.cofacet_ind[index+1]]
-    
-            
-#     def get_cells(self):
-        
-#         if self.ordered:
-#             for i in range(self.ncells):
-#                 yield i     
-#         else:
-#             for i in cell_to_index:
-#                 yield i
-        
-#     def construct_cofacets(self):
-        
-#         self.cofacet_ind = np.empty(self.ncells+1)
-#         self.cofacet_ind[0] = 0
-#         self.cofacets = np.empty(self.nfacets)
-        
-#         if self.ordered:
-#             cell_list = [[] for i in range(self.ncells)]
-#             for i in range(self.ncells):
-#                 for j in self.facets[self.facet_ind[i]:self.facet_ind[i+1]]:
-#                     cell_list[j].append(i)
-                    
-#             for i in range(self.ncells):
-#                 self.cofacet_ind[i+1] = self.cofacet_ind[i] + len(cell_list[i])
-#                 self.cofacets[self.cofacet_ind[i]:self.cofacet_ind[i+1]] = cell_list[i]
-        
-        
-        
-        
-        
-#         if self.ordered:
-#             self.cofacets = [set() for i in range(len(self.facets))]
-
-#             for i in range(len(self.facets)):
-#                 for j in self.facets[i]:
-#                     self.cofacets[j].add(i)
-                    
-#         else:
-#             self.cofacets = {i:set() for i in self.facets}
-            
-#             for i in self.facets:
-#                 for j in self.facets[i]:
-#                     self.cofacets[j].add(i) 
+import phutil
 
 class CellComplex:
     
-    def __init__(self, dim, regular=True, oriented=False, ordered=True):
+    
+    def __init__(self, dim, reserve=64, regular=True, oriented=False, ordered=True):
+        
         self.dim = dim
+        self.ncells = 0
+        self.nfacets = 0
+        
         self.ordered = ordered
         self.regular = regular
         self.oriented = oriented
-        if self.ordered:
-            self.dims = []
-            self.facets = []
-        else:
-            self.dims = {}
-            self.facets = {}
         
+        
+        if not self.ordered:
+            self.cell_to_index = {}
+            
+        self.dims = np.empty(reserve, int)
+            
+        self.facet_ind = np.empty(reserve+1, int)
+        self.facet_ind[0] = 0
+        self.facets = np.empty(reserve, int)
+   
+        if not self.regular or self.oriented:
+            self.coeffs = np.empty(reserve, int)
+            
+        
+    # label only relevant if not ordered
+    # coeffs only relevant if not regular or is oriented
     def add_cell(self, dim, facets, label=None, coeffs=None):
-        if self.oriented or not self.regular:
-            f = {facet:coeff for (facet, coeff) in zip(facets, coeffs)}
-        else:
-            f = set(facets)            
-             
+        
+        # check if arrays need to be resized
+        if self.ncells + 1 > len(self.dims):
+            self.dims.resize(2*self.ncells)
+            self.facet_ind.resize(2*self.ncells+1)
+            
+        if self.nfacets + len(facets) > len(self.facets):
+            self.facets.resize(2*self.nfacets)
+            if not self.regular or self.oriented:
+                self.coeffs.resize(2*self.nfacets)
+        
+        if not self.ordered:
+            self.cell_to_index[label] = self.ncells
+                
+        self.dims[self.ncells] = dim
+        self.facet_ind[self.ncells+1] = self.facet_ind[self.ncells] + len(facets)
+        
+        self.facets[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = facets
+        if not self.regular or self.oriented:
+            self.coeffs[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = coeffs
+        
+        self.ncells += 1
+        self.nfacets += len(facets)
+        
+        
+    def make_compressed(self):
+        self.dims.resize(self.ncells)
+        self.facet_ind.resize(self.ncells+1)
+        self.facets.resize(self.nfacets)
+        if not self.regular or self.oriented:
+            self.coeffs.resize(self.nfacets)
+        
+    
+    def get_dim(self, alpha):
         if self.ordered:
-            if label is None:
-                self.dims.append(dim)
-                self.facets.append(f)
-            else:
-                self.dims.insert(label, dim)
-                self.facets.insert(label, f)
+            return self.dims[alpha]
         else:
-            if label is None:
-                self.dims[len(self.dims)] = dim
-                self.facets[len(self.facets)] = f
-            else:
-                self.dims[label] = dim
-                self.facets[label] = f
+            return self.dims[self.cell_to_index[alpha]]
+    
+    def get_facets(self, alpha):
+        if self.ordered:
+            index = alpha
+        else:
+            index = self.cell_to_index[alpha]
+            
+        return self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
+        
+    def get_coeffs(self, alpha):
+        if self.ordered:
+            index = alpha
+        else:
+            index = self.cell_to_index[alpha]
+            
+        facets = self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
+        coeffs = self.coeffs[self.facet_ind[index]:self.facet_ind[index+1]]
+        return dict(zip(facets, coeffs))        
+
+    
+    def get_cofacets(self, alpha):
+        if self.ordered:
+            index = alpha
+        else:
+            index = self.cell_to_index[alpha]
+            
+        return self.cofacets[self.cofacet_ind[index]:self.cofacet_ind[index+1]]
+    
             
     def get_cells(self):
         
         if self.ordered:
-            for i in range(len(self.facets)):
-                yield i
-                
+            for i in range(self.ncells):
+                yield i     
         else:
-            for i in self.facets:
+            for i in self.cell_to_index:
                 yield i
         
     def construct_cofacets(self):
         
-        if self.ordered:
-            self.cofacets = [set() for i in range(len(self.facets))]
-
-            for i in range(len(self.facets)):
-                for j in self.facets[i]:
-                    self.cofacets[j].add(i)
-                    
-        else:
-            self.cofacets = {i:set() for i in self.facets}
-            
-            for i in self.facets:
-                for j in self.facets[i]:
-                    self.cofacets[j].add(i) 
+        self.cofacet_ind = np.empty(self.ncells+1, int)
+        self.cofacet_ind[0] = 0
+        self.cofacets = np.empty(self.nfacets, int)
         
+        cell_list = [[] for i in range(self.ncells)]
+        if self.ordered:
+            for i in range(self.ncells):
+                for j in self.facets[self.facet_ind[i]:self.facet_ind[i+1]]:
+                        cell_list[j].append(i)
+        else:
+            for i in self.cell_to_index:
+                for j in self.facets[self.facet_ind[self.cell_to_index[i]]:self.facet_ind[self.cell_to_index[i]+1]]:
+                    cell_list[self.cell_to_index[j]].append(i)
+
+        for i in range(self.ncells):
+            self.cofacet_ind[i+1] = self.cofacet_ind[i] + len(cell_list[i])
+            self.cofacets[self.cofacet_ind[i]:self.cofacet_ind[i+1]] = cell_list[i]
     
             
 def construct_cubical_complex(shape, oriented=False, dual=False):
         
     dim = len(shape)
     
-    comp = CellComplex(dim, regular=True, oriented=oriented, ordered=True)
+    # comp = CellComplex(dim, reserve=64, regular=True, oriented=oriented, ordered=True)
+    
+    comp = phutil.CellComplex(dim, True, oriented, True)
     
     if dim == 2 and not dual:
         nrows = shape[0]
@@ -225,8 +157,8 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
             if oriented:
                 coeffs = []
             else:
-                coeffs = None
-            comp.add_cell(0, [], coeffs=coeffs)
+                coeffs = []
+            comp.add_cell(0, [], -1, coeffs)
         
         # horizontal edges
         for i in range(nrows):
@@ -234,8 +166,8 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [-1, 1]
                 else:
-                    coeffs = None
-                comp.add_cell(1, [ncols*i + j, ncols*i + j+1], coeffs=coeffs)
+                    coeffs = []
+                comp.add_cell(1, [ncols*i + j, ncols*i + j+1], -1, coeffs)
 
         # vertical edges
         for i in range(nrows-1):
@@ -243,8 +175,8 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [-1, 1]
                 else:
-                    coeffs = None
-                comp.add_cell(1, [ncols*i + j, ncols*(i+1) + j], coeffs=coeffs)
+                    coeffs = []
+                comp.add_cell(1, [ncols*i + j, ncols*(i+1) + j], -1, coeffs)
         
         # faces
         for i in range(nrows-1):
@@ -252,11 +184,11 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [1, 1, -1, -1]
                 else:
-                    coeffs = None
+                    coeffs = []
                 comp.add_cell(2, [nrows*ncols + (ncols-1)*i + j, 
                              nrows*ncols + (ncols-1)*nrows + ncols*i + j+1, 
                              nrows*ncols + (ncols-1)*(i+1) + j, 
-                             nrows*ncols + (ncols-1)*nrows + ncols*i + j], coeffs=coeffs)
+                             nrows*ncols + (ncols-1)*nrows + ncols*i + j], -1, coeffs)
                 
     elif dim == 2 and dual:
         nrows = shape[0]+1
@@ -273,11 +205,11 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [1, 1, -1, -1]
                 else:
-                    coeffs = None
+                    coeffs = []
                 comp.add_cell(2, [nfaces + (ncols-1)*i + j, 
                              nfaces + nhedges + ncols*i + j+1, 
                              nfaces + (ncols-1)*(i+1) + j, 
-                             nfaces + nhedges + ncols*i + j], coeffs=coeffs)
+                             nfaces + nhedges + ncols*i + j], -1, coeffs)
                 
                 
         # horizontal edges
@@ -286,9 +218,9 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [-1, 1]
                 else:
-                    coeffs = None
+                    coeffs = []
                 comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
-                                  nfaces + nhedges + nvedges + ncols*i + j+1], coeffs=coeffs)
+                                  nfaces + nhedges + nvedges + ncols*i + j+1], -1, coeffs)
 
         # vertical edges
         for i in range(nrows-1):
@@ -296,9 +228,9 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
                 if oriented:
                     coeffs = [-1, 1]
                 else:
-                    coeffs = None
+                    coeffs = []
                 comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
-                                  nfaces + nhedges + nvedges + ncols*(i+1) + j], coeffs=coeffs)
+                                  nfaces + nhedges + nvedges + ncols*(i+1) + j], -1, coeffs)
             
             
         # vertices
@@ -307,43 +239,44 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
             if oriented:
                 coeffs = []
             else:
-                coeffs = None
-            comp.add_cell(0, [], coeffs=coeffs)
+                coeffs = []
+            comp.add_cell(0, [], -1, coeffs)
         
         
         
-        
-        
+    comp.make_compressed() 
     
         
     return comp
    
 def check_boundary_op(comp):
     
-    valid = True
-    for i in comp.get_cells():
-        if comp.dims[i] > 0:
+    return phutil.check_boundary_op(comp);
+    
+#     valid = True
+#     for i in comp.get_cells():
+#         if comp.get_dim(i) > 0:
             
-            if not comp.regular or comp.oriented:
-                sub_faces = {}
-                for j in comp.facets[i]:
-                    for k in comp.facets[j]:
-                        sub_faces[k] = sub_faces.get(k, 0) + comp.facets[i][j] * comp.facets[j][k]
+#             if not comp.regular or comp.oriented:
+#                 sub_faces = {}
+#                 for j in comp.get_facets(i):
+#                     for k in comp.get_facets(j):
+#                         sub_faces[k] = sub_faces.get(k, 0) + comp.get_coeffs(i)[j] * comp.get_coeffs(j)[k]
                         
-                for j in sub_faces:
-                    if (comp.oriented and sub_faces[j] != 0) or (not comp.oriented and sub_faces[j] % 2 != 0):
-                        print("Error:", i, j, sub_faces[j])
-                        valid = False
-            else:
-                sub_faces = set()
-                for j in comp.facets[i]:
-                    sub_faces ^= comp.facets[j]
+#                 for j in sub_faces:
+#                     if (comp.oriented and sub_faces[j] != 0) or (not comp.oriented and sub_faces[j] % 2 != 0):
+#                         print("Error:", i, j, sub_faces[j])
+#                         valid = False
+#             else:
+#                 sub_faces = set()
+#                 for j in comp.get_facets(i):
+#                     sub_faces ^= set(comp.get_facets(j))
                    
-                if len(sub_faces) != 0:
-                    print("Error:", i, sub_faces)
-                    valid = False
+#                 if len(sub_faces) != 0:
+#                     print("Error:", i, sub_faces)
+#                     valid = False
                     
-    return valid
+#     return valid
             
     
     
@@ -400,8 +333,8 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
             
         # put vertices in queue if they have a previously submerged neighbor
         for a in unvisited:
-            for b in comp.cofacets[a]:
-                for c in comp.facets[b]:
+            for b in comp.get_cofacets(a):
+                for c in comp.get_facets(b):
                     if submerged[c]:
                         
                         if euclidean:
@@ -410,7 +343,7 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
                             new_dist = 1.0
                             
                         if a not in dist or new_dist < dist[a]:
-                            dist[a] = new_dist
+                            dist[a] = new_disget_t
                             Q.put([new_dist, a])
                             
                             if euclidean:
@@ -432,8 +365,8 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
             vertex_order[a] = ti
             ti += 1
               
-            for b in comp.cofacets[a]:
-                for c in comp.facets[b]:
+            for b in comp.get_cofacets(a):
+                for c in comp.get_facets(b):
                     if c in unvisited:
                     
                         if euclidean:
@@ -469,8 +402,8 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
                 vertex_order[a] = ti
                 ti += 1
                 
-                for b in comp.cofacets[a]:
-                    for c in comp.facets[b]:
+                for b in comp.get_cofacets(a):
+                    for c in comp.get_facets(b):
                         if c in unvisited:
 
                             if euclidean:
@@ -487,37 +420,39 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
     return vertex_order  
     
     
-def get_star(alpha, I, cell_dim=None, dims=None, insert_order=None):
+# def get_star(alpha, I, cell_dim=None, dims=None, insert_order=None):
       
-    if insert_order is not None:
-        STAR = 1
-        star_index = insert_order[alpha][STAR]
+#     if insert_order is not None:
+#         STAR = 1
+#         star_index = insert_order[alpha][STAR]
 
-    star = set()
+#     star = set()
 
-    Q = co.deque()
-    Q.append(alpha)
+#     Q = co.deque()
+#     Q.append(alpha)
 
-    while len(Q) > 0:
-        a = Q.popleft()
+#     while len(Q) > 0:
+#         a = Q.popleft()
 
-        if insert_order is None or star_index == insert_order[a][STAR]:
-            Q.extend(I[a])
-            if cell_dim is None or dims[a] == cell_dim:
-                star.add(a)
+#         if insert_order is None or star_index == insert_order[a][STAR]:
+#             Q.extend(I(a))
+#             if cell_dim is None or dims(a) == cell_dim:
+#                 star.add(a)
                 
-    return star
+#     return star
     
 
-def get_lex_val(alpha, I, cell_dim, dims, F):
+# # def get_lex_val(alpha, I, cell_dim, dims, F):
+# def get_lex_val(alpha, co, comp, target_dim, F):
     
-    lex_val = set()
+#     lex_val = set()
         
-    cells = get_star(alpha, I, cell_dim=cell_dim, dims=dims)
-    for c in cells:
-        lex_val.add((F[c], c))
+#     # cells = get_star(alpha, I, cell_dim=cell_dim, dims=dims)
+#     cells = phutil.get_star(alpha, co, comp, target_dim)
+#     for c in cells:
+#         lex_val.add((F[c], c))
         
-    return sorted(lex_val, reverse=True)
+#     return sorted(lex_val, reverse=True)
       
     
 # construct map of cells to insertion times
@@ -528,147 +463,157 @@ def get_lex_val(alpha, I, cell_dim, dims, F):
 # where the insertion index is found by computing the lexicographic order of the cells
 def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False):
     
-    order_to_time = vertex_time[np.argsort(vertex_order)]
+    
+    return phutil.construct_time_of_insertion_map(comp, vertex_order, vertex_time, dual)
+    
+#     order_to_time = vertex_time[np.argsort(vertex_order)]
                 
-    lex = []
+#     lex = []
     
-    if dual:
-        # Order by:
-        # 1. function value of cell whose upper costar this cell belongs to
-        # 2. cell dimension
-        # 3. lexicographic ordering of function values of highest dimension cofaces from high to low
-        for c in comp.get_cells():
-            lex_val = get_lex_val(c, comp.cofacets, comp.dim, comp.dims, vertex_order)
-            lex.append((lex_val[-1][0], comp.dims[c], lex_val, c, lex_val[-1][1]))
-    else:
-        # Order by:
-        # 1. function value of vertex whose lower star this cell belongs to
-        # 2. cell dimension
-        # 3. lexicographic ordering of function values of vertices from high to low
-        for c in comp.get_cells():
-            lex_val = get_lex_val(c, comp.facets, 0, comp.dims, vertex_order)
-            lex.append((lex_val[0][0], comp.dims[c], lex_val, c, lex_val[0][1]))
+#     if dual:
+#         # Order by:
+#         # 1. function value of cell whose upper costar this cell belongs to
+#         # 2. cell dimension
+#         # 3. lexicographic ordering of function values of highest dimension cofaces from high to low
+#         for c in comp.get_cells():
+#             # lex_val = get_lex_val(c, comp.get_cofacets, comp.dim, comp.get_dim, vertex_order) 
+#             lex_val = get_lex_val(c, False, comp, comp.dim, vertex_order) 
+#             lex.append((lex_val[-1][0], comp.get_dim(c), lex_val, c, lex_val[-1][1]))
+#     else:
+#         # Order by:
+#         # 1. function value of vertex whose lower star this cell belongs to
+#         # 2. cell dimension
+#         # 3. lexicographic ordering of function values of vertices from high to low
+#         for c in comp.get_cells():
+#             # lex_val = get_lex_val(c, comp.get_facets, 0, comp.get_dim, vertex_order)
+#             lex_val = get_lex_val(c, True, comp, 0, vertex_order) 
+#             lex.append((lex_val[0][0], comp.get_dim(c), lex_val, c, lex_val[0][1]))
       
-    lex = sorted(lex)
+#     lex = sorted(lex)
     
-    if comp.ordered:
-        insert_order = [None for c in comp.get_cells()]
-    else:
-        insert_order = {}
+#     if comp.ordered:
+#         # insert_order = [None for c in comp.get_cells()]
+#         insert_order = np.zeros([comp.ncells, 3], dtype=np.float64)
+#     else:
+#         insert_order = {}
     
-    for i, (star_val, d, lex_val, c, star) in enumerate(lex):
-        insert_order[c] = (order_to_time[star_val], star, i)  
+#     for i, (star_val, d, lex_val, c, star) in enumerate(lex):
+#         insert_order[c] = (order_to_time[star_val], star, i)  
 
-    return insert_order
+#     return insert_order
  
     
     
 def construct_discrete_gradient(comp, insert_order, dual=False):
     
-    STAR = 1
-    LEX = 2     
-        
-    V = {}
-        
-    # iterate through each vertex (or dual cell)
-    for x in comp.get_cells():
-        if (dual and comp.dims[x] != comp.dim) or (not dual and comp.dims[x] != 0):
-            continue
     
-        if dual:
-            # get upper costar
-            star = get_star(x, comp.facets, insert_order=insert_order)
-            # star = get_ulstar(x, comp.facets)
-        else:
-            # get lower star
-            star = get_star(x, comp.cofacets, insert_order=insert_order)
-            # star = get_ulstar(x, comp.cofacets)
-            
-        unpaired = {}
-            
-        if dual:
-            for alpha in star:
-                unpaired[alpha] = star & set(comp.cofacets[alpha])
-        else:
-            for alpha in star:
-                unpaired[alpha] = star & set(comp.facets[alpha])
-
-        # print("cell", x)
-        # print(star)
-        # print(unpaired)
+    return phutil.construct_discrete_gradient(comp, insert_order, dual)
         
-        PQone = queue.PriorityQueue()
-        PQzero = queue.PriorityQueue()
-
-        for alpha in star:
-            if len(unpaired[alpha]) == 0:
-                if dual:
-                    PQzero.put((-insert_order[alpha][LEX], alpha))
-                else:
-                    PQzero.put((insert_order[alpha][LEX], alpha))
-                    # print("zero", alpha)
-            elif len(unpaired[alpha]) == 1:
-                if dual:
-                    PQone.put((-insert_order[alpha][LEX], alpha))
-                else:
-                    PQone.put((insert_order[alpha][LEX], alpha))
-                    # print("one", alpha)
-                
-        while not PQone.empty() or not PQzero.empty():
+#     STAR = 1
+#     LEX = 2     
+        
+#     V = -np.ones(comp.ncells, int)
+#     # V = {}
+    
+#     # iterate through each vertex (or dual cell)
+#     for x in comp.get_cells():
+#         if (dual and comp.get_dim(x) != comp.dim) or (not dual and comp.get_dim(x) != 0):
+#             continue
+    
+#         if dual:
+#             # get upper costar
+#             # star = get_star(x, comp.get_facets, insert_order=insert_order)
+#             star = phutil.get_lower_star(x, True, comp, -1, insert_order)
+#         else:
+#             # get lower star
+#             # star = get_star(x, comp.get_cofacets, insert_order=insert_order)
+#             star = phutil.get_lower_star(x, False, comp, -1, insert_order)
             
-            while not PQone.empty():
-                (order, alpha) = PQone.get()
-                
-                if len(unpaired[alpha]) == 0:
-                    PQzero.put((order, alpha))
-                    continue
-                
-                beta = unpaired[alpha].pop()
-                if dual:
-                    V[alpha] = beta
-                else:
-                    V[beta] = alpha
-                
-                # print(beta, alpha)
-                
-                star.discard(alpha)
-                star.discard(beta)
-                
-                del unpaired[alpha]
-                for gamma in star:
-                    if alpha in unpaired[gamma] or beta in unpaired[gamma]:
-                        unpaired[gamma].discard(alpha)
-                        unpaired[gamma].discard(beta)
-                        
-                        if len(unpaired[gamma]) == 1:
-                            if dual:
-                                PQone.put((-insert_order[gamma][LEX], gamma))
-                            else:
-                                PQone.put((insert_order[gamma][LEX], gamma))
-                        
-                    
-            if not PQzero.empty():
-                (order, alpha) = PQzero.get()
-                if alpha in star:
-                    V[alpha] = alpha
-                    
-                    # print(alpha, alpha)
-                    
-                    star.discard(alpha)
-                    
-                    del unpaired[alpha]
-                    for gamma in star:
-                        if alpha in unpaired[gamma]:
-                            unpaired[gamma].discard(alpha)
+#         unpaired = {}
+            
+#         if dual:
+#             for alpha in star:
+#                 unpaired[alpha] = star & set(comp.get_cofacets(alpha))
+#         else:
+#             for alpha in star:
+#                 unpaired[alpha] = star & set(comp.get_facets(alpha))
 
-                            if len(unpaired[gamma]) == 1:
-                                if dual:
-                                    PQone.put((-insert_order[gamma][LEX], gamma))
-                                else:
-                                    PQone.put((insert_order[gamma][LEX], gamma))
+#         # print("cell", x)
+#         # print(star)
+#         # print(unpaired)
+        
+#         PQone = queue.PriorityQueue()
+#         PQzero = queue.PriorityQueue()
+
+#         for alpha in star:
+#             if len(unpaired[alpha]) == 0:
+#                 if dual:
+#                     PQzero.put((-insert_order[alpha][LEX], alpha))
+#                 else:
+#                     PQzero.put((insert_order[alpha][LEX], alpha))
+#                     # print("zero", alpha)
+#             elif len(unpaired[alpha]) == 1:
+#                 if dual:
+#                     PQone.put((-insert_order[alpha][LEX], alpha))
+#                 else:
+#                     PQone.put((insert_order[alpha][LEX], alpha))
+#                     # print("one", alpha)
+                
+#         while not PQone.empty() or not PQzero.empty():
+            
+#             while not PQone.empty():
+#                 (order, alpha) = PQone.get()
+                
+#                 if len(unpaired[alpha]) == 0:
+#                     PQzero.put((order, alpha))
+#                     continue
+                
+#                 beta = unpaired[alpha].pop()
+#                 if dual:
+#                     V[alpha] = beta
+#                 else:
+#                     V[beta] = alpha
+                
+#                 # print(beta, alpha)
+                
+#                 star.discard(alpha)
+#                 star.discard(beta)
+                
+#                 del unpaired[alpha]
+#                 for gamma in star:
+#                     if alpha in unpaired[gamma] or beta in unpaired[gamma]:
+#                         unpaired[gamma].discard(alpha)
+#                         unpaired[gamma].discard(beta)
+                        
+#                         if len(unpaired[gamma]) == 1:
+#                             if dual:
+#                                 PQone.put((-insert_order[gamma][LEX], gamma))
+#                             else:
+#                                 PQone.put((insert_order[gamma][LEX], gamma))
+                        
+                    
+#             if not PQzero.empty():
+#                 (order, alpha) = PQzero.get()
+#                 if alpha in star:
+#                     V[alpha] = alpha
+                    
+#                     # print(alpha, alpha)
+                    
+#                     star.discard(alpha)
+                    
+#                     del unpaired[alpha]
+#                     for gamma in star:
+#                         if alpha in unpaired[gamma]:
+#                             unpaired[gamma].discard(alpha)
+
+#                             if len(unpaired[gamma]) == 1:
+#                                 if dual:
+#                                     PQone.put((-insert_order[gamma][LEX], gamma))
+#                                 else:
+#                                     PQone.put((insert_order[gamma][LEX], gamma))
                                     
             
-    return V
+#     return V
 
     
 def reverse_discrete_gradient(V):
@@ -676,7 +621,12 @@ def reverse_discrete_gradient(V):
     coV = {}
     for x in V:
         coV[V[x]] = x
-        
+      
+    coV = -np.ones(len(V), int)
+    for x in range(len(V)):
+        if V[x] != -1:
+            coV[V[x]] = x
+    
     return coV
     
 
@@ -695,9 +645,10 @@ def traverse_flow(s, V, I, coordinated=False):
     while len(Q) > 0:
         a = Q.popleft()
         
-        for b in I[a]:    
+        for b in I(a):    
             
-            if b in V and V[b] != a:
+            # if b in V and V[b] != a:
+            if V[b] != -1 and V[b] != a:
                 c = V[b]     
                     
                 yield (a, b, c)    
@@ -717,7 +668,7 @@ def traverse_flow(s, V, I, coordinated=False):
 # c is the critical boundary cell
 # count is the total number of V-paths to from s to c
 # mult is the coefficient of the boundary operator
-def calc_morse_boundary(s, V, I, oriented=False):
+def calc_morse_boundary(s, V, I, coeff, oriented=False):
     
     counts = {s:1}
     boundary = set()
@@ -735,10 +686,10 @@ def calc_morse_boundary(s, V, I, oriented=False):
             boundary.add(c)
             
             if oriented:
-                mult[c] = mult.get(c, 0) + mult[a] * ( -I[a][b] )
+                mult[c] = mult.get(c, 0) + mult[a] * ( -coeff(a)[b] )
             
         elif oriented:
-            mult[c] = mult.get(c, 0) + mult[a] * ( -I[a][b] * I[c][b] )
+            mult[c] = mult.get(c, 0) + mult[a] * ( -coeff(a)[b] * coeff(c)[b] )
             
     for c in boundary:
         if oriented:
@@ -746,26 +697,30 @@ def calc_morse_boundary(s, V, I, oriented=False):
         else:
             yield (c, counts[c], counts[c] % 2) 
     
-def construct_morse_complex(V, I, comp, oriented=False):
+def construct_morse_complex(V, comp, oriented=False):
     
-    mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
+    # mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
     
-    for s in V:
+    mcomp = phutil.CellComplex(comp.dim, False, oriented, False)
+    
+    # for s in V:
+    for s in range(len(V)):
         if V[s] == s:
             facets = []
             coeffs = []
-            for (c, k, m) in calc_morse_boundary(s, V, I, oriented=oriented):
+            for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=oriented):
                 facets.append(c)
                 coeffs.append(m)
                 
                 if abs(m) > 1:
-                    print("Large Coefficient", k, m, comp.dims[c], comp.dims[s])
+                    print("Large Coefficient", k, m, comp.get_dim(c), comp.get_dim(s))
             
          
             # facets = [c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1]
                 
-            mcomp.add_cell(comp.dims[s], facets, label=s, coeffs=coeffs)
-            
+            mcomp.add_cell(comp.get_dim(s), facets, s, coeffs)
+       
+    mcomp.make_compressed()
     return mcomp
     
         
@@ -787,7 +742,7 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
     TIME = 0
     LEX = 2
         
-    crit_cells = {s for s in V if V[s] == s}
+    crit_cells = {s for s in range(len(V)) if V[s] == s}
         
     n = 0
     while True:
@@ -803,14 +758,14 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
                 
         for s in crit_cells:
             
-            if comp.dims[s] == 0:
+            if comp.get_dim(s) == 0:
                 continue
                 
-            # print("s", s, insert_order[s], comp.dims[s])
+            # print("s", s, insert_order[s], comp.get_dim(s))
             
             close_alpha = None
             close_alpha_time = None
-            for (c, k, m) in calc_morse_boundary(s, V, comp.facets, oriented=comp.oriented):
+            for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=comp.oriented):
 
                 if k == 1:
                     if close_alpha is None or ((insert_order[c][TIME], insert_order[c][LEX]) > close_alpha_time):
@@ -823,7 +778,7 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
                                 
             close_beta = None
             close_beta_time = None
-            for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.cofacets, oriented=comp.oriented):
+            for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.get_cofacets, comp.get_coeffs, oriented=comp.oriented):
                 if k == 1:
                     if close_beta is None or ((insert_order[c][TIME], insert_order[c][LEX]) < close_beta_time):
                         close_beta = c
@@ -847,10 +802,10 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
             if time > threshold:
                 break
         
-            # print(i, time, t, s, comp.dims[t], comp.dims[s])
+            # print(i, time, t, s, comp.get_dim(t), comp.get_dim(s))
             i += 1
             reverse_pairs = []
-            for (a, b, c) in find_connections(s, t, V, coV, comp.facets, comp.cofacets):
+            for (a, b, c) in find_connections(s, t, V, coV, comp.get_facets, comp.get_cofacets):
                 reverse_pairs.append((a, b))
                 
             for (a, b) in reverse_pairs:                
@@ -858,10 +813,14 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
                 
                 coV[a] = b
                 
-                if a in V:
-                    del V[a]
-                if b in coV:
-                    del coV[b]
+                V[a] = -1
+                coV[b] = -1
+                
+                
+                # if a in V:
+                #     del V[a]
+                # if b in coV:
+                #     del coV[b]
                     
             crit_cells.remove(t)
             crit_cells.remove(s)
@@ -887,22 +846,17 @@ def construct_filtration(comp, insert_order):
         (order, c) = Q.get()
         yield c
     
-    
-           
-        
-
-    
         
 def get_morse_weights(mcomp, V, coV, I, coI):
     
     weights = {}
     for s in mcomp.get_cells():
-        if mcomp.dims[s] == 0:
+        if mcomp.get_dim(s) == 0:
             weights[s] = 1
             continue
             
         cell = set()
-        for (t, m) in mcomp.facets[s].items():
+        for (t, m) in mcomp.get_facets(s).items():
             for (a, b, c) in find_connections(s, t, V, coV, I, coI):
                 cell.add(a)
          
@@ -929,24 +883,24 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
         # Z2 coefficients
         if not optimal_cycles:
             col = set()
-            for cj in comp.facets[ci]:
+            for cj in comp.get_facets(ci):
                 if comp.regular:
                     col.add(cell_to_col[cj])
                 else:
-                    if comp.facets[ci][cj] != 0:
+                    if comp.get_coeffs(ci)[cj] != 0:
                         col.add(cell_to_col[cj])
                 
             if birth_cycles:
                 columns.append(col)
             else:
-                columns.append((comp.dims[ci], sorted(col)))
+                columns.append((comp.get_dim(ci), sorted(col)))
                 
         # general coefficients
         else:
             col = {}
-            for cj in comp.facets[ci]:
-                if comp.facets[ci][cj] != 0:
-                    col[cell_to_col[cj]] = comp.facets[ci][cj]
+            for cj in comp.get_facets(ci):
+                if comp.get_facets(ci)[cj] != 0:
+                    col[cell_to_col[cj]] = comp.get_facets(ci)[cj]
 
             columns.append(col)
         
@@ -1029,7 +983,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
 
         bcycles = {}
         for i in range(len(columns)):
-            if len(columns[i]) > 0 or comp.dims[col_to_cell[i]] == 0:
+            if len(columns[i]) > 0 or comp.get_dim(col_to_cell[i]) == 0:
                 continue
 
             ci = col_to_cell[i]
@@ -1068,7 +1022,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
             if len(columns[j]) > 0:
                 pivot_row[j] = max(columns[j])
                
-            d = comp.dims[col_to_cell[j]]
+            d = comp.get_dim([col_to_cell[j]])
             if d > 0:
                 x_to_cell[d][cell_counts[d]] = col_to_cell[j]
                 cell_to_x[d][col_to_cell[j]] = cell_counts[d]
@@ -1208,7 +1162,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
             
             bcycles = {}
             for i in range(len(columns)):
-                if len(columns[i]) > 0 or comp.dims[col_to_cell[i]] == 0:
+                if len(columns[i]) > 0 or comp.get_dim(col_to_cell[i]) == 0:
                     continue
 
                 ci = col_to_cell[i]
@@ -1243,7 +1197,7 @@ def convert_to_pixels(feature, comp, insert_order, dual=False):
     
     for s in feature:
         
-        if comp.dims[s] == 0:
+        if comp.get_dim(s) == 0:
             if not dual:
                 
                 pixels.add(s)
@@ -1252,11 +1206,13 @@ def convert_to_pixels(feature, comp, insert_order, dual=False):
                 
                 #start replacing snippets here
                 
-                cofaces = get_star(s, comp.cofacets, cell_dim=comp.dim, dims=comp.dims)
+                # cofaces = get_star(s, comp.get_cofacets, cell_dim=comp.dim, dims=comp.get_dim)
+                cofaces = phutil.get_star(s, False, comp, comp.dim)
                         
                 for c in cofaces:
                     
-                    verts = get_star(c, comp.facets, cell_dim=0, dims=comp.dims)
+                    # verts = get_star(c, comp.get_facets, cell_dim=0, dims=comp.get_dim)
+                    verts = phutil.get_star(c, True, comp, 0)
                     
                     ucostar_verts = set()
                     for v in verts:
@@ -1290,23 +1246,23 @@ def convert_to_pixels(feature, comp, insert_order, dual=False):
                         if min_vert in feature:
                             pixels.add(c)
                             
-        elif comp.dims[s] == 1:
+        elif comp.get_dim(s) == 1:
             
             if not dual:
                 
-                pixels.update(comp.facets[s])
+                pixels.update(comp.get_facets[s])
                 
             else:
                         
-                ucostar = insert_order[s][STAR]
+                ucostar = int(insert_order[s][STAR])
                     
                 pixels.add(ucostar)
                 
-        elif comp.dims[s] == 2:
+        elif comp.get_dim(s) == 2:
             
             if not dual:
-                for c in comp.facets[s]:
-                    pixels.update(comp.facets[c])
+                for c in comp.get_facets[s]:
+                    pixels.update(comp.get_facets[c])
                     
             else:
                 
@@ -1324,14 +1280,14 @@ def find_basins(mcomp, coV, comp, insert_order, dual=False):
     STAR = 1
     
     for c in mcomp.get_cells():
-        if mcomp.dims[c] == 0:
+        if mcomp.get_dim(c) == 0:
             
             if dual:
-                index = insert_order[c][STAR]
+                index = int(insert_order[c][STAR])
             else:
                 index = c
                 
-            basins[index] = convert_to_pixels(convert_morse_to_real_complex({c}, coV, comp.cofacets), 
+            basins[index] = convert_to_pixels(convert_morse_to_real_complex({c}, coV, comp.get_cofacets), 
                                                 comp, insert_order, dual=dual)
      
    
@@ -1341,9 +1297,10 @@ def find_basins(mcomp, coV, comp, insert_order, dual=False):
 def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
     skeleton = set()
     
-    for s in V:
-        if V[s] == s and mcomp.dims[s] == d:
-            feature = convert_to_pixels(convert_morse_to_real_complex({s}, V, comp.facets), comp, insert_order, dual=dual)
+    # for s in V:
+    for s in range(len(V)):
+        if V[s] == s and mcomp.get_dim(s) == d:
+            feature = convert_to_pixels(convert_morse_to_real_complex({s}, V, comp.get_facets), comp, insert_order, dual=dual)
             skeleton.update(feature)
             
             
@@ -1363,9 +1320,9 @@ def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
     STAR = 1
     LEX = 2
         
-    if comp.dims[i] == 0:
-        I = mcomp.facets
-        coI = mcomp.cofacets
+    if comp.get_dim(i) == 0:
+        I = mcomp.get_facets
+        coI = mcomp.get_cofacets
         
         barrier_test = lambda b: insert_order[b][TIME] >= insert_order[j][TIME]
         
@@ -1373,8 +1330,8 @@ def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
         Q = co.deque([i])
     
     else:
-        I = mcomp.cofacets
-        coI = coI = mcomp.facets
+        I = mcomp.get_cofacets
+        coI = mcomp.get_facets
         
         barrier_test = lambda b: insert_order[b][TIME] <= insert_order[i][TIME]
         
@@ -1383,19 +1340,20 @@ def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
     
     while len(Q) > 0:
         a = Q.popleft()
-        for b in coI[a]:
+        for b in coI(a):
             if barrier_test(b):
                 continue
                 
-            for c in I[b]:
+            for c in I(b):
+                
                 if c != a and c not in seen:
                     Q.append(c)
                     seen.add(c)
             
-    if comp.dims[i] == 0:
-        feature = convert_morse_to_real_complex(seen, coV, comp.cofacets)
+    if comp.get_dim(i) == 0:
+        feature = convert_morse_to_real_complex(seen, coV, comp.get_cofacets)
     else:
-        feature = convert_morse_to_real_complex(seen, V, comp.facets)
+        feature = convert_morse_to_real_complex(seen, V, comp.get_facets)
     
     return feature
         
@@ -1407,7 +1365,7 @@ def get_boundary(cells, comp):
     
     if comp.regular:
         for c in cells:
-            cycle ^= comp.facets[c]
+            cycle ^= set(comp.get_facets(c))
         
     return cycle
 
