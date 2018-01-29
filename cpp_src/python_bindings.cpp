@@ -3,7 +3,9 @@
 #define LEX 2
 
 #include "cell_complex.hpp"
-#include "persistent_homology_algs.hpp"
+#include "filtration.hpp"
+#include "morse.hpp"
+#include "persistent_homology.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -40,14 +42,24 @@ PYBIND11_MODULE(phutil, m) {
     
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
-    m.def("construct_vertex_filtration_order", &construct_vertex_filtration_order,
-         "Finds a valid ordering for cells with explicitly defined Morse function values in a cell complex.");
-    m.def("get_star", &get_star,
+    
+    
+    
+     m.def("get_star", &get_star,
          "Finds the star/costar of a give cell.");
     m.def("get_lower_star", &get_lower_star,
          "Finds the lower star/upper costar of a cell with a given Morse function defined by a complete cell filtration order.");
+    
+    
+    
+    m.def("construct_vertex_filtration_order", &construct_vertex_filtration_order,
+         "Finds a valid ordering for cells with explicitly defined Morse function values in a cell complex.");
     m.def("construct_time_of_insertion_map", &construct_time_of_insertion_map,
          "Constructs a complete cell filtration order.");
+    
+    
+    
+    
     m.def("construct_discrete_gradient", &construct_discrete_gradient,
          "Constructs the discrete gradient of a Morse function given a complete cell filtration order.");
     m.def("traverse_flow", &traverse_flow);

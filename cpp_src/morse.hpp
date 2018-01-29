@@ -1,5 +1,5 @@
-#ifndef CELLCOMPLEXALGS
-#define CELLCOMPLEXALGS
+#ifndef MORSE
+#define MORSE
    
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -292,9 +292,9 @@ std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int targ
 
 std::unordered_set<int> get_lower_star(int alpha, bool co, CellComplex &comp, int target_dim, py::array_t<double> insert_order) {
     
-    auto order = insert_order.unchecked<2>();
+    auto iorder = insert_order.unchecked<2>();
     
-    int star_index = order(alpha, STAR);
+    int star_index = iorder(alpha, STAR);
     
     std::unordered_set<int> star;
     
@@ -305,7 +305,7 @@ std::unordered_set<int> get_lower_star(int alpha, bool co, CellComplex &comp, in
         int a = Q.front();
         Q.pop();
         
-        if(star_index == order(a, STAR)) {
+        if(star_index == iorder(a, STAR)) {
             
             // These are purposely backwards
             // Explore cofacets for star and facets for costar
@@ -1225,4 +1225,4 @@ std::unordered_set<int> get_boundary(std::unordered_set<int> &cells, CellComplex
 }
 
     
-#endif // CELLCOMPLEXALGS
+#endif // MORSE
