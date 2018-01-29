@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <iostream>
+#include <utility>
     
 class CellComplex {
     
@@ -68,58 +69,56 @@ public:
         }
     }
     
-    std::vector<int>* get_facets(int alpha) {
+    std::vector<int> get_facets(int alpha) {
         int index = ordered ? alpha : cell_to_index[alpha];
         
-        return new std::vector<int>(facets.begin()+facet_ind[index], facets.begin()+facet_ind[index+1]);
+        return std::vector<int>(facets.begin()+facet_ind[index], facets.begin()+facet_ind[index+1]);
     }
                       
-    std::unordered_map<int, int>* get_coeffs(int alpha) {
+    std::unordered_map<int, int> get_coeffs(int alpha) {
         int index = ordered ? alpha : cell_to_index[alpha];
         
-        std::unordered_map<int, int>* coeff_map = new std::unordered_map<int, int>();
+        std::unordered_map<int, int> coeff_map;
                 
         for(int i = facet_ind[index]; i < facet_ind[index+1]; i++) {
-            (*coeff_map)[facets[i]] = coeffs[i];
+            coeff_map[facets[i]] = coeffs[i];
         }
                 
         return coeff_map;
-        
-        // return new std::vector<int>(coeffs.begin()+facet_ind[index], coeffs.begin()+facet_ind[index+1]);
-        
+                
     }
     
-    std::vector<int>* get_cofacets(int alpha) {
+    std::vector<int> get_cofacets(int alpha) {
         int index = ordered ? alpha : cell_to_index[alpha];
         
-        return new std::vector<int>(cofacets.begin()+cofacet_ind[index], cofacets.begin()+cofacet_ind[index+1]);
+        return std::vector<int>(cofacets.begin()+cofacet_ind[index], cofacets.begin()+cofacet_ind[index+1]);
     }
     
-    void get_facets(int alpha, std::vector<int>::iterator &begin, std::vector<int>::iterator &end) {
+    
+    
+    std::pair<std::vector<int>::iterator, std::vector<int>::iterator> get_facet_range(int alpha) {
         int index = ordered ? alpha : cell_to_index[alpha];
-        
-        begin = facets.begin()+facet_ind[index];
-        end = facets.begin()+facet_ind[index+1];
+        return std::make_pair(facets.begin()+facet_ind[index], facets.begin()+facet_ind[index+1]);
     }
     
-    void get_cofacets(int alpha, std::vector<int>::iterator &begin, std::vector<int>::iterator &end) {
+    std::pair<std::vector<int>::iterator, std::vector<int>::iterator> get_cofacet_range(int alpha) {
         int index = ordered ? alpha : cell_to_index[alpha];
-        
-        begin = cofacets.begin()+cofacet_ind[index];
-        end = cofacets.begin()+cofacet_ind[index+1];
+        return std::make_pair(cofacets.begin()+cofacet_ind[index], cofacets.begin()+cofacet_ind[index+1]);
     }
     
-    std::vector<int>* get_cells() {
-        std::vector<int>* cells = new std::vector<int>();
+    
+    
+    std::vector<int> get_cells() {
+        std::vector<int> cells;
         
         // convert to ranged based for loop
         if(ordered) {
             for(int i = 0; i < ncells; i++) {
-                cells->push_back(i);
+                cells.push_back(i);
             }
         } else {
             for(auto it=cell_to_index.begin(); it!=cell_to_index.end(); ++it) {
-                cells->push_back(it->first);
+                cells.push_back(it->first);
             }
         }
         
@@ -127,10 +126,7 @@ public:
     }
     
     void construct_cofacets() {
-         
-        // std::cout << "hi" <<std::endl;
-        
-        // convert to ranged based for loop
+                 
         std::vector<std::vector<int> > cell_list(ncells, std::vector<int>());
         if(ordered) {
             for(int i = 0; i < ncells; i++) {
@@ -140,9 +136,16 @@ public:
                 }
             }
         } else {
-            for(auto i=cell_to_index.begin(); i!=cell_to_index.end(); ++i) {
-                for(auto j=facets.begin()+facet_ind[i->second]; j!=facets.begin()+facet_ind[(i->second)+1]; j++) {
-                    cell_list[cell_to_index[*j]].push_back(i->first);
+            // for(auto i=cell_to_index.begin(); i!=cell_to_index.end(); ++i) {
+            for(auto i: cell_to_index) {
+                
+                // for(auto j=facets.begin()+facet_ind[i->second]; j!=facets.begin()+facet_ind[(i->second)+1]; j++) {
+                //     cell_list[cell_to_index[*j]].push_back(i->first);
+                // }
+                
+                auto range = get_facet_range(i.first);
+                for(auto itj = range.first; itj != range.second; itj++) {
+                    cell_list[cell_to_index[*itj]].push_back(i.first);
                 }
             }
         }
@@ -156,6 +159,163 @@ public:
     }
        
 };
+
+
+CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bool dual) {
+    
+    int dim = shape.size();
+    
+    CellComplex comp(dim, true, oriented, true);
+    
+    if(dim == 2 and !dual) {
+        int nrows = shape[0];
+        int ncols = shape[1];
+        
+        // vertices
+        for(int i = 0; i < nrows*ncols; i++) {
+            std::vector<int> facets;
+            std::vector<int> coeffs;
+            comp.add_cell(0, facets, -1, coeffs);
+        }
+        
+        // horizontal edges
+        for(int i = 0; i < nrows; i++) {
+            for(int j = 0; j < ncols-1; j++) {
+                std::vector<int> facets;                
+                facets.push_back(ncols*i + j);
+                facets.push_back(ncols*i + j+1);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(-1);
+                    coeffs.push_back(1);
+                }
+                
+                comp.add_cell(1, facets, -1, coeffs);
+                
+            }
+        }
+        
+        // vertical edges
+        for(int i = 0; i < nrows-1; i++) {
+            for(int j = 0; j < ncols; j++) {
+                std::vector<int> facets;                
+                facets.push_back(ncols*i + j);
+                facets.push_back(ncols*(i+1) + j);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(-1);
+                    coeffs.push_back(1);
+                }
+                
+                comp.add_cell(1, facets, -1, coeffs);
+                
+            }
+        }
+        
+        // faces
+        for(int i = 0; i < nrows-1; i++) {
+            for(int j = 0; j < ncols-1; j++) {
+                std::vector<int> facets;                
+                facets.push_back(nrows*ncols + (ncols-1)*i + j);
+                facets.push_back(nrows*ncols + (ncols-1)*nrows + ncols*i + j+1);
+                facets.push_back(nrows*ncols + (ncols-1)*(i+1) + j);
+                facets.push_back(nrows*ncols + (ncols-1)*nrows + ncols*i + j);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(1);
+                    coeffs.push_back(1);
+                    coeffs.push_back(-1);
+                    coeffs.push_back(-1);
+                }
+                
+                comp.add_cell(2, facets, -1, coeffs);
+                
+            }
+        }
+    } else if(dim == 2 and dual) {
+        int nrows = shape[0]+1;
+        int ncols = shape[1]+1;
+        
+        int nhedges = nrows*(ncols-1);
+        int nvedges = (nrows-1)*ncols;
+        int nfaces = (nrows-1)*(ncols-1);
+        
+        // faces
+        for(int i = 0; i < nrows-1; i++) {
+            for(int j = 0; j < ncols-1; j++) {
+                std::vector<int> facets;                
+                facets.push_back(nfaces + (ncols-1)*i + j);
+                facets.push_back(nfaces + nhedges + ncols*i + j+1);
+                facets.push_back(nfaces + (ncols-1)*(i+1) + j);
+                facets.push_back(nfaces + nhedges + ncols*i + j);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(1);
+                    coeffs.push_back(1);
+                    coeffs.push_back(-1);
+                    coeffs.push_back(-1);
+                }
+                
+                comp.add_cell(2, facets, -1, coeffs);
+                
+            }
+        }
+        
+        // horizontal edges
+        for(int i = 0; i < nrows; i++) {
+            for(int j = 0; j < ncols-1; j++) {
+                std::vector<int> facets;                
+                facets.push_back(nfaces + nhedges + nvedges + ncols*i + j);
+                facets.push_back(nfaces + nhedges + nvedges + ncols*i + j+1);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(-1);
+                    coeffs.push_back(1);
+                }
+                
+                comp.add_cell(1, facets, -1, coeffs);
+                
+            }
+        }
+        
+        // vertical edges
+        for(int i = 0; i < nrows-1; i++) {
+            for(int j = 0; j < ncols; j++) {
+                std::vector<int> facets;                
+                facets.push_back(nfaces + nhedges + nvedges + ncols*i + j);
+                facets.push_back(nfaces + nhedges + nvedges + ncols*(i+1) + j);
+                
+                std::vector<int> coeffs;
+                if(oriented) {
+                    coeffs.push_back(-1);
+                    coeffs.push_back(1);
+                }
+                
+                comp.add_cell(1, facets, -1, coeffs);
+                
+            }
+        }
+        
+        // vertices
+        for(int i = 0; i < nrows*ncols; i++) {
+            std::vector<int> facets;
+            std::vector<int> coeffs;
+            comp.add_cell(0, facets, -1, coeffs);
+        }
+
+    }
+    
+    comp.construct_cofacets();
+    comp.make_compressed(); 
+        
+    return comp;
+    
+}
 
 
 #endif // CELLCOMPLEX

@@ -12,242 +12,244 @@ import queue
 import collections as co
 import phutil
 
-class CellComplex:
+# class CellComplex:
     
     
-    def __init__(self, dim, reserve=64, regular=True, oriented=False, ordered=True):
+#     def __init__(self, dim, reserve=64, regular=True, oriented=False, ordered=True):
         
-        self.dim = dim
-        self.ncells = 0
-        self.nfacets = 0
+#         self.dim = dim
+#         self.ncells = 0
+#         self.nfacets = 0
         
-        self.ordered = ordered
-        self.regular = regular
-        self.oriented = oriented
+#         self.ordered = ordered
+#         self.regular = regular
+#         self.oriented = oriented
         
         
-        if not self.ordered:
-            self.cell_to_index = {}
+#         if not self.ordered:
+#             self.cell_to_index = {}
             
-        self.dims = np.empty(reserve, int)
+#         self.dims = np.empty(reserve, int)
             
-        self.facet_ind = np.empty(reserve+1, int)
-        self.facet_ind[0] = 0
-        self.facets = np.empty(reserve, int)
+#         self.facet_ind = np.empty(reserve+1, int)
+#         self.facet_ind[0] = 0
+#         self.facets = np.empty(reserve, int)
    
-        if not self.regular or self.oriented:
-            self.coeffs = np.empty(reserve, int)
+#         if not self.regular or self.oriented:
+#             self.coeffs = np.empty(reserve, int)
             
         
-    # label only relevant if not ordered
-    # coeffs only relevant if not regular or is oriented
-    def add_cell(self, dim, facets, label=None, coeffs=None):
+#     # label only relevant if not ordered
+#     # coeffs only relevant if not regular or is oriented
+#     def add_cell(self, dim, facets, label=None, coeffs=None):
         
-        # check if arrays need to be resized
-        if self.ncells + 1 > len(self.dims):
-            self.dims.resize(2*self.ncells)
-            self.facet_ind.resize(2*self.ncells+1)
+#         # check if arrays need to be resized
+#         if self.ncells + 1 > len(self.dims):
+#             self.dims.resize(2*self.ncells)
+#             self.facet_ind.resize(2*self.ncells+1)
             
-        if self.nfacets + len(facets) > len(self.facets):
-            self.facets.resize(2*self.nfacets)
-            if not self.regular or self.oriented:
-                self.coeffs.resize(2*self.nfacets)
+#         if self.nfacets + len(facets) > len(self.facets):
+#             self.facets.resize(2*self.nfacets)
+#             if not self.regular or self.oriented:
+#                 self.coeffs.resize(2*self.nfacets)
         
-        if not self.ordered:
-            self.cell_to_index[label] = self.ncells
+#         if not self.ordered:
+#             self.cell_to_index[label] = self.ncells
                 
-        self.dims[self.ncells] = dim
-        self.facet_ind[self.ncells+1] = self.facet_ind[self.ncells] + len(facets)
+#         self.dims[self.ncells] = dim
+#         self.facet_ind[self.ncells+1] = self.facet_ind[self.ncells] + len(facets)
         
-        self.facets[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = facets
-        if not self.regular or self.oriented:
-            self.coeffs[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = coeffs
+#         self.facets[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = facets
+#         if not self.regular or self.oriented:
+#             self.coeffs[self.facet_ind[self.ncells]:self.facet_ind[self.ncells+1]] = coeffs
         
-        self.ncells += 1
-        self.nfacets += len(facets)
+#         self.ncells += 1
+#         self.nfacets += len(facets)
         
         
-    def make_compressed(self):
-        self.dims.resize(self.ncells)
-        self.facet_ind.resize(self.ncells+1)
-        self.facets.resize(self.nfacets)
-        if not self.regular or self.oriented:
-            self.coeffs.resize(self.nfacets)
+#     def make_compressed(self):
+#         self.dims.resize(self.ncells)
+#         self.facet_ind.resize(self.ncells+1)
+#         self.facets.resize(self.nfacets)
+#         if not self.regular or self.oriented:
+#             self.coeffs.resize(self.nfacets)
         
     
-    def get_dim(self, alpha):
-        if self.ordered:
-            return self.dims[alpha]
-        else:
-            return self.dims[self.cell_to_index[alpha]]
+#     def get_dim(self, alpha):
+#         if self.ordered:
+#             return self.dims[alpha]
+#         else:
+#             return self.dims[self.cell_to_index[alpha]]
     
-    def get_facets(self, alpha):
-        if self.ordered:
-            index = alpha
-        else:
-            index = self.cell_to_index[alpha]
+#     def get_facets(self, alpha):
+#         if self.ordered:
+#             index = alpha
+#         else:
+#             index = self.cell_to_index[alpha]
             
-        return self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
+#         return self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
         
-    def get_coeffs(self, alpha):
-        if self.ordered:
-            index = alpha
-        else:
-            index = self.cell_to_index[alpha]
+#     def get_coeffs(self, alpha):
+#         if self.ordered:
+#             index = alpha
+#         else:
+#             index = self.cell_to_index[alpha]
             
-        facets = self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
-        coeffs = self.coeffs[self.facet_ind[index]:self.facet_ind[index+1]]
-        return dict(zip(facets, coeffs))        
+#         facets = self.facets[self.facet_ind[index]:self.facet_ind[index+1]]
+#         coeffs = self.coeffs[self.facet_ind[index]:self.facet_ind[index+1]]
+#         return dict(zip(facets, coeffs))        
 
     
-    def get_cofacets(self, alpha):
-        if self.ordered:
-            index = alpha
-        else:
-            index = self.cell_to_index[alpha]
+#     def get_cofacets(self, alpha):
+#         if self.ordered:
+#             index = alpha
+#         else:
+#             index = self.cell_to_index[alpha]
             
-        return self.cofacets[self.cofacet_ind[index]:self.cofacet_ind[index+1]]
+#         return self.cofacets[self.cofacet_ind[index]:self.cofacet_ind[index+1]]
     
             
-    def get_cells(self):
+#     def get_cells(self):
         
-        if self.ordered:
-            for i in range(self.ncells):
-                yield i     
-        else:
-            for i in self.cell_to_index:
-                yield i
+#         if self.ordered:
+#             for i in range(self.ncells):
+#                 yield i     
+#         else:
+#             for i in self.cell_to_index:
+#                 yield i
         
-    def construct_cofacets(self):
+#     def construct_cofacets(self):
         
-        self.cofacet_ind = np.empty(self.ncells+1, int)
-        self.cofacet_ind[0] = 0
-        self.cofacets = np.empty(self.nfacets, int)
+#         self.cofacet_ind = np.empty(self.ncells+1, int)
+#         self.cofacet_ind[0] = 0
+#         self.cofacets = np.empty(self.nfacets, int)
         
-        cell_list = [[] for i in range(self.ncells)]
-        if self.ordered:
-            for i in range(self.ncells):
-                for j in self.facets[self.facet_ind[i]:self.facet_ind[i+1]]:
-                        cell_list[j].append(i)
-        else:
-            for i in self.cell_to_index:
-                for j in self.facets[self.facet_ind[self.cell_to_index[i]]:self.facet_ind[self.cell_to_index[i]+1]]:
-                    cell_list[self.cell_to_index[j]].append(i)
+#         cell_list = [[] for i in range(self.ncells)]
+#         if self.ordered:
+#             for i in range(self.ncells):
+#                 for j in self.facets[self.facet_ind[i]:self.facet_ind[i+1]]:
+#                         cell_list[j].append(i)
+#         else:
+#             for i in self.cell_to_index:
+#                 for j in self.facets[self.facet_ind[self.cell_to_index[i]]:self.facet_ind[self.cell_to_index[i]+1]]:
+#                     cell_list[self.cell_to_index[j]].append(i)
 
-        for i in range(self.ncells):
-            self.cofacet_ind[i+1] = self.cofacet_ind[i] + len(cell_list[i])
-            self.cofacets[self.cofacet_ind[i]:self.cofacet_ind[i+1]] = cell_list[i]
+#         for i in range(self.ncells):
+#             self.cofacet_ind[i+1] = self.cofacet_ind[i] + len(cell_list[i])
+#             self.cofacets[self.cofacet_ind[i]:self.cofacet_ind[i+1]] = cell_list[i]
     
             
 def construct_cubical_complex(shape, oriented=False, dual=False):
         
-    dim = len(shape)
+    return phutil.construct_cubical_complex(shape, oriented, dual)
+        
+#     dim = len(shape)
     
-    # comp = CellComplex(dim, reserve=64, regular=True, oriented=oriented, ordered=True)
+#     # comp = CellComplex(dim, reserve=64, regular=True, oriented=oriented, ordered=True)
     
-    comp = phutil.CellComplex(dim, True, oriented, True)
+#     comp = phutil.CellComplex(dim, True, oriented, True)
     
-    if dim == 2 and not dual:
-        nrows = shape[0]
-        ncols = shape[1]
+#     if dim == 2 and not dual:
+#         nrows = shape[0]
+#         ncols = shape[1]
           
-        # vertices
-        for i in range(nrows*ncols):
+#         # vertices
+#         for i in range(nrows*ncols):
             
-            if oriented:
-                coeffs = []
-            else:
-                coeffs = []
-            comp.add_cell(0, [], -1, coeffs)
+#             if oriented:
+#                 coeffs = []
+#             else:
+#                 coeffs = []
+#             comp.add_cell(0, [], -1, coeffs)
         
-        # horizontal edges
-        for i in range(nrows):
-            for j in range(ncols-1):
-                if oriented:
-                    coeffs = [-1, 1]
-                else:
-                    coeffs = []
-                comp.add_cell(1, [ncols*i + j, ncols*i + j+1], -1, coeffs)
+#         # horizontal edges
+#         for i in range(nrows):
+#             for j in range(ncols-1):
+#                 if oriented:
+#                     coeffs = [-1, 1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(1, [ncols*i + j, ncols*i + j+1], -1, coeffs)
 
-        # vertical edges
-        for i in range(nrows-1):
-            for j in range(ncols):
-                if oriented:
-                    coeffs = [-1, 1]
-                else:
-                    coeffs = []
-                comp.add_cell(1, [ncols*i + j, ncols*(i+1) + j], -1, coeffs)
+#         # vertical edges
+#         for i in range(nrows-1):
+#             for j in range(ncols):
+#                 if oriented:
+#                     coeffs = [-1, 1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(1, [ncols*i + j, ncols*(i+1) + j], -1, coeffs)
         
-        # faces
-        for i in range(nrows-1):
-            for j in range(ncols-1):
-                if oriented:
-                    coeffs = [1, 1, -1, -1]
-                else:
-                    coeffs = []
-                comp.add_cell(2, [nrows*ncols + (ncols-1)*i + j, 
-                             nrows*ncols + (ncols-1)*nrows + ncols*i + j+1, 
-                             nrows*ncols + (ncols-1)*(i+1) + j, 
-                             nrows*ncols + (ncols-1)*nrows + ncols*i + j], -1, coeffs)
+#         # faces
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 if oriented:
+#                     coeffs = [1, 1, -1, -1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(2, [nrows*ncols + (ncols-1)*i + j, 
+#                              nrows*ncols + (ncols-1)*nrows + ncols*i + j+1, 
+#                              nrows*ncols + (ncols-1)*(i+1) + j, 
+#                              nrows*ncols + (ncols-1)*nrows + ncols*i + j], -1, coeffs)
                 
-    elif dim == 2 and dual:
-        nrows = shape[0]+1
-        ncols = shape[1]+1
+#     elif dim == 2 and dual:
+#         nrows = shape[0]+1
+#         ncols = shape[1]+1
         
-        nverts = nrows*ncols
-        nhedges = nrows*(ncols-1)
-        nvedges = (nrows-1)*ncols
-        nfaces = (nrows-1)*(ncols-1)
+#         nverts = nrows*ncols
+#         nhedges = nrows*(ncols-1)
+#         nvedges = (nrows-1)*ncols
+#         nfaces = (nrows-1)*(ncols-1)
                 
-        # faces
-        for i in range(nrows-1):
-            for j in range(ncols-1):
-                if oriented:
-                    coeffs = [1, 1, -1, -1]
-                else:
-                    coeffs = []
-                comp.add_cell(2, [nfaces + (ncols-1)*i + j, 
-                             nfaces + nhedges + ncols*i + j+1, 
-                             nfaces + (ncols-1)*(i+1) + j, 
-                             nfaces + nhedges + ncols*i + j], -1, coeffs)
+#         # faces
+#         for i in range(nrows-1):
+#             for j in range(ncols-1):
+#                 if oriented:
+#                     coeffs = [1, 1, -1, -1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(2, [nfaces + (ncols-1)*i + j, 
+#                              nfaces + nhedges + ncols*i + j+1, 
+#                              nfaces + (ncols-1)*(i+1) + j, 
+#                              nfaces + nhedges + ncols*i + j], -1, coeffs)
                 
                 
-        # horizontal edges
-        for i in range(nrows):
-            for j in range(ncols-1):
-                if oriented:
-                    coeffs = [-1, 1]
-                else:
-                    coeffs = []
-                comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
-                                  nfaces + nhedges + nvedges + ncols*i + j+1], -1, coeffs)
+#         # horizontal edges
+#         for i in range(nrows):
+#             for j in range(ncols-1):
+#                 if oriented:
+#                     coeffs = [-1, 1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
+#                                   nfaces + nhedges + nvedges + ncols*i + j+1], -1, coeffs)
 
-        # vertical edges
-        for i in range(nrows-1):
-            for j in range(ncols):
-                if oriented:
-                    coeffs = [-1, 1]
-                else:
-                    coeffs = []
-                comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
-                                  nfaces + nhedges + nvedges + ncols*(i+1) + j], -1, coeffs)
+#         # vertical edges
+#         for i in range(nrows-1):
+#             for j in range(ncols):
+#                 if oriented:
+#                     coeffs = [-1, 1]
+#                 else:
+#                     coeffs = []
+#                 comp.add_cell(1, [nfaces + nhedges + nvedges + ncols*i + j, 
+#                                   nfaces + nhedges + nvedges + ncols*(i+1) + j], -1, coeffs)
             
             
-        # vertices
-        for i in range(nrows*ncols):
+#         # vertices
+#         for i in range(nrows*ncols):
             
-            if oriented:
-                coeffs = []
-            else:
-                coeffs = []
-            comp.add_cell(0, [], -1, coeffs)
+#             if oriented:
+#                 coeffs = []
+#             else:
+#                 coeffs = []
+#             comp.add_cell(0, [], -1, coeffs)
         
         
         
-    comp.make_compressed() 
+#     comp.make_compressed() 
     
         
-    return comp
+#     return comp
    
 def check_boundary_op(comp):
     
@@ -280,144 +282,140 @@ def check_boundary_op(comp):
             
     
     
-def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None):
+def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None, dual=False):
     
+    return phutil.construct_vertex_filtration_order(comp, vertex_time, dual)
     
-    vertex_order = np.zeros(len(vertex_time), int)
+#     vertex_order = np.zeros(len(vertex_time), int)
         
-    submerged = np.zeros(len(vertex_time), bool)
+#     submerged = np.zeros(len(vertex_time), bool)
         
-    vertex_argsort = list(np.argsort(vertex_time)[::-1])
+#     vertex_argsort = list(np.argsort(vertex_time)[::-1])
         
-    
-    visited = set()
-    count = 0
-    
-    ti = 0
-    while len(vertex_argsort) > 0:
-        unvisited = set()
+#     if dual:
+#         coI = comp.get_facets
+#         I = comp.get_cofacets
+#     else:
+#         coI = comp.get_cofacets
+#         I = comp.get_facets
+        
+#     ti = 0
+#     while len(vertex_argsort) > 0:
+#         unvisited = set()
             
-        # find all vertices in level set
-        while True:
+#         # find all vertices in level set
+#         while True:
  
-            vi = vertex_argsort.pop()
+#             vi = vertex_argsort.pop()
                     
-            t = vertex_time[vi]
-            unvisited.add(vi)
+#             t = vertex_time[vi]
+#             unvisited.add(vi)
                         
-            if len(vertex_argsort) == 0 or t != vertex_time[vertex_argsort[-1]]:
-                break
+#             if len(vertex_argsort) == 0 or t != vertex_time[vertex_argsort[-1]]:
+#                 break
           
-
-        count += len(unvisited)
         
-        # if only a single vertex, then take a shortcut
-        if len(unvisited) == 1:
-            vi = unvisited.pop()
-            submerged[vi] = True
-            vertex_order[vi] = ti
-            ti += 1
-            
-            visited.add(vi)
-            
-            continue
+#         # if only a single vertex, then take a shortcut
+#         if len(unvisited) == 1:
+#             vi = unvisited.pop()
+#             submerged[vi] = True
+#             vertex_order[vi] = ti
+#             ti += 1
+                        
+#             continue
             
         
-        # set up queue
-        dist = {}
-        if euclidean:
-            Q = queue.PriorityQueue()
-            closest = {}
-        else:
-            Q = queue.Queue() 
+#         # set up queue
+#         dist = {}
+#         if euclidean:
+#             Q = queue.PriorityQueue()
+#             closest = {}
+#         else:
+#             Q = queue.Queue() 
             
-        # put vertices in queue if they have a previously submerged neighbor
-        for a in unvisited:
-            for b in comp.get_cofacets(a):
-                for c in comp.get_facets(b):
-                    if submerged[c]:
+#         # put vertices in queue if they have a previously submerged neighbor
+#         for a in unvisited:
+#             for b in coI(a):
+#                 for c in I(b):
+#                     if submerged[c]:
                         
-                        if euclidean:
-                            new_dist = la.norm(positions[a] - positions[c])                    
-                        else:
-                            new_dist = 1.0
+#                         if euclidean:
+#                             new_dist = la.norm(positions[a] - positions[c])                    
+#                         else:
+#                             new_dist = 1.0
                             
-                        if a not in dist or new_dist < dist[a]:
-                            dist[a] = new_disget_t
-                            Q.put([new_dist, a])
+#                         if a not in dist or new_dist < dist[a]:
+#                             dist[a] = new_dist
+#                             Q.put([new_dist, a])
                             
-                            if euclidean:
-                                closest[a] = c
+#                             if euclidean:
+#                                 closest[a] = c
+             
                             
-
-        # perform BFS on level set
-        while not Q.empty():
+#         # perform BFS on level set
+#         while not Q.empty():
                         
-            [current_dist, a] = Q.get()    
-                        
-            visited.add(a)
-                
-            if a not in unvisited:
-                continue
+#             [current_dist, a] = Q.get()    
+                                        
+#             if a not in unvisited:
+#                 continue
                     
-            unvisited.remove(a)
-            submerged[a] = True
-            vertex_order[a] = ti
-            ti += 1
+#             unvisited.remove(a)
+#             submerged[a] = True
+#             vertex_order[a] = ti
+#             ti += 1
               
-            for b in comp.get_cofacets(a):
-                for c in comp.get_facets(b):
-                    if c in unvisited:
+#             for b in coI(a):
+#                 for c in I(b):
+#                     if c in unvisited:
                     
-                        if euclidean:
-                            new_dist = la.norm(positions[c] - positions[closest[a]])
-                        else:
-                            new_dist = current_dist + 1.0  
+#                         if euclidean:
+#                             new_dist = la.norm(positions[c] - positions[closest[a]])
+#                         else:
+#                             new_dist = current_dist + 1.0  
                           
-                        if c not in dist or new_dist < dist[c]:
-                            dist[c] = new_dist
-                            Q.put([new_dist, c])
+#                         if c not in dist or new_dist < dist[c]:
+#                             dist[c] = new_dist
+#                             Q.put([new_dist, c])
                             
-                            if euclidean:
-                                closest[c] = closest[a]
+#                             if euclidean:
+#                                 closest[c] = closest[a]
       
     
-        # search through new segments
-        while len(unvisited) > 0:
+#         # search through new segments
+#         while len(unvisited) > 0:
 
-            a = unvisited.pop()
+#             s = unvisited.pop()
             
-            Q.put([0, a])
+#             Q.put([0, s])
             
-            if euclidean:
-                closest[a] = a
+#             if euclidean:
+#                 closest[s] = s
             
-            while not Q.empty():
-                [current_dist, a] = Q.get()
+#             while not Q.empty():
+#                 [current_dist, a] = Q.get()
+                                
+#                 unvisited.discard(a)
+#                 submerged[a] = True
+#                 vertex_order[a] = ti
+#                 ti += 1
                 
-                visited.add(a)
-                
-                unvisited.discard(a)
-                submerged[a] = True
-                vertex_order[a] = ti
-                ti += 1
-                
-                for b in comp.get_cofacets(a):
-                    for c in comp.get_facets(b):
-                        if c in unvisited:
+#                 for b in coI(a):
+#                     for c in I(b):
+#                         if c in unvisited:
 
-                            if euclidean:
-                                new_dist = la.norm(positions[c] - positions[closest[a]])
-                            else:
-                                new_dist = current_dist + 1.0  
+#                             if euclidean:
+#                                 new_dist = la.norm(positions[c] - positions[closest[a]])
+#                             else:
+#                                 new_dist = current_dist + 1.0  
 
-                            if c not in dist or new_dist < dist[c]:
-                                dist[c] = new_dist
-                                Q.put([new_dist, c])
+#                             if c not in dist or new_dist < dist[c]:
+#                                 dist[c] = new_dist
+#                                 Q.put([new_dist, c])
 
-                                if euclidean:
-                                    closest[c] = closest[a]    
-    return vertex_order  
+#                                 if euclidean:
+#                                     closest[c] = closest[a]    
+#     return vertex_order  
     
     
 # def get_star(alpha, I, cell_dim=None, dims=None, insert_order=None):
@@ -612,22 +610,30 @@ def construct_discrete_gradient(comp, insert_order, dual=False):
 #                                 else:
 #                                     PQone.put((insert_order[gamma][LEX], gamma))
                                     
-            
-#     return V
+          
+     # coV = -np.ones(len(V), int)
+#     for x in range(len(V)):
+#         if V[x] != -1:
+#             coV[V[x]] = x
+        
+        
+#     return (V, coV)
 
     
 def reverse_discrete_gradient(V):
     
-    coV = {}
-    for x in V:
-        coV[V[x]] = x
-      
-    coV = -np.ones(len(V), int)
-    for x in range(len(V)):
-        if V[x] != -1:
-            coV[V[x]] = x
+    return phutil.reverse_gradient(V)
     
-    return coV
+# #     coV = {}
+# #     for x in V:
+# #         coV[V[x]] = x
+      
+#     coV = -np.ones(len(V), int)
+#     for x in range(len(V)):
+#         if V[x] != -1:
+#             coV[V[x]] = x
+    
+#     return coV
     
 
 def traverse_flow(s, V, I, coordinated=False):
@@ -667,7 +673,7 @@ def traverse_flow(s, V, I, coordinated=False):
 # return tuples (c, count, mult)
 # c is the critical boundary cell
 # count is the total number of V-paths to from s to c
-# mult is the coefficient of the boundary operator
+# mult is the coefficient of the boundary operator 
 def calc_morse_boundary(s, V, I, coeff, oriented=False):
     
     counts = {s:1}
@@ -699,29 +705,29 @@ def calc_morse_boundary(s, V, I, coeff, oriented=False):
     
 def construct_morse_complex(V, comp, oriented=False):
     
-    # mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
+    return phutil.construct_morse_complex(V, comp, oriented)
     
-    mcomp = phutil.CellComplex(comp.dim, False, oriented, False)
-    
-    # for s in V:
-    for s in range(len(V)):
-        if V[s] == s:
-            facets = []
-            coeffs = []
-            for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=oriented):
-                facets.append(c)
-                coeffs.append(m)
+#     mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
+        
+#     # for s in V:
+#     for s in range(len(V)):
+#         if V[s] == s:
+#             facets = []
+#             coeffs = []
+#             for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=oriented):
+#                 facets.append(c)
+#                 coeffs.append(m)
                 
-                if abs(m) > 1:
-                    print("Large Coefficient", k, m, comp.get_dim(c), comp.get_dim(s))
+#                 if abs(m) > 1:
+#                     print("Large Coefficient", k, m, comp.get_dim(c), comp.get_dim(s))
             
          
-            # facets = [c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1]
+#             # facets = [c for (c, k) in calc_morse_boundary(s, V, I) if k % 2 == 1]
                 
-            mcomp.add_cell(comp.get_dim(s), facets, s, coeffs)
+#             mcomp.add_cell(comp.get_dim(s), facets, s, coeffs)
        
-    mcomp.make_compressed()
-    return mcomp
+#     mcomp.make_compressed()
+#     return mcomp
     
         
 # find path from s to t
@@ -729,20 +735,27 @@ def find_connections(s, t, V, coV, I, coI):
     
     active = set([t])
     for (a, b, c) in traverse_flow(t, coV, coI):
+        print("backwards", a, b, c)
         active.add(c)
         
     for (a, b, c) in traverse_flow(s, V, I):
+        print("forwards", a, b, c)
         if b in active:
             yield (a, b, c)
     
 
 
 def simplify_morse_complex(threshold, V, coV, comp, insert_order):
+    
+    
+    phutil.simplify_morse_complex(threshold, V, coV, comp, insert_order, verbose=True);
+    return (V, coV)
      
     TIME = 0
     LEX = 2
         
     crit_cells = {s for s in range(len(V)) if V[s] == s}
+    crit_order = sorted([(insert_order[s][LEX], s) for s in crit_cells])
         
     n = 0
     while True:
@@ -751,12 +764,14 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
                  
         print("Pass:", n)
             
-        close_pairs = []
+        cancel_pairs = []
         
         # print(sorted(crit_cells))
         print("Critical Cells", len(crit_cells))
-                
-        for s in crit_cells:
+              
+            
+        n_cancel = 0
+        for (lex, s) in crit_order:
             
             if comp.get_dim(s) == 0:
                 continue
@@ -768,9 +783,13 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
             for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=comp.oriented):
 
                 if k == 1:
-                    if close_alpha is None or ((insert_order[c][TIME], insert_order[c][LEX]) > close_alpha_time):
+                    # if close_alpha is None or ((insert_order[c][TIME], insert_order[c][LEX]) > close_alpha_time):
+                    #     close_alpha = c
+                    #     close_alpha_time = (insert_order[c][TIME], insert_order[c][LEX])
+                        
+                    if close_alpha is None or insert_order[c][LEX] > close_alpha_time:
                         close_alpha = c
-                        close_alpha_time = (insert_order[c][TIME], insert_order[c][LEX])
+                        close_alpha_time = insert_order[c][LEX]
                     
             if close_alpha is None:
                 continue
@@ -780,33 +799,40 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
             close_beta_time = None
             for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.get_cofacets, comp.get_coeffs, oriented=comp.oriented):
                 if k == 1:
-                    if close_beta is None or ((insert_order[c][TIME], insert_order[c][LEX]) < close_beta_time):
+                    # if close_beta is None or ((insert_order[c][TIME], insert_order[c][LEX]) < close_beta_time):
+                    #     close_beta = c
+                    #     close_beta_time = (insert_order[c][TIME], insert_order[c][LEX])
+                        
+                    if close_beta is None or insert_order[c][LEX] < close_beta_time:
                         close_beta = c
-                        close_beta_time = (insert_order[c][TIME], insert_order[c][LEX])
+                        close_beta_time = insert_order[c][LEX]
                
            
             if s == close_beta:
-                close_pairs.append((insert_order[s][TIME] - insert_order[close_alpha][TIME], (close_alpha, s)))
+                n_cancel += 1
+                if insert_order[s][TIME] - insert_order[close_alpha][TIME] <= threshold:
+                    cancel_pairs.append((insert_order[s][TIME] - insert_order[close_alpha][TIME], (close_alpha, close_beta)))
         
         
-        close_pairs = sorted(close_pairs)
+        cancel_pairs = sorted(cancel_pairs)
         
-        print("Close Pairs:", len(close_pairs))
+        print("Cancellable Pairs:", n_cancel)
         
-        if len(close_pairs) == 0 or close_pairs[0][0] > threshold:
+        if len(cancel_pairs) == 0 or cancel_pairs[0][0] > threshold:
             print("Cancelled Pairs:", 0)
             break
           
-        i = 0
-        for (time, (t, s)) in close_pairs:
-            if time > threshold:
-                break
+        for (time, (t, s)) in cancel_pairs:
+            print(s, t)
         
-            # print(i, time, t, s, comp.get_dim(t), comp.get_dim(s))
-            i += 1
+            # print(n_cancelled, time, t, s, comp.get_dim(t), comp.get_dim(s))
             reverse_pairs = []
             for (a, b, c) in find_connections(s, t, V, coV, comp.get_facets, comp.get_cofacets):
                 reverse_pairs.append((a, b))
+                
+                
+            print(reverse_pairs) 
+            return (V, coV)
                 
             for (a, b) in reverse_pairs:                
                 V[b] = a
@@ -824,8 +850,10 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
                     
             crit_cells.remove(t)
             crit_cells.remove(s)
+            
+        crit_order = sorted([(insert_order[s][LEX], s) for s in crit_cells])
                
-        print("Cancelled Pairs:", i)
+        print("Cancelled Pairs:", len(cancel_pairs))
         
         print("Remaining Critical Cells", len(crit_cells))
             
@@ -877,7 +905,6 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
        
     icol = 0
         
-        
     for ci in filtration:
         
         # Z2 coefficients
@@ -908,7 +935,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
         icol += 1
         col_to_cell.append(ci)
 
-    
+        
     if not optimal_cycles and not birth_cycles:
     
         boundary_matrix = phat.boundary_matrix(columns=columns)
@@ -1190,121 +1217,131 @@ def convert_morse_to_real_complex(mfeature, V, I):
 
 def convert_to_pixels(feature, comp, insert_order, dual=False):
     
-    pixels = set()
+    return phutil.convert_to_pixels(feature, comp, insert_order, dual)
     
-    STAR = 1
-    LEX = 2
     
-    for s in feature:
+#     pixels = set()
+    
+#     STAR = 1
+#     LEX = 2
+    
+#     for s in feature:
         
-        if comp.get_dim(s) == 0:
-            if not dual:
+#         if comp.get_dim(s) == 0:
+#             if not dual:
                 
-                pixels.add(s)
+#                 pixels.add(s)
                 
-            else:
+#             else:
                 
-                #start replacing snippets here
+#                 #start replacing snippets here
                 
-                # cofaces = get_star(s, comp.get_cofacets, cell_dim=comp.dim, dims=comp.get_dim)
-                cofaces = phutil.get_star(s, False, comp, comp.dim)
+#                 # cofaces = get_star(s, comp.get_cofacets, cell_dim=comp.dim, dims=comp.get_dim)
+#                 cofaces = phutil.get_star(s, False, comp, comp.dim)
                         
-                for c in cofaces:
+#                 for c in cofaces:
                     
-                    # verts = get_star(c, comp.get_facets, cell_dim=0, dims=comp.get_dim)
-                    verts = phutil.get_star(c, True, comp, 0)
+#                     # verts = get_star(c, comp.get_facets, cell_dim=0, dims=comp.get_dim)
+#                     verts = phutil.get_star(c, True, comp, 0)
                     
-                    ucostar_verts = set()
-                    for v in verts:
-                        if insert_order[c][STAR] == insert_order[v][STAR]:
-                            ucostar_verts.add(v)
+#                     ucostar_verts = set()
+#                     for v in verts:
+#                         if insert_order[c][STAR] == insert_order[v][STAR]:
+#                             ucostar_verts.add(v)
                 
-                    # no verts in ucostar:
-                    if len(ucostar_verts) == 0:
-                        min_vert = verts.pop()
+#                     # no verts in ucostar:
+#                     if len(ucostar_verts) == 0:
+#                         min_vert = verts.pop()
                         
-                        for v in verts:
-                            if insert_order[v][LEX] < insert_order[min_vert][LEX]:
-                                min_vert = v
+#                         for v in verts:
+#                             if insert_order[v][LEX] < insert_order[min_vert][LEX]:
+#                                 min_vert = v
                                 
-                        if min_vert in feature:
-                            pixels.add(c)
+#                         if min_vert in feature:
+#                             pixels.add(c)
                      
-                    # all verts in ucostar are in feature
-                    elif ucostar_verts.issubset(feature):
+#                     # all verts in ucostar are in feature
+#                     elif ucostar_verts.issubset(feature):
                         
-                        pixels.add(c)
+#                         pixels.add(c)
                       
-                    # only some ucostar verts are in feature
-                    else:
+#                     # only some ucostar verts are in feature
+#                     else:
                         
-                        min_vert = ucostar_verts.pop()
-                        for v in ucostar_verts:
-                            if insert_order[v][LEX] < insert_order[min_vert][LEX]:
-                                min_vert = v
+#                         min_vert = ucostar_verts.pop()
+#                         for v in ucostar_verts:
+#                             if insert_order[v][LEX] < insert_order[min_vert][LEX]:
+#                                 min_vert = v
                                 
-                        if min_vert in feature:
-                            pixels.add(c)
+#                         if min_vert in feature:
+#                             pixels.add(c)
                             
-        elif comp.get_dim(s) == 1:
+#         elif comp.get_dim(s) == 1:
             
-            if not dual:
+#             if not dual:
                 
-                pixels.update(comp.get_facets[s])
+#                 pixels.update(comp.get_facets(s))
                 
-            else:
+#             else:
                         
-                ucostar = int(insert_order[s][STAR])
+#                 ucostar = int(insert_order[s][STAR])
                     
-                pixels.add(ucostar)
+#                 pixels.add(ucostar)
                 
-        elif comp.get_dim(s) == 2:
+#         elif comp.get_dim(s) == 2:
             
-            if not dual:
-                for c in comp.get_facets[s]:
-                    pixels.update(comp.get_facets[c])
+#             if not dual:
+#                 for c in comp.get_facets(s):
+#                     pixels.update(comp.get_facets(c))
                     
-            else:
+#             else:
                 
-                pixels.add(s)
+#                 pixels.add(s)
                             
                 
                         
-    return pixels                
+#     return pixels                
                             
      
 def find_basins(mcomp, coV, comp, insert_order, dual=False):
     
-    basins = {}
+    return phutil.find_basins(mcomp, coV, comp, insert_order, dual)
     
-    STAR = 1
+#     basins = {}
     
-    for c in mcomp.get_cells():
-        if mcomp.get_dim(c) == 0:
+#     STAR = 1
+    
+#     for c in mcomp.get_cells():
+#         if mcomp.get_dim(c) == 0:
             
-            if dual:
-                index = int(insert_order[c][STAR])
-            else:
-                index = c
+#             if dual:
+#                 index = int(insert_order[c][STAR])
+#             else:
+#                 index = c
                 
-            basins[index] = convert_to_pixels(convert_morse_to_real_complex({c}, coV, comp.get_cofacets), 
-                                                comp, insert_order, dual=dual)
+#             basins[index] = convert_to_pixels(convert_morse_to_real_complex({c}, coV, comp.get_cofacets), 
+#                                                 comp, insert_order, dual=dual)
+            
+          
+#     return basins
      
-   
-    return basins
-        
     
 def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
-    skeleton = set()
     
-    # for s in V:
-    for s in range(len(V)):
-        if V[s] == s and mcomp.get_dim(s) == d:
-            feature = convert_to_pixels(convert_morse_to_real_complex({s}, V, comp.get_facets), comp, insert_order, dual=dual)
-            skeleton.update(feature)
+    return phutil.find_morse_skeleton(mcomp, V, comp, d, insert_order, dual)
+    
+    
+#     skeleton = set()
+    
+#     # for s in V:
+#     for s in range(len(V)):
+#         if V[s] == s and mcomp.get_dim(s) == d:
+#             feature = convert_to_pixels(convert_morse_to_real_complex({s}, V, comp.get_facets), comp, insert_order, dual=dual)
+ 
+#             skeleton.update(feature)
             
             
-    return skeleton 
+#     return skeleton 
 
         
 
@@ -1316,58 +1353,62 @@ def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
 
 def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
     
-    TIME = 0
-    STAR = 1
-    LEX = 2
-        
-    if comp.get_dim(i) == 0:
-        I = mcomp.get_facets
-        coI = mcomp.get_cofacets
-        
-        barrier_test = lambda b: insert_order[b][TIME] >= insert_order[j][TIME]
-        
-        seen = {i}
-        Q = co.deque([i])
+    return phutil.extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order)
     
-    else:
-        I = mcomp.get_cofacets
-        coI = mcomp.get_facets
+#     TIME = 0
+#     STAR = 1
+#     LEX = 2
         
-        barrier_test = lambda b: insert_order[b][TIME] <= insert_order[i][TIME]
+#     if comp.get_dim(i) == 0:
+#         I = mcomp.get_facets
+#         coI = mcomp.get_cofacets
         
-        seen = {j}
-        Q = co.deque([j])
+#         barrier_test = lambda b: insert_order[b][TIME] >= insert_order[j][TIME]
+        
+#         seen = {i}
+#         Q = co.deque([i])
     
-    while len(Q) > 0:
-        a = Q.popleft()
-        for b in coI(a):
-            if barrier_test(b):
-                continue
+#     else:
+#         I = mcomp.get_cofacets
+#         coI = mcomp.get_facets
+        
+#         barrier_test = lambda b: insert_order[b][TIME] <= insert_order[i][TIME]
+        
+#         seen = {j}
+#         Q = co.deque([j])
+    
+#     while len(Q) > 0:
+#         a = Q.popleft()
+#         for b in coI(a):
+#             if barrier_test(b):
+#                 continue
                 
-            for c in I(b):
+#             for c in I(b):
                 
-                if c != a and c not in seen:
-                    Q.append(c)
-                    seen.add(c)
+#                 if c != a and c not in seen:
+#                     Q.append(c)
+#                     seen.add(c)
             
-    if comp.get_dim(i) == 0:
-        feature = convert_morse_to_real_complex(seen, coV, comp.get_cofacets)
-    else:
-        feature = convert_morse_to_real_complex(seen, V, comp.get_facets)
+#     if comp.get_dim(i) == 0:
+#         feature = convert_morse_to_real_complex(seen, coV, comp.get_cofacets)
+#     else:
+#         feature = convert_morse_to_real_complex(seen, V, comp.get_facets)
     
-    return feature
+#     return feature
         
 
 
 def get_boundary(cells, comp):
     
-    cycle = set()
+    return phutil.get_boundary(cells, comp)
     
-    if comp.regular:
-        for c in cells:
-            cycle ^= set(comp.get_facets(c))
+#     cycle = set()
+    
+#     if comp.regular:
+#         for c in cells:
+#             cycle ^= set(comp.get_facets(c))
         
-    return cycle
+#     return cycle
 
         
 # def compute_graph_segmentation(G, heights, euclidean=False, positions=None):

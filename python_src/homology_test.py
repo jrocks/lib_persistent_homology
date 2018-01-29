@@ -112,7 +112,7 @@ def test():
     print("Finding vertex order")
 
     vertex_time = data.flatten()
-    vertex_order = homology.construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None)
+    vertex_order = homology.construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None, dual=dual)
 
     print(total_size(vertex_time))
     print(total_size(vertex_order))
