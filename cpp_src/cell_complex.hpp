@@ -1,6 +1,9 @@
 #ifndef CELLCOMPLEX
 #define CELLCOMPLEX
     
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+    
 #include <vector>
 #include <unordered_map>
 #include <iostream>
@@ -314,6 +317,74 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
     comp.make_compressed(); 
         
     return comp;
+    
+}
+
+
+
+    
+bool check_boundary_op(CellComplex &comp) {
+    bool valid = true;
+    
+    for(auto i: comp.get_cells()) {
+        if(comp.get_dim(i) > 0) {
+            if(!comp.regular || comp.oriented) {
+                std::unordered_map<int, int> sub_face_coeffs;
+                
+                std::unordered_map<int, int> coeffsi = comp.get_coeffs(i);
+                for(auto j: coeffsi) {
+                    std::unordered_map<int, int> coeffsj = comp.get_coeffs(j.first);
+                    for(auto k: coeffsj) {
+                        if(sub_face_coeffs.count(k.first)) {
+                            sub_face_coeffs[k.first] += coeffsi[j.first] * coeffsj[k.first];
+                        } else {
+                            sub_face_coeffs[k.first] = coeffsi[j.first] * coeffsj[k.first];
+                        }
+                    }
+                    
+                }
+                
+                for(auto j: sub_face_coeffs) {
+                    if((comp.oriented && j.second != 0) || (!comp.oriented && j.second % 2 != 0) ) {
+                        py::print("Error:", i, j.first, j.second);
+                        valid = false;
+                    }
+                }
+
+                
+            } else {
+                std::unordered_set<int> sub_faces;
+                
+                auto rangei = comp.get_facet_range(i);
+                
+                for(auto iti = rangei.first; iti != rangei.second; iti++) {
+                    
+                    auto rangej = comp.get_facet_range(*iti);
+                                    
+                    for(auto itj = rangej.first; itj != rangej.second; itj++) {
+                        if(sub_faces.count(*itj)) {
+                            sub_faces.erase(*itj);
+                        } else {
+                            sub_faces.insert(*itj);
+                        }
+                    }
+                    
+                }
+                
+                
+                if(!sub_faces.empty()) {
+                    py::print("Error:", i);
+                    valid = false;
+                    
+                }
+                
+                
+            }
+            
+        }
+    }
+        
+    return valid;
     
 }
 

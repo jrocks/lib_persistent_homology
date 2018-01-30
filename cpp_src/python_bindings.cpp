@@ -37,15 +37,32 @@ PYBIND11_MODULE(phutil, m) {
         .def_readonly("cofacet_ind", &CellComplex::cofacet_ind)
         .def_readonly("cofacets", &CellComplex::cofacets);
     
+    
     m.def("construct_cubical_complex", &construct_cubical_complex, "Constructs a cublical complex.",
           py::return_value_policy::take_ownership);
-    
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     
     
+    py::class_<Filtration>(m, "Filtration")
+        .def_readonly("ncells", &Filtration::ncells)
+        .def_readonly("nprimary_cells", &Filtration::nprimary_cells)
+        .def(py::init<int, std::vector<double>& >())
+        .def("set_primary_order", &Filtration::set_primary_order)
+        .def("set_filtration_order", &Filtration::set_filtration_order)
+        .def("set_star", &Filtration::set_star)
+        .def("get_primary_order", &Filtration::get_primary_order)
+        .def("get_filtration_order", &Filtration::get_filtration_order)
+        .def("get_star", &Filtration::get_star)
+        .def("get_filtration", &Filtration::get_filtration);
+        
     
-     m.def("get_star", &get_star,
+    m.def("perform_watershed_transform", &perform_watershed_transform);
+    m.def("construct_filtration", &construct_filtration);
+    
+   
+    
+    m.def("get_star", &get_star,
          "Finds the star/costar of a give cell.");
     m.def("get_lower_star", &get_lower_star,
          "Finds the lower star/upper costar of a cell with a given Morse function defined by a complete cell filtration order.");
