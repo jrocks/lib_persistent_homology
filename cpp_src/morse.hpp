@@ -15,189 +15,12 @@ namespace py = pybind11;
 #include <utility>
     
 #include "cell_complex.hpp"
-    
+#include "filtration.hpp"
     
 
-
-
-py::array_t<int> construct_vertex_filtration_order(CellComplex &comp, py::array_t<double> vertex_time, bool dual) {
-    
-    auto vtime = vertex_time.unchecked<1>();
-    
-    
-    py::array_t<int> vertex_order;
-    vertex_order.resize({vtime.size()});
-    auto vorder = vertex_order.mutable_unchecked<1>();
-    
-    
-    std::vector<bool> submerged(vertex_order.size(), false);
-    
-    std::vector<int> vertex_argsort(vertex_order.size());
-    std::iota(vertex_argsort.begin(), vertex_argsort.end(), 0);
-    std::sort(vertex_argsort.begin(), vertex_argsort.end(),
-       [&vtime](int lhs, int rhs) {return vtime(lhs) <= vtime(rhs);});
-    
-    unsigned int ti = 0;
-    while(ti < vertex_argsort.size()) {
+std::unordered_set<int> get_lower_star(int alpha, bool co, Filtration &filt, CellComplex &comp, int target_dim) {
         
-        std::unordered_set<int> plateau;
-        
-        unsigned int tj = ti;
-        while(true) {
-            int vi = vertex_argsort[tj];
-            double t = vtime(vi);
-            plateau.insert(vi);
-            
-            if((tj+1 == vertex_argsort.size()) || (t != vtime(vertex_argsort[tj+1]))) {
-                break;
-            }
-            
-            tj++;
-        }
-        
-        if(plateau.size() == 1) {
-            int vi = *(plateau.begin());
-            submerged[vi] = true;
-            vorder(vi) = ti;
-            ti++;
-            
-            continue;
-        }
-        
-        std::unordered_map<int, double> dist;
-        std::queue<int> Q;
-        for(auto a: plateau) {
-            
-            auto rangea = dual ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
-            for(auto ita = rangea.first; ita != rangea.second; ita++) {
-                
-                int b = *ita;
-                
-                auto rangeb = dual ? comp.get_cofacet_range(b) : comp.get_facet_range(b);
-                for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
-                    
-                    int c = *itb;
-                    
-                    if(submerged[c]) {
-                        
-                        double new_dist = 1.0;
-                        
-                        if(!dist.count(a) || new_dist < dist[a]) {
-                            dist[a] = new_dist;
-                            Q.push(a);
-                        }
-                        
-                    }
-
-                }
-                
-            }
-            
-        }
-        
-        while(!Q.empty()) {
-            int a = Q.front();
-            Q.pop();
-            
-            // This differs from the python version;
-            double current_dist = dist[a];
-            
-            if(!plateau.count(a)) {
-                continue;
-            }
-            
-            
-            plateau.erase(a);
-            submerged[a] = true;
-            vorder(a) = ti;
-            ti++;
-            
-            auto rangea = dual ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
-            for(auto ita = rangea.first; ita != rangea.second; ita++) {
-                
-                int b = *ita;
-                
-                auto rangeb = dual ? comp.get_cofacet_range(b) : comp.get_facet_range(b);
-                for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
-                    
-                    int c = *itb;
-                    
-                    if(plateau.count(c)) {
-                        
-                        double new_dist = current_dist + 1.0;
-                        
-                        if(!dist.count(c) || new_dist < dist[c]) {
-                            dist[c] = new_dist;
-                            Q.push(c);
-                        }
-                    }
-                    
-                }
-                
-            }
-            
-            
-            
-        }
-        
-        
-        while(!plateau.empty()) {
-            int s = *(plateau.begin());
-            plateau.erase(s);
-            
-            Q.push(s);
-            
-            while(!Q.empty()) {
-                int a = Q.front();
-                Q.pop();
-
-                // This differs from the python version;
-                double current_dist = dist[a];
-
-                plateau.erase(a);
-                submerged[a] = true;
-                vorder(a) = ti;
-                ti++;
-
-
-
-                auto rangea = dual ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
-                for(auto ita = rangea.first; ita != rangea.second; ita++) {
-
-                    int b = *ita;
-
-                    std::vector<int>::iterator beginb;
-                    std::vector<int>::iterator endb;
-
-                    auto rangeb = dual ? comp.get_cofacet_range(b) : comp.get_facet_range(b);
-                    for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
-
-                        int c = *itb;
-
-                        if(plateau.count(c)) {
-
-                            double new_dist = current_dist + 1.0;
-
-                            if(!dist.count(c) || new_dist < dist[c]) {
-                                dist[c] = new_dist;
-                                Q.push(c);
-                            }
-                        }
-
-                    }
-                }
-            }
-            
-        }
-        
-    }
-    
-    return vertex_order;
-    
-}
-
-    
-std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int target_dim) {
+    int star_index = filt.get_star(alpha);
     
     std::unordered_set<int> star;
     
@@ -208,39 +31,7 @@ std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int targ
         int a = Q.front();
         Q.pop();
         
-        // These are purposely backwards
-        // Explore cofacets for star and facets for costar
-        auto range = co ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
-        for(auto it = range.first; it != range.second; it++) {
-            Q.push(*it);
-        }
-        
-        if(target_dim == -1 || comp.get_dim(a) == target_dim) {
-            star.insert(a);
-        }
-    }
-    
-    return star;
- 
-}
-
-
-std::unordered_set<int> get_lower_star(int alpha, bool co, CellComplex &comp, int target_dim, py::array_t<double> insert_order) {
-    
-    auto iorder = insert_order.unchecked<2>();
-    
-    int star_index = iorder(alpha, STAR);
-    
-    std::unordered_set<int> star;
-    
-    std::queue<int> Q;
-    Q.push(alpha);
-    
-    while(!Q.empty()) {
-        int a = Q.front();
-        Q.pop();
-        
-        if(star_index == iorder(a, STAR)) {
+        if(star_index == filt.get_star(a)) {
             
             // These are purposely backwards
             // Explore cofacets for star and facets for costar
@@ -260,125 +51,15 @@ std::unordered_set<int> get_lower_star(int alpha, bool co, CellComplex &comp, in
 }
 
 
-py::array_t<double> construct_time_of_insertion_map(CellComplex &comp, py::array_t<int> vertex_order, 
-                                py::array_t<double> vertex_time, bool dual) {
+
+std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Filtration &filt, CellComplex &comp, bool dual) {     
     
-        
-    auto vorder = vertex_order.unchecked<1>();
-    auto vtime = vertex_time.unchecked<1>();
-    
-    class Comparator {
-        
-        CellComplex &comp;
-        
-        
-        // Use vector of tuples and then can actually use lexicographic ordering
-        std::vector<std::vector<int> > &lex_val;
-        bool dual;
-        public:
-            Comparator(CellComplex &comp, std::vector<std::vector<int> > &lex_val, const bool& dual=false):
-                        comp(comp), lex_val(lex_val), dual(dual) {}
-            bool operator() (const int& lhs, const int&rhs) const {
-                
-                // If dual, first compare upper costars (smallest goes first)
-                if(dual && lex_val[lhs].back() != lex_val[rhs].back()) {
-                    return lex_val[lhs].back() < lex_val[rhs].back();
-                // If not dual, first compare lower stars (smallest goes first)
-                } else if(!dual && lex_val[lhs].front() != lex_val[rhs].front()) {
-                    return lex_val[lhs].front() < lex_val[rhs].front();
-                // Second compare dimensions (smallest goes first)
-                } else if(comp.get_dim(lhs) != comp.get_dim(rhs)) {
-                    return comp.get_dim(lhs) < comp.get_dim(rhs);
-                // Third compare length of lexicographic values (smallest goes first)
-                } else if(lex_val[lhs].size() != lex_val[rhs].size()) {
-                    return lex_val[lhs].size() < lex_val[rhs].size();
-                // Finally compare lexicographic values (smallest goes first)
-                // This will be inverted when actually constructing gradient
-                } else {
-                    for(unsigned int i = 0; i < lex_val[lhs].size(); i++) {
-                        if(lex_val[lhs][i] != lex_val[rhs][i]) {
-                            return lex_val[lhs][i] < lex_val[rhs][i];
-                        }
-                    }
-                    
-                    // If cells have identical lexicographic orderings, 
-                    // then sort by raw cell index
-                    return (lhs < rhs);
-                } 
-                           
-            }
-    };
-        
-    std::vector<int> cell_to_star(comp.ncells);
-    std::vector<std::vector<int> > lex_val(comp.ncells, std::vector<int>());
-    
-    int target_dim = dual ? comp.dim : 0;
-    for(int i = 0; i < comp.ncells; i++) {
-        
-        std::unordered_set<int> star = get_star(i, !dual, comp, target_dim);
-        int star_cell = *(star.begin());
-                
-        for(auto alpha: star) {
-                        
-            lex_val[i].push_back(vorder(alpha));
-            
-            if((dual && vorder(alpha) < vorder(star_cell))
-               || (!dual && vorder(alpha) > vorder(star_cell))) {
-                
-                star_cell = alpha;
-            }
+    auto cmp = [&filt, dual](const int& lhs, const int &rhs) {
+        if(dual) {                    
+            return (-filt.get_filtration_order(lhs) > -filt.get_filtration_order(rhs));
+        } else {
+            return (filt.get_filtration_order(lhs) > filt.get_filtration_order(rhs));
         }
-        
-        cell_to_star[i] = star_cell;
-        
-        // Sort from high to low
-        std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>());        
-    }
-    
-    std::vector<int> cells(comp.ncells);
-    std::iota(cells.begin(), cells.end(), 0);
-    
-    Comparator cmp(comp, lex_val, dual);
-    std::sort(cells.begin(), cells.end(), cmp);
-        
-    py::array_t<double> insert_order;
-    insert_order.resize({comp.ncells, 3});
-    auto order = insert_order.mutable_unchecked<2>();
-    
-    for(int i = 0; i < comp.ncells; i++) {
-        int c = cells[i];
-        int star = cell_to_star[c];
-        order(c, TIME) = vtime(star);
-        order(c, STAR) = star;
-        order(c, LEX) = i;
-        
-    }
-        
-    return insert_order;
-    
-    
-}
-
-
-std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(CellComplex &comp, py::array_t<double> insert_order, bool dual) {     
-    
-    class Comparator {
-        bool dual;
-        py::detail::unchecked_reference<double, 2> order;
-        public:
-            Comparator(py::array_t<double> insert_order, const bool& dual=false): 
-                dual(dual), order(insert_order.unchecked<2>()) {}
-            bool operator() (const int& lhs, const int&rhs) const {
-                
-                // These are use (>) because with default (<) priority queue will always pop the largest value
-                // We want the smallest value instead
-                if(dual) {                    
-                    return (-order(lhs, LEX) > -order(rhs, LEX));
-                } else {
-                    return (order(lhs, LEX) > order(rhs, LEX));
-                }
-              
-            }
     };
         
     py::array_t<int> V;
@@ -394,7 +75,7 @@ std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Cell
         }
         
         // get lower/upper star/costar
-        std::unordered_set<int> star = get_lower_star(i, dual, comp, -1, insert_order);
+        std::unordered_set<int> star = get_lower_star(i, dual, filt, comp, -1);
         
         // record all unpaired facets/cofacets of each cell in star
         std::unordered_map<int, std::unordered_set<int> > unpaired;
@@ -411,9 +92,8 @@ std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Cell
             
         }
         
-        Comparator cmp(insert_order, dual);
-        std::priority_queue<int, std::vector<int>, Comparator> PQone(cmp);
-        std::priority_queue<int, std::vector<int>, Comparator> PQzero(cmp);
+        std::priority_queue<int, std::vector<int>, decltype(cmp)> PQone(cmp);
+        std::priority_queue<int, std::vector<int>, decltype(cmp)> PQzero(cmp);
         
         for(auto alpha: star) {
             if(unpaired[alpha].empty()) {
@@ -499,6 +179,7 @@ std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Cell
     return std::make_tuple(V, coV);
     
 }
+
 
 
 std::vector<std::tuple<int, int, int> > traverse_flow(int s, py::array_t<int> V, 
@@ -669,25 +350,10 @@ std::vector<std::tuple<int, int, int> > find_connections(int s, int t, py::array
 }
 
 
-// def find_connections(s, t, V, coV, I, coI):
-    
-//     active = set([t])
-//     for (a, b, c) in traverse_flow(t, coV, coI):
-//         active.add(c)
-        
-//     for (a, b, c) in traverse_flow(s, V, I):
-//         if b in active:
-//             yield (a, b, c)
-    
-
-
-void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, CellComplex &comp,
-                           py::array_t<double> insert_order, bool verbose=false) {
+void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, Filtration &filt, CellComplex &comp, bool verbose=false) {
     
     auto Vbuf = V.mutable_unchecked<1>();
-    auto coVbuf = coV.mutable_unchecked<1>();
-    auto iorder = insert_order.unchecked<2>();
-    
+    auto coVbuf = coV.mutable_unchecked<1>();    
     std::vector<int> crit_cells;
     for(int s = 0; s < Vbuf.size(); s++) {
         if(Vbuf(s) == s) {
@@ -696,7 +362,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
     }
     
     std::sort(crit_cells.begin(), crit_cells.end(),
-       [&iorder](int lhs, int rhs) {return iorder(lhs, LEX) < iorder(rhs, LEX);});
+       [&filt](int lhs, int rhs) {return filt.get_filtration_order(lhs) < filt.get_filtration_order(rhs);});
     
     for(int n = 1; ; n++) {
         
@@ -721,9 +387,9 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
                 std::tie(c, k, std::ignore) = trip;
                 
                 if(k == 1) {
-                    if(close_alpha == -1 || iorder(c, LEX) > close_alpha_time) {
+                    if(close_alpha == -1 || filt.get_filtration_order(c) > close_alpha_time) {
                         close_alpha = c;
-                        close_alpha_time = iorder(c, LEX);
+                        close_alpha_time = filt.get_filtration_order(c);
                     }
                 }
             }
@@ -740,27 +406,22 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
                 std::tie(c, k, std::ignore) = trip;
                 
                 if(k == 1) {
-                    if(close_beta == -1 || iorder(c, LEX) < close_beta_time) {
+                    if(close_beta == -1 || filt.get_filtration_order(c) < close_beta_time) {
                         close_beta = c;
-                        close_beta_time = iorder(c, LEX);
+                        close_beta_time = filt.get_filtration_order(c);
                     }
                 }
             }
             
             if(s == close_beta) {
                 n_cancel++;
-                if(iorder(close_beta, TIME)-iorder(close_alpha, TIME) <= threshold) {
+                if(filt.get_time(close_beta)-filt.get_time(close_alpha) <= threshold) {
                     cancel_pairs.emplace_back(close_alpha, close_beta); 
                 }
             }
                 
         }
         
-//         std::sort(cancel_pairs.begin(), cancel_pairs.end(),
-//                   [&iorder](std::pair<int, int> lhs, std::pair<int, int> rhs) {
-//                       return (iorder(lhs.second, TIME)-iorder(lhs.first, TIME)) 
-//                           < (iorder(rhs.second, TIME)-iorder(rhs.first, TIME));
-//                   });
         
         if(verbose) {
             py::print("Cancellable Pairs:", n_cancel);
@@ -812,103 +473,6 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
 
 
 
-// def simplify_morse_complex(threshold, V, coV, comp, insert_order):
-     
-//     TIME = 0
-//     LEX = 2
-        
-//     crit_cells = {s for s in range(len(V)) if V[s] == s}
-        
-//     n = 0
-//     while True:
-        
-//         n += 1
-                 
-//         print("Pass:", n)
-            
-//         close_pairs = []
-        
-//         # print(sorted(crit_cells))
-//         print("Critical Cells", len(crit_cells))
-                
-//         for s in crit_cells:
-            
-//             if comp.get_dim(s) == 0:
-//                 continue
-                
-//             # print("s", s, insert_order[s], comp.get_dim(s))
-            
-//             close_alpha = None
-//             close_alpha_time = None
-//             for (c, k, m) in calc_morse_boundary(s, V, comp.get_facets, comp.get_coeffs, oriented=comp.oriented):
-
-//                 if k == 1:
-//                     if close_alpha is None or ((insert_order[c][TIME], insert_order[c][LEX]) > close_alpha_time):
-//                         close_alpha = c
-//                         close_alpha_time = (insert_order[c][TIME], insert_order[c][LEX])
-                    
-//             if close_alpha is None:
-//                 continue
-                
-                                
-//             close_beta = None
-//             close_beta_time = None
-//             for (c, k, m) in calc_morse_boundary(close_alpha, coV, comp.get_cofacets, comp.get_coeffs, oriented=comp.oriented):
-//                 if k == 1:
-//                     if close_beta is None or ((insert_order[c][TIME], insert_order[c][LEX]) < close_beta_time):
-//                         close_beta = c
-//                         close_beta_time = (insert_order[c][TIME], insert_order[c][LEX])
-               
-           
-//             if s == close_beta:
-//                 close_pairs.append((insert_order[s][TIME] - insert_order[close_alpha][TIME], (close_alpha, s)))
-        
-        
-//         close_pairs = sorted(close_pairs)
-        
-//         print("Close Pairs:", len(close_pairs))
-        
-//         if len(close_pairs) == 0 or close_pairs[0][0] > threshold:
-//             print("Cancelled Pairs:", 0)
-//             break
-          
-//         i = 0
-//         for (time, (t, s)) in close_pairs:
-//             if time > threshold:
-//                 break
-        
-//             # print(i, time, t, s, comp.get_dim(t), comp.get_dim(s))
-//             i += 1
-//             reverse_pairs = []
-//             for (a, b, c) in find_connections(s, t, V, coV, comp.get_facets, comp.get_cofacets):
-//                 reverse_pairs.append((a, b))
-                
-//             for (a, b) in reverse_pairs:                
-//                 V[b] = a
-                
-//                 coV[a] = b
-                
-//                 V[a] = -1
-//                 coV[b] = -1
-                
-                
-//                 # if a in V:
-//                 #     del V[a]
-//                 # if b in coV:
-//                 #     del coV[b]
-                    
-//             crit_cells.remove(t)
-//             crit_cells.remove(s)
-               
-//         print("Cancelled Pairs:", i)
-        
-//         print("Remaining Critical Cells", len(crit_cells))
-            
-        
-                
-//     return (V, coV)
-
-
 std::unordered_set<int> convert_morse_to_real_complex(std::unordered_set<int> &mfeature, py::array_t<int> V,
                                                       CellComplex &comp, bool co) {
     
@@ -931,10 +495,9 @@ std::unordered_set<int> convert_morse_to_real_complex(std::unordered_set<int> &m
 }
 
 
-std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, CellComplex &comp, py::array_t<double> insert_order, bool dual) {
-    
-    auto iorder = insert_order.unchecked<2>();
-    
+
+std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filtration &filt, CellComplex &comp, bool dual) {
+        
     std::unordered_set<int> pixels;
     
     for(auto s: feature) {
@@ -950,7 +513,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Cell
                     
                     std::unordered_set<int> ucostar_verts;
                     for(auto v: verts) {
-                        if(iorder(c, STAR) == iorder(v, STAR)) {
+                        if(filt.get_star(c) == filt.get_star(v)) {
                             ucostar_verts.insert(v);
                         }
                     }
@@ -958,7 +521,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Cell
                     if(ucostar_verts.empty()) {
                         int min_vert = *(verts.begin());
                         for(auto v: verts) {
-                            if(iorder(v, LEX) < iorder(min_vert, LEX)) {
+                            if(filt.get_filtration_order(v) < filt.get_filtration_order(min_vert)) {
                                 min_vert = v;
                             }
                         }
@@ -985,7 +548,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Cell
                         } else {
                             int min_vert = *(ucostar_verts.begin());
                             for(auto v: ucostar_verts) {
-                                if(iorder(v, LEX) < iorder(min_vert, LEX)) {
+                                if(filt.get_filtration_order(v) < filt.get_filtration_order(min_vert)) {
                                     min_vert = v;
                                 }
                             }
@@ -1006,7 +569,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Cell
                 auto range = comp.get_facet_range(s);
                 pixels.insert(range.first, range.second);
             } else {
-                int ucostar = (int)iorder(s, STAR);
+                int ucostar = filt.get_star(s);
                 pixels.insert(ucostar);
             }
             
@@ -1032,16 +595,13 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Cell
 }
 
 
-std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp, py::array_t<int> coV, CellComplex &comp, 
-                                                       py::array_t<double> insert_order, bool dual) {
-    
-    auto iorder = insert_order.unchecked<2>();
-    
+std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp, py::array_t<int> coV, Filtration &filt, CellComplex &comp, bool dual) {
+        
     std::unordered_map<int, std::unordered_set<int> > basins;
     
     for(auto c: mcomp.get_cells()) {
         if(mcomp.get_dim(c) == 0) {
-            int index = dual ? (int)iorder(c, STAR) : c;
+            int index = dual ? filt.get_star(c) : c;
             
             
             std::unordered_set<int> mfeature;
@@ -1049,7 +609,7 @@ std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp,
             
             std::unordered_set<int> feature = convert_morse_to_real_complex(mfeature, coV, comp, true);
             
-            std::unordered_set<int> pixels = convert_to_pixels(feature, comp, insert_order, dual);
+            std::unordered_set<int> pixels = convert_to_pixels(feature, filt, comp, dual);
             
             // might ont need piecewise_construct, but it may be safer this way
             basins.emplace(std::piecewise_construct, std::forward_as_tuple(index), 
@@ -1062,8 +622,7 @@ std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp,
 }
 
 
-std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, py::array_t<int> V, CellComplex &comp, 
-                                                       int d, py::array_t<double> insert_order, bool dual) {
+std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int d, py::array_t<int> V, Filtration &filt, CellComplex &comp, bool dual) {
     
     auto Vbuf = V.unchecked<1>();
     
@@ -1077,7 +636,7 @@ std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, py::array_t<int>
             
             std::unordered_set<int> feature = convert_morse_to_real_complex(mfeature, V, comp, false);
             
-            std::unordered_set<int> pixels = convert_to_pixels(feature, comp, insert_order, dual);
+            std::unordered_set<int> pixels = convert_to_pixels(feature, filt, comp, dual);
             
             skeleton.insert(pixels.begin(), pixels.end());
             
@@ -1089,12 +648,8 @@ std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, py::array_t<int>
 }
 
 
-std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &mcomp, CellComplex &comp,
-                                                     py::array_t<int> V, py::array_t<int> coV, 
-                                                     py::array_t<double> insert_order) {
-    
-    auto iorder = insert_order.unchecked<2>();
-    
+std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, Filtration &filt, CellComplex &comp) {
+        
     std::unordered_set<int> seen;
     std::queue<int> Q;
     if(comp.get_dim(i) == 0) {
@@ -1114,8 +669,8 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &m
 
             int b = *ita;
             
-            if((comp.get_dim(i) == 0 && iorder(b, TIME) >= iorder(j, TIME)) 
-              ||(comp.get_dim(i) != 0 && iorder(b, TIME) <= iorder(i, TIME))) {
+            if((comp.get_dim(i) == 0 && filt.get_time(b) >= filt.get_time(j)) 
+              ||(comp.get_dim(i) != 0 && filt.get_time(b) <= filt.get_time(i))) {
                 continue;
             }
 
@@ -1158,6 +713,8 @@ std::unordered_set<int> get_boundary(std::unordered_set<int> &cells, CellComplex
     
     return cycle;
 }
+
+
 
     
 #endif // MORSE

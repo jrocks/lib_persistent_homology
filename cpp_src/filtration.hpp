@@ -12,7 +12,6 @@ namespace py = pybind11;
 #include <numeric>
     
 #include "cell_complex.hpp"
-#include "morse.hpp"
     
 class Filtration {
     
@@ -33,7 +32,11 @@ private:
     
 public:
     
-    Filtration(int ncells, std::vector<double> &time) : ncells(ncells), nprimary_cells(time.size()), time(time) {}
+    Filtration(int ncells, std::vector<double> &time) : 
+        ncells(ncells), nprimary_cells(time.size()), time(time),
+        primary_order(time.size()), filtration_order(ncells), star(ncells) {
+            std::iota(star.begin(), star.begin()+nprimary_cells, 0);
+        }
     
     void set_primary_order(int alpha, int order) {
         primary_order[alpha] = order;
@@ -48,7 +51,7 @@ public:
     }
     
     double get_time(int alpha) {
-        return time[alpha];
+        return time[star[alpha]];
     }
     
     int get_primary_order(int alpha) {
@@ -75,14 +78,14 @@ public:
 };
 
 
-void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dual) {    
+void perform_watershed_transform(Filtration &filt, CellComplex &comp, bool dual) {    
     
-    std::vector<bool> submerged(filter.nprimary_cells, false);
+    std::vector<bool> submerged(filt.nprimary_cells, false);
     
-    std::vector<int> pcell_argsort(filter.nprimary_cells);
+    std::vector<int> pcell_argsort(filt.nprimary_cells);
     std::iota(pcell_argsort.begin(), pcell_argsort.end(), 0);
     std::sort(pcell_argsort.begin(), pcell_argsort.end(),
-       [&filter](int lhs, int rhs) {return filter.get_time(lhs) <= filter.get_time(rhs);});
+       [&filt](int lhs, int rhs) {return filt.get_time(lhs) <= filt.get_time(rhs);});
     
     unsigned int ti = 0;
     while(ti < pcell_argsort.size()) {
@@ -92,10 +95,10 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
         unsigned int tj = ti;
         while(true) {
             int vi = pcell_argsort[tj];
-            double t = filter.get_time(vi);
+            double t = filt.get_time(vi);
             plateau.insert(vi);
             
-            if((tj+1 == pcell_argsort.size()) || (t != filter.get_time(pcell_argsort[tj+1]))) {
+            if((tj+1 == pcell_argsort.size()) || (t != filt.get_time(pcell_argsort[tj+1]))) {
                 break;
             }
             
@@ -105,7 +108,7 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
         if(plateau.size() == 1) {
             int vi = *(plateau.begin());
             submerged[vi] = true;
-            filter.set_primary_order(vi, ti);
+            filt.set_primary_order(vi, ti);
             ti++;
             
             continue;
@@ -156,7 +159,7 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
             
             plateau.erase(a);
             submerged[a] = true;
-            filter.set_primary_order(a, ti);
+            filt.set_primary_order(a, ti);
             ti++;
             
             auto rangea = dual ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
@@ -203,7 +206,7 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
 
                 plateau.erase(a);
                 submerged[a] = true;
-                filter.set_primary_order(a, ti);
+                filt.set_primary_order(a, ti);
                 ti++;
 
 
@@ -222,7 +225,6 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
                         int c = *itb;
 
                         if(plateau.count(c)) {
-
                             double new_dist = current_dist + 1.0;
 
                             if(!dist.count(c) || new_dist < dist[c]) {
@@ -241,7 +243,10 @@ void perform_watershed_transform(Filtration &filter, CellComplex &comp, bool dua
     
 }
 
-void construct_filtration(Filtration &filter, CellComplex &comp, bool dual) {
+
+
+
+void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
     
     
     class Comparator {
@@ -297,10 +302,10 @@ void construct_filtration(Filtration &filter, CellComplex &comp, bool dual) {
                 
         for(auto alpha: star) {
                         
-            lex_val[i].push_back(filter.get_primary_order(alpha));
+            lex_val[i].push_back(filt.get_primary_order(alpha));
             
-            if((dual && filter.get_primary_order(alpha) < filter.get_primary_order(star_cell))
-               || (!dual && filter.get_primary_order(alpha) > filter.get_primary_order(star_cell))) {
+            if((dual && filt.get_primary_order(alpha) < filt.get_primary_order(star_cell))
+               || (!dual && filt.get_primary_order(alpha) > filt.get_primary_order(star_cell))) {
                 
                 star_cell = alpha;
             }
@@ -322,8 +327,8 @@ void construct_filtration(Filtration &filter, CellComplex &comp, bool dual) {
         int c = cells[i];
         int star = cell_to_star[c];
         
-        filter.set_star(c, star);
-        filter.set_filtration_order(c, i);
+        filt.set_star(c, star);
+        filt.set_filtration_order(c, i);
              
     }
             

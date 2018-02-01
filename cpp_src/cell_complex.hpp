@@ -8,7 +8,8 @@ namespace py = pybind11;
 #include <unordered_map>
 #include <iostream>
 #include <utility>
-    
+#include <queue>
+        
 class CellComplex {
     
 public:
@@ -387,6 +388,36 @@ bool check_boundary_op(CellComplex &comp) {
     return valid;
     
 }
+
+
+
+std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int target_dim) {
+    
+    std::unordered_set<int> star;
+    
+    std::queue<int> Q;
+    Q.push(alpha);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+        
+        // These are purposely backwards
+        // Explore cofacets for star and facets for costar
+        auto range = co ? comp.get_facet_range(a) : comp.get_cofacet_range(a);
+        for(auto it = range.first; it != range.second; it++) {
+            Q.push(*it);
+        }
+        
+        if(target_dim == -1 || comp.get_dim(a) == target_dim) {
+            star.insert(a);
+        }
+    }
+    
+    return star;
+ 
+}
+
 
 
 #endif // CELLCOMPLEX

@@ -13,7 +13,7 @@
 namespace py = pybind11;
 
 
-PYBIND11_MODULE(phutil, m) {
+PYBIND11_MODULE(persist, m) {
     
     py::class_<CellComplex>(m, "CellComplex")
         .def(py::init<int, bool, bool, bool>())
@@ -51,6 +51,7 @@ PYBIND11_MODULE(phutil, m) {
         .def("set_primary_order", &Filtration::set_primary_order)
         .def("set_filtration_order", &Filtration::set_filtration_order)
         .def("set_star", &Filtration::set_star)
+        .def("get_time", &Filtration::get_time)
         .def("get_primary_order", &Filtration::get_primary_order)
         .def("get_filtration_order", &Filtration::get_filtration_order)
         .def("get_star", &Filtration::get_star)
@@ -59,22 +60,11 @@ PYBIND11_MODULE(phutil, m) {
     
     m.def("perform_watershed_transform", &perform_watershed_transform);
     m.def("construct_filtration", &construct_filtration);
-    
-   
-    
+        
     m.def("get_star", &get_star,
          "Finds the star/costar of a give cell.");
     m.def("get_lower_star", &get_lower_star,
          "Finds the lower star/upper costar of a cell with a given Morse function defined by a complete cell filtration order.");
-    
-    
-    
-    m.def("construct_vertex_filtration_order", &construct_vertex_filtration_order,
-         "Finds a valid ordering for cells with explicitly defined Morse function values in a cell complex.");
-    m.def("construct_time_of_insertion_map", &construct_time_of_insertion_map,
-         "Constructs a complete cell filtration order.");
-    
-    
     
     
     m.def("construct_discrete_gradient", &construct_discrete_gradient,

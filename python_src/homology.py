@@ -10,7 +10,7 @@ import itertools as it
 import phat
 import queue
 import collections as co
-import phutil
+import persist
 
 # class CellComplex:
     
@@ -141,13 +141,13 @@ import phutil
             
 def construct_cubical_complex(shape, oriented=False, dual=False):
         
-    return phutil.construct_cubical_complex(shape, oriented, dual)
+    return persist.construct_cubical_complex(shape, oriented, dual)
         
 #     dim = len(shape)
     
 #     # comp = CellComplex(dim, reserve=64, regular=True, oriented=oriented, ordered=True)
     
-#     comp = phutil.CellComplex(dim, True, oriented, True)
+#     comp = persist.CellComplex(dim, True, oriented, True)
     
 #     if dim == 2 and not dual:
 #         nrows = shape[0]
@@ -253,7 +253,7 @@ def construct_cubical_complex(shape, oriented=False, dual=False):
    
 def check_boundary_op(comp):
     
-    return phutil.check_boundary_op(comp);
+    return persist.check_boundary_op(comp);
     
 #     valid = True
 #     for i in comp.get_cells():
@@ -284,7 +284,7 @@ def check_boundary_op(comp):
     
 def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positions=None, dual=False):
     
-    return phutil.construct_vertex_filtration_order(comp, vertex_time, dual)
+    return persist.construct_vertex_filtration_order(comp, vertex_time, dual)
     
 #     vertex_order = np.zeros(len(vertex_time), int)
         
@@ -446,7 +446,7 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
 #     lex_val = set()
         
 #     # cells = get_star(alpha, I, cell_dim=cell_dim, dims=dims)
-#     cells = phutil.get_star(alpha, co, comp, target_dim)
+#     cells = persist.get_star(alpha, co, comp, target_dim)
 #     for c in cells:
 #         lex_val.add((F[c], c))
         
@@ -462,7 +462,7 @@ def construct_vertex_filtration_order(comp, vertex_time, euclidean=False, positi
 def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False):
     
     
-    return phutil.construct_time_of_insertion_map(comp, vertex_order, vertex_time, dual)
+    return persist.construct_time_of_insertion_map(comp, vertex_order, vertex_time, dual)
     
 #     order_to_time = vertex_time[np.argsort(vertex_order)]
                 
@@ -505,7 +505,7 @@ def construct_time_of_insertion_map(comp, vertex_time, vertex_order, dual=False)
 def construct_discrete_gradient(comp, insert_order, dual=False):
     
     
-    return phutil.construct_discrete_gradient(comp, insert_order, dual)
+    return persist.construct_discrete_gradient(comp, insert_order, dual)
         
 #     STAR = 1
 #     LEX = 2     
@@ -521,11 +521,11 @@ def construct_discrete_gradient(comp, insert_order, dual=False):
 #         if dual:
 #             # get upper costar
 #             # star = get_star(x, comp.get_facets, insert_order=insert_order)
-#             star = phutil.get_lower_star(x, True, comp, -1, insert_order)
+#             star = persist.get_lower_star(x, True, comp, -1, insert_order)
 #         else:
 #             # get lower star
 #             # star = get_star(x, comp.get_cofacets, insert_order=insert_order)
-#             star = phutil.get_lower_star(x, False, comp, -1, insert_order)
+#             star = persist.get_lower_star(x, False, comp, -1, insert_order)
             
 #         unpaired = {}
             
@@ -622,7 +622,7 @@ def construct_discrete_gradient(comp, insert_order, dual=False):
     
 def reverse_discrete_gradient(V):
     
-    return phutil.reverse_gradient(V)
+    return persist.reverse_gradient(V)
     
 # #     coV = {}
 # #     for x in V:
@@ -705,7 +705,7 @@ def calc_morse_boundary(s, V, I, coeff, oriented=False):
     
 def construct_morse_complex(V, comp, oriented=False):
     
-    return phutil.construct_morse_complex(V, comp, oriented)
+    return persist.construct_morse_complex(V, comp, oriented)
     
 #     mcomp = CellComplex(comp.dim, ordered=False, oriented=oriented, regular=False)
         
@@ -748,7 +748,7 @@ def find_connections(s, t, V, coV, I, coI):
 def simplify_morse_complex(threshold, V, coV, comp, insert_order):
     
     
-    phutil.simplify_morse_complex(threshold, V, coV, comp, insert_order, verbose=True);
+    persist.simplify_morse_complex(threshold, V, coV, comp, insert_order, verbose=True);
     return (V, coV)
      
     TIME = 0
@@ -862,13 +862,14 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
     return (V, coV)
        
         
-def construct_filtration(comp, insert_order):
+def construct_filtration(comp, filtration):
     
     LEX = 2
     
     Q = queue.PriorityQueue()
     for i in comp.get_cells():
-        Q.put((insert_order[i][LEX], i))
+        # Q.put((insert_order[i][LEX], i))
+        Q.put((filtration.get_filtration_order(i), i))
         
     while not Q.empty():
         (order, c) = Q.get()
@@ -1217,7 +1218,7 @@ def convert_morse_to_real_complex(mfeature, V, I):
 
 def convert_to_pixels(feature, comp, insert_order, dual=False):
     
-    return phutil.convert_to_pixels(feature, comp, insert_order, dual)
+    return persist.convert_to_pixels(feature, comp, insert_order, dual)
     
     
 #     pixels = set()
@@ -1237,12 +1238,12 @@ def convert_to_pixels(feature, comp, insert_order, dual=False):
 #                 #start replacing snippets here
                 
 #                 # cofaces = get_star(s, comp.get_cofacets, cell_dim=comp.dim, dims=comp.get_dim)
-#                 cofaces = phutil.get_star(s, False, comp, comp.dim)
+#                 cofaces = persist.get_star(s, False, comp, comp.dim)
                         
 #                 for c in cofaces:
                     
 #                     # verts = get_star(c, comp.get_facets, cell_dim=0, dims=comp.get_dim)
-#                     verts = phutil.get_star(c, True, comp, 0)
+#                     verts = persist.get_star(c, True, comp, 0)
                     
 #                     ucostar_verts = set()
 #                     for v in verts:
@@ -1305,7 +1306,7 @@ def convert_to_pixels(feature, comp, insert_order, dual=False):
      
 def find_basins(mcomp, coV, comp, insert_order, dual=False):
     
-    return phutil.find_basins(mcomp, coV, comp, insert_order, dual)
+    return persist.find_basins(mcomp, coV, comp, insert_order, dual)
     
 #     basins = {}
     
@@ -1328,7 +1329,7 @@ def find_basins(mcomp, coV, comp, insert_order, dual=False):
     
 def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
     
-    return phutil.find_morse_skeleton(mcomp, V, comp, d, insert_order, dual)
+    return persist.find_morse_skeleton(mcomp, V, comp, d, insert_order, dual)
     
     
 #     skeleton = set()
@@ -1353,7 +1354,7 @@ def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
 
 def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
     
-    return phutil.extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order)
+    return persist.extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order)
     
 #     TIME = 0
 #     STAR = 1
@@ -1400,7 +1401,7 @@ def extract_persistence_feature(i, j, mcomp, comp, V, coV, insert_order):
 
 def get_boundary(cells, comp):
     
-    return phutil.get_boundary(cells, comp)
+    return persist.get_boundary(cells, comp)
     
 #     cycle = set()
     
