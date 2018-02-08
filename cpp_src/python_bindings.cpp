@@ -16,18 +16,17 @@ namespace py = pybind11;
 PYBIND11_MODULE(persist, m) {
     
     py::class_<CellComplex>(m, "CellComplex")
-        .def(py::init<int, bool, bool, bool>())
-        .def("add_cell", &CellComplex::add_cell)
+        .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)
+        .def("add_cell", (void (CellComplex::*)(int, int, std::vector<int>&, std::vector<int>&)) &CellComplex::add_cell)
         .def("make_compressed", &CellComplex::make_compressed)
+        .def("get_label", &CellComplex::get_label)
         .def("get_dim", &CellComplex::get_dim)
         .def("get_facets", &CellComplex::get_facets, py::return_value_policy::take_ownership)
         .def("get_coeffs", &CellComplex::get_coeffs, py::return_value_policy::take_ownership)
         .def("get_cofacets", &CellComplex::get_cofacets, py::return_value_policy::take_ownership)
-        .def("get_cells", &CellComplex::get_cells)
         .def("construct_cofacets", &CellComplex::construct_cofacets)
         .def_readonly("dim", &CellComplex::dim)
         .def_readonly("ncells", &CellComplex::ncells)
-        .def_readonly("ordered", &CellComplex::ordered)
         .def_readonly("regular", &CellComplex::regular)
         .def_readonly("oriented", &CellComplex::oriented)
         .def_readonly("dims", &CellComplex::dims)
@@ -38,8 +37,8 @@ PYBIND11_MODULE(persist, m) {
         .def_readonly("cofacets", &CellComplex::cofacets);
     
     
-    m.def("construct_cubical_complex", &construct_cubical_complex, "Constructs a cublical complex.",
-          py::return_value_policy::take_ownership);
+    m.def("construct_cubical_complex", &construct_cubical_complex, "Constructs a cublical complex.");
+    m.def("construct_masked_cubical_complex", &construct_masked_cubical_complex);
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     

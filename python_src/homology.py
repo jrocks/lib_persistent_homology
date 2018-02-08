@@ -862,14 +862,14 @@ def simplify_morse_complex(threshold, V, coV, comp, insert_order):
     return (V, coV)
        
         
-def construct_filtration(comp, filtration):
+def construct_filtration(mcomp, filtration):
     
     LEX = 2
     
     Q = queue.PriorityQueue()
-    for i in comp.get_cells():
+    for i in range(mcomp.ncells):
         # Q.put((insert_order[i][LEX], i))
-        Q.put((filtration.get_filtration_order(i), i))
+        Q.put((filtration.get_filtration_order(mcomp.get_label(i)), i))
         
     while not Q.empty():
         (order, c) = Q.get()
@@ -879,7 +879,7 @@ def construct_filtration(comp, filtration):
 def get_morse_weights(mcomp, V, coV, I, coI):
     
     weights = {}
-    for s in mcomp.get_cells():
+    for s in range(mcomp.ncells):
         if mcomp.get_dim(s) == 0:
             weights[s] = 1
             continue
@@ -1345,7 +1345,7 @@ def find_morse_skeleton(mcomp, V, comp, d, insert_order, dual=False):
 #     return skeleton 
 
         
-
+    
 # if (i, j) represents a 1-cycle (connected component), 
 # then expand cell i in morse complex up to (but not including) death cell j
 # if (i, j) represents a d-cycle (cycle for 2-manifold or void for 3-manifold), 

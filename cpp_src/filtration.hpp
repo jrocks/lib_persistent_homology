@@ -55,7 +55,7 @@ public:
     }
     
     int get_primary_order(int alpha) {
-        return primary_order[alpha];
+        return primary_order[star[alpha]];
     }
     
     int get_filtration_order(int alpha) {
@@ -248,7 +248,7 @@ void perform_watershed_transform(Filtration &filt, CellComplex &comp, bool dual)
 
 void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
     
-    
+        
     class Comparator {
         
         CellComplex &comp;
@@ -296,12 +296,12 @@ void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
     
     int target_dim = dual ? comp.dim : 0;
     for(int i = 0; i < comp.ncells; i++) {
-        
+                  
         std::unordered_set<int> star = get_star(i, !dual, comp, target_dim);
         int star_cell = *(star.begin());
                 
         for(auto alpha: star) {
-                        
+                                    
             lex_val[i].push_back(filt.get_primary_order(alpha));
             
             if((dual && filt.get_primary_order(alpha) < filt.get_primary_order(star_cell))
@@ -310,11 +310,12 @@ void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
                 star_cell = alpha;
             }
         }
-        
+                
         cell_to_star[i] = star_cell;
         
         // Sort from high to low
-        std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>());        
+        std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>());  
+        
     }
     
     std::vector<int> cells(comp.ncells);

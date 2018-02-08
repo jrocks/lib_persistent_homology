@@ -292,28 +292,43 @@ CellComplex construct_morse_complex(py::array_t<int> V, CellComplex &comp, bool 
     
     auto Vbuf = V.unchecked<1>();
     
-    CellComplex mcomp(comp.dim, false, oriented, false);
+    CellComplex mcomp(comp.dim, false, oriented);
     
+    
+    std::unordered_map<int, int> label_to_cell;
+    std::vector<int> cell_to_label;
+    
+    int index = 0;
     for(int s = 0; s < comp.ncells; s++) {
         if(Vbuf(s) == s) {
-            std::vector<int> facets;
-            std::vector<int> coeffs;
             
-            std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, oriented);
-            for(auto trip: morse_boundary) {
-                int c, k, m;
-                std::tie(c, k, m) = trip;
-                
-                facets.push_back(c);
-                coeffs.push_back(m);
-                
-                if(m > 1 || m < -1) {
-                    py::print("Large Coefficient:", k, m, comp.get_dim(c), comp.get_dim(s));
-                }
-            }
+            label_to_cell[s] = index;
+            cell_to_label.push_back(s);
             
-            mcomp.add_cell(comp.get_dim(s), facets, s, coeffs);
+            index++;
+            
         }
+    }
+    
+    for(auto s: cell_to_label) {
+        
+        std::vector<int> facets;
+        std::vector<int> coeffs;
+
+        std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, oriented);
+        for(auto trip: morse_boundary) {
+            int c, k, m;
+            std::tie(c, k, m) = trip;
+
+            facets.push_back(label_to_cell[c]);
+            coeffs.push_back(m);
+            
+            if(m > 1 || m < -1) {
+                py::print("Large Coefficient:", k, m, comp.get_dim(c), comp.get_dim(s));
+            }
+        }
+        
+        mcomp.add_cell(s, comp.get_dim(s), facets, coeffs);
     }
     
     mcomp.construct_cofacets();
@@ -503,7 +518,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
     for(auto s: feature) {
         if(comp.get_dim(s) == 0) {
             if(!dual) {
-                pixels.insert(s);
+                pixels.insert(comp.get_label(s));
             } else {
                 
                 std::unordered_set<int> cofaces = get_star(s, false, comp, comp.dim);
@@ -527,7 +542,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
                         }
                         
                         if(feature.count(min_vert)) {
-                            pixels.insert(c);
+                            pixels.insert(comp.get_label(c));
                         }
                         
                     } else {
@@ -543,7 +558,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
                         
                         if(issubset) {
                             
-                            pixels.insert(c);
+                            pixels.insert(comp.get_label(c));
                             
                         } else {
                             int min_vert = *(ucostar_verts.begin());
@@ -554,7 +569,7 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
                             }
                             
                             if(feature.count(min_vert)) {
-                                pixels.insert(c);
+                                pixels.insert(comp.get_label(c));
                             }
                             
                         }
@@ -567,10 +582,12 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
         } else if(comp.get_dim(s) == 1) {
             if(!dual) {
                 auto range = comp.get_facet_range(s);
-                pixels.insert(range.first, range.second);
+                for(auto it = range.first; it != range.second; it++) {
+                    pixels.insert(comp.get_label(*it));
+                }
             } else {
                 int ucostar = filt.get_star(s);
-                pixels.insert(ucostar);
+                pixels.insert(comp.get_label(ucostar));
             }
             
         } else if(comp.get_dim(s) == 2) {
@@ -579,11 +596,13 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
                 auto rangei = comp.get_facet_range(s);
                 for(auto iti = rangei.first; iti != rangei.second; iti++) {
                     auto rangej = comp.get_facet_range(*iti);
-                    pixels.insert(rangej.first, rangej.second);
+                    for(auto itj = rangej.first; itj != rangej.second; itj++) {
+                        pixels.insert(comp.get_label(*itj));
+                    }
                 }
                 
             } else {
-                pixels.insert(s);
+                pixels.insert(comp.get_label(s));
             }
             
         }
@@ -599,19 +618,19 @@ std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp,
         
     std::unordered_map<int, std::unordered_set<int> > basins;
     
-    for(auto c: mcomp.get_cells()) {
+    for(int c = 0; c < mcomp.ncells; c++) {
         if(mcomp.get_dim(c) == 0) {
-            int index = dual ? filt.get_star(c) : c;
+            int s = mcomp.get_label(c);
+            int index = dual ? filt.get_star(s) : s;
             
             
             std::unordered_set<int> mfeature;
-            mfeature.insert(c);
+            mfeature.insert(s);
             
             std::unordered_set<int> feature = convert_morse_to_real_complex(mfeature, coV, comp, true);
             
             std::unordered_set<int> pixels = convert_to_pixels(feature, filt, comp, dual);
             
-            // might ont need piecewise_construct, but it may be safer this way
             basins.emplace(std::piecewise_construct, std::forward_as_tuple(index), 
                            std::forward_as_tuple(pixels.begin(), pixels.end()));
                      
@@ -623,13 +642,12 @@ std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp,
 
 
 std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int d, py::array_t<int> V, Filtration &filt, CellComplex &comp, bool dual) {
-    
-    auto Vbuf = V.unchecked<1>();
-    
+        
     std::unordered_set<int> skeleton;
     
-    for(int s = 0; s < comp.ncells; s++) {
-        if(Vbuf(s) == s && mcomp.get_dim(s) == d) {
+    for(int c = 0; c < mcomp.ncells; c++) {
+        if(mcomp.get_dim(c) == d) {
+            int s = mcomp.get_label(c);
                         
             std::unordered_set<int> mfeature;
             mfeature.insert(s);
@@ -650,9 +668,10 @@ std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int d, py::array
 
 std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, Filtration &filt, CellComplex &comp) {
         
+    
     std::unordered_set<int> seen;
     std::queue<int> Q;
-    if(comp.get_dim(i) == 0) {
+    if(mcomp.get_dim(i) == 0) {
         seen.insert(i);
         Q.push(i);
     } else {
@@ -664,17 +683,18 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &m
         int a = Q.front();
         Q.pop();
         
-        auto rangea = (comp.get_dim(i) == 0) ? comp.get_cofacet_range(a) : comp.get_facet_range(a);
+        auto rangea = (mcomp.get_dim(i) == 0) ? mcomp.get_cofacet_range(a) : mcomp.get_facet_range(a);
         for(auto ita = rangea.first; ita != rangea.second; ita++) {
 
             int b = *ita;
             
-            if((comp.get_dim(i) == 0 && filt.get_time(b) >= filt.get_time(j)) 
-              ||(comp.get_dim(i) != 0 && filt.get_time(b) <= filt.get_time(i))) {
+            // maybe change to get_filtration_order instead?
+            if((mcomp.get_dim(i) == 0 && filt.get_time(mcomp.get_label(b)) >= filt.get_time(mcomp.get_label(j))) 
+              ||(mcomp.get_dim(i) != 0 && filt.get_time(mcomp.get_label(b)) <= filt.get_time(mcomp.get_label(i)))) {
                 continue;
             }
 
-            auto rangeb = (comp.get_dim(i) == 0) ? comp.get_facet_range(b) : comp.get_cofacet_range(b);
+            auto rangeb = (mcomp.get_dim(i) == 0) ? mcomp.get_facet_range(b) : mcomp.get_cofacet_range(b);
             for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
 
                 int c = *itb;
@@ -687,33 +707,18 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &m
         }
     }
     
-    if(comp.get_dim(i) == 0) {
-        return convert_morse_to_real_complex(seen, coV, comp, true);     
+    std::unordered_set<int> mfeature;
+    for(auto s: seen) {
+        mfeature.insert(mcomp.get_label(s));
+    }
+    
+    if(mcomp.get_dim(i) == 0) {
+        return convert_morse_to_real_complex(mfeature, coV, comp, true);     
     } else {
-        return convert_morse_to_real_complex(seen, V, comp, false);
+        return convert_morse_to_real_complex(mfeature, V, comp, false);
     }
         
 }
-
-std::unordered_set<int> get_boundary(std::unordered_set<int> &cells, CellComplex &comp) {
-    std::unordered_set<int> cycle;
-    if(comp.regular) {
-        for(auto c: cells) {
-            auto range = comp.get_facet_range(c);
-            for(auto it = range.first; it != range.second; it++) {
-                int a = *it;
-                if(cycle.count(a)) {
-                    cycle.erase(a);
-                } else {
-                    cycle.insert(a);
-                }
-            }
-        }
-    }
-    
-    return cycle;
-}
-
 
 
     
