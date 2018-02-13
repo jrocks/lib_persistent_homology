@@ -613,6 +613,30 @@ std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filt
     
 }
 
+std::unordered_set<int> get_boundary_pixels(std::unordered_set<int> &pixels, std::vector<int> &shape) {
+ 
+    std::unordered_set<int> boundary;
+        
+    int nrows = shape[0];
+    int ncols = shape[1];
+    
+    for(auto pix: pixels) {
+        int col = pix % ncols;
+        int row = (pix - col) / ncols;
+                
+        if(row == 0 || row == nrows-1 || col == 0 || col == ncols-1) {
+            boundary.insert(pix);
+        } else if(!pixels.count(ncols*(row-1)+col) || !pixels.count(ncols*(row-1)+col+1) 
+                 || !pixels.count(ncols*row+col+1) || !pixels.count(ncols*(row+1)+col+1)
+                 || !pixels.count(ncols*(row+1)+col) || !pixels.count(ncols*(row+1)+col-1)
+                 || !pixels.count(ncols*row+col-1) || !pixels.count(ncols*(row-1)+col-1)) {
+            boundary.insert(pix);
+        }
+    }
+    
+    return boundary;
+}
+
 
 std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp, py::array_t<int> coV, Filtration &filt, CellComplex &comp, bool dual) {
         

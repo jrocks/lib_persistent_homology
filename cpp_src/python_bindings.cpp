@@ -77,6 +77,7 @@ PYBIND11_MODULE(persist, m) {
           py::arg("insert_order"), py::arg("verbose") = false);
     m.def("convert_morse_to_real_complex", &convert_morse_to_real_complex);
     m.def("convert_to_pixels", &convert_to_pixels);
+    m.def("get_boundary_pixels", &get_boundary_pixels);
     m.def("find_basins", &find_basins);
     m.def("find_morse_skeleton", &find_morse_skeleton);
     m.def("extract_persistence_feature", &extract_persistence_feature);

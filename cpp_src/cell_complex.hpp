@@ -323,10 +323,173 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
 
 
 
+// CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vector<int> &shape, bool oriented, bool dual) {
+    
+//     int dim = shape.size();
+    
+//     int ncells = 0;
+//     std::vector<int> dims;
+//     std::vector<int> labels;
+//     std::vector<std::vector<int> > facet_list;
+//     std::vector<std::vector<int> > coeff_list;
+    
+//     if(dim == 2 and dual) {
+//         int nrows = shape[0]+1;
+//         int ncols = shape[1]+1;
+        
+//         int nverts = nrows*ncols;
+//         int nhedges = nrows*(ncols-1);
+//         int nvedges = (nrows-1)*ncols;
+//         int nfaces = (nrows-1)*(ncols-1);
+        
+//         ncells = nverts+nhedges+nvedges+nfaces;
+//         dims.resize(ncells);
+//         labels.resize(ncells);
+//         facet_list.resize(ncells);
+//         if(!oriented) {
+//             coeff_list.resize(ncells);
+//         }
+        
+//         int icell = 0;
+//         // faces
+//         for(int i = 0; i < nrows-1; i++) {
+//             for(int j = 0; j < ncols-1; j++, icell++) {
+                
+//                 labels[icell] = icell;
+//                 dims[icell] = 2;
+                
+//                 facet_list[icell].push_back(nfaces + (ncols-1)*i + j);
+//                 facet_list[icell].push_back(nfaces + nhedges + ncols*i + j+1);
+//                 facet_list[icell].push_back(nfaces + (ncols-1)*(i+1) + j);
+//                 facet_list[icell].push_back(nfaces + nhedges + ncols*i + j);
+                
+//                 if(oriented) {
+//                     coeff_list[icell].push_back(1);
+//                     coeff_list[icell].push_back(1);
+//                     coeff_list[icell].push_back(-1);
+//                     coeff_list[icell].push_back(-1);
+//                 }
+                
+//             }
+//         }
+        
+//         // horizontal edges
+//         for(int i = 0; i < nrows; i++) {
+//             for(int j = 0; j < ncols-1; j++, icell++) {
+                
+//                 labels[icell] = icell;
+//                 dims[icell] = 1;
+                
+//                 facet_list[icell].push_back(nfaces + nhedges + nvedges + ncols*i + j);
+//                 facet_list[icell].push_back(nfaces + nhedges + nvedges + ncols*i + j+1);
+                
+//                 if(oriented) {
+//                     coeff_list[icell].push_back(-1);
+//                     coeff_list[icell].push_back(1);
+//                 }
+                
+//             }
+//         }
+        
+//         // vertical edges
+//         for(int i = 0; i < nrows-1; i++) {
+//             for(int j = 0; j < ncols; j++, icell++) {
+                
+//                 labels[icell] = icell;
+//                 dims[icell] = 1;
+                
+//                 facet_list[icell].push_back(nfaces + nhedges + nvedges + ncols*i + j);
+//                 facet_list[icell].push_back(nfaces + nhedges + nvedges + ncols*(i+1) + j);
+                
+//                 if(oriented) {
+//                     coeff_list[icell].push_back(-1);
+//                     coeff_list[icell].push_back(1);
+//                 }
+                
+//             }
+//         }
+        
+//         // vertices
+//         for(int i = 0; i < nrows*ncols; i++, icell++) {
+            
+//             labels[icell] = icell;
+//             dims[icell] = 0;
+            
+//         }
+
+//     }
+    
+        
+//     std::vector<bool> include(ncells, false);
+//     for(int i = 0; i < ncells; i++) {
+        
+//         if((dual && dims[i] == dim) 
+//           || (!dual && dims[i] == 0)) {
+            
+//             include[i] = !mask[labels[i]];
+//         }
+//     }
+    
+//     if(dual) {
+//         // Cells are already sorted from highest to lowest dimension
+//         for(int i = 0; i < ncells; i++) {
+//             if(include[i]) {             
+//                 for(auto alpha: facet_list[i]) {
+//                     include[alpha] = true;
+//                 }
+//             }
+//         }
+//     } else {
+
+//     }
+    
+//     std::vector<int> complete_to_mask(ncells);
+//     int index = 0;
+//     for(int i = 0; i < ncells; i++) {
+//         if(include[i]) {
+//             complete_to_mask[i] = index;
+//             index++;
+//         }
+//     }
+    
+//     CellComplex mask_comp(dim, true, oriented);
+    
+//     for(int i = 0; i < ncells; i++) {
+//         if(include[i]) {
+            
+//             std::vector<int> facets;
+//             for(auto alpha: facet_list[i]) {
+//                 facets.push_back(complete_to_mask[alpha]);
+//             }
+            
+//             std::vector<int> coeffs;
+//             if(oriented) {
+//                 for(auto alpha: coeff_list[i]) {
+//                     coeffs.push_back(complete_to_mask[alpha]);
+//                 }
+//             }
+            
+//             mask_comp.add_cell(labels[i], dims[i], facets, coeffs);
+//         }
+        
+//         facet_list[i].clear();
+//         if(oriented) {
+//             coeff_list[i].clear();
+//         }
+        
+//     }
+       
+//     mask_comp.construct_cofacets();
+//     mask_comp.make_compressed(); 
+        
+//     return mask_comp;
+    
+// }
+
+
 
 CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vector<int> &shape, bool oriented, bool dual) {
-    
-    
+      
     CellComplex complete_comp = construct_cubical_complex(shape, oriented, dual);
     
     std::vector<bool> include(complete_comp.ncells, false);
@@ -361,7 +524,7 @@ CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vecto
             for(int i = 0; i < complete_comp.ncells; i++) {
                 if(complete_comp.get_dim(i) == d) {
                                         
-                    auto range = complete_comp.get_cofacet_range(i);
+                    auto range = complete_comp.get_facet_range(i);
                     for(auto it = range.first; it != range.second; it++) {
                         
                         if(include[*it]) {
