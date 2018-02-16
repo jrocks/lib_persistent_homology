@@ -3,6 +3,8 @@
 #define LEX 2
 
 #include "cell_complex.hpp"
+#include "cubical_cell_complex.hpp"
+#include "graph_cell_complex.hpp"
 #include "filtration.hpp"
 #include "morse.hpp"
 #include "persistent_homology.hpp"
