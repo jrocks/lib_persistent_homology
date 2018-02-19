@@ -22,7 +22,7 @@ class get_pybind_include(object):
 
 ext_modules = [
     Extension(
-        'persist',
+        'chomology',
         ['cpp_src/python_bindings.cpp'],
         include_dirs=[
             # Path to pybind11 headers
@@ -89,7 +89,7 @@ class BuildExt(build_ext):
         build_ext.build_extensions(self)
 
 setup(
-    name='persist',
+    name='chomology',
     version=__version__,
     author='Jason W. Rocks',
     author_email='rocks@sas.upenn.edu',

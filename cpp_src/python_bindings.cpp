@@ -16,7 +16,7 @@
 namespace py = pybind11;
 
 
-PYBIND11_MODULE(persist, m) {
+PYBIND11_MODULE(chomology, m) {
     
     py::class_<CellComplex>(m, "CellComplex")
         .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)
