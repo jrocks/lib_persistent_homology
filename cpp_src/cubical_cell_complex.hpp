@@ -4,6 +4,7 @@
     
 #include <vector>
 #include "cell_complex.hpp"
+#include "filtration.hpp"
     
 
 
@@ -416,5 +417,132 @@ CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vecto
     
 }
     
+
+std::unordered_set<int> convert_to_pixels(std::unordered_set<int> &feature, Filtration &filt, CellComplex &comp, bool dual) {
+        
+    std::unordered_set<int> pixels;
+    
+    for(auto s: feature) {
+        if(comp.get_dim(s) == 0) {
+            if(!dual) {
+                pixels.insert(comp.get_label(s));
+            } else {
+                
+                std::unordered_set<int> cofaces = get_star(s, false, comp, comp.dim);
+                for(auto c: cofaces) {
+                    
+                    std::unordered_set<int> verts = get_star(c, true, comp, 0);
+                    
+                    std::unordered_set<int> ucostar_verts;
+                    for(auto v: verts) {
+                        if(filt.get_star(c) == filt.get_star(v)) {
+                            ucostar_verts.insert(v);
+                        }
+                    }
+                    
+                    if(ucostar_verts.empty()) {
+                        int min_vert = *(verts.begin());
+                        for(auto v: verts) {
+                            if(filt.get_filtration_order(v) < filt.get_filtration_order(min_vert)) {
+                                min_vert = v;
+                            }
+                        }
+                        
+                        if(feature.count(min_vert)) {
+                            pixels.insert(comp.get_label(c));
+                        }
+                        
+                    } else {
+                        
+                        bool issubset = true;
+                        for(auto v: ucostar_verts) {
+                            if(feature.count(v) == 0) {
+                                issubset = false;
+                                break;
+                            }
+                            
+                        }
+                        
+                        if(issubset) {
+                            
+                            pixels.insert(comp.get_label(c));
+                            
+                        } else {
+                            int min_vert = *(ucostar_verts.begin());
+                            for(auto v: ucostar_verts) {
+                                if(filt.get_filtration_order(v) < filt.get_filtration_order(min_vert)) {
+                                    min_vert = v;
+                                }
+                            }
+                            
+                            if(feature.count(min_vert)) {
+                                pixels.insert(comp.get_label(c));
+                            }
+                            
+                        }
+                        
+                    }
+                                            
+                }
+                
+            }
+        } else if(comp.get_dim(s) == 1) {
+            if(!dual) {
+                auto range = comp.get_facet_range(s);
+                for(auto it = range.first; it != range.second; it++) {
+                    pixels.insert(comp.get_label(*it));
+                }
+            } else {
+                int ucostar = filt.get_star(s);
+                pixels.insert(comp.get_label(ucostar));
+            }
+            
+        } else if(comp.get_dim(s) == 2) {
+            
+            if(!dual) {  
+                auto rangei = comp.get_facet_range(s);
+                for(auto iti = rangei.first; iti != rangei.second; iti++) {
+                    auto rangej = comp.get_facet_range(*iti);
+                    for(auto itj = rangej.first; itj != rangej.second; itj++) {
+                        pixels.insert(comp.get_label(*itj));
+                    }
+                }
+                
+            } else {
+                pixels.insert(comp.get_label(s));
+            }
+            
+        }
+    }
+    
+    
+    return pixels;
+    
+}
+
+std::unordered_set<int> get_boundary_pixels(std::unordered_set<int> &pixels, std::vector<int> &shape) {
+ 
+    std::unordered_set<int> boundary;
+        
+    int nrows = shape[0];
+    int ncols = shape[1];
+    
+    for(auto pix: pixels) {
+        int col = pix % ncols;
+        int row = (pix - col) / ncols;
+                
+        if(row == 0 || row == nrows-1 || col == 0 || col == ncols-1) {
+            boundary.insert(pix);
+        } else if(!pixels.count(ncols*(row-1)+col) || !pixels.count(ncols*(row-1)+col+1) 
+                 || !pixels.count(ncols*row+col+1) || !pixels.count(ncols*(row+1)+col+1)
+                 || !pixels.count(ncols*(row+1)+col) || !pixels.count(ncols*(row+1)+col-1)
+                 || !pixels.count(ncols*row+col-1) || !pixels.count(ncols*(row-1)+col-1)) {
+            boundary.insert(pix);
+        }
+    }
+    
+    return boundary;
+}
+
     
 #endif // CUBICALCOMPLEX

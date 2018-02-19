@@ -11,6 +11,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/eigen.h>
     
 namespace py = pybind11;
 
@@ -44,6 +45,8 @@ PYBIND11_MODULE(persist, m) {
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     
+    m.def("construct_graph_complex", &construct_graph_complex);
+    m.def("find_corners", &find_corners);
     
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
