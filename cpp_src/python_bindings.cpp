@@ -47,11 +47,13 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("construct_graph_complex", &construct_graph_complex);
     m.def("find_corners", &find_corners);
+    m.def("calc_corner_strains", &calc_corner_strains);
+    m.def("calc_edge_extension", &calc_edge_extension);
     
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
         .def_readonly("nprimary_cells", &Filtration::nprimary_cells)
-        .def(py::init<int, std::vector<double>& >())
+        .def(py::init<CellComplex&, std::vector<double>&, bool>())
         .def("set_primary_order", &Filtration::set_primary_order)
         .def("set_filtration_order", &Filtration::set_filtration_order)
         .def("set_star", &Filtration::set_star)

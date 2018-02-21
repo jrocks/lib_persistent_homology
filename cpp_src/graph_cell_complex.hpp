@@ -17,59 +17,39 @@ typedef Eigen::Ref<XVec > RXVec;
 namespace py = pybind11;
 
 #include <vector>
-#include <valarray>
+#include <map>
+#include <unordered_map>
 #include <algorithm>
+#include <utility>
 #include "cell_complex.hpp"
 
     
-CellComplex construct_graph_complex(int NV, int NE, std::vector<int> &edgei, std::vector<int> &edgej, bool oriented, bool dual) {
+CellComplex construct_graph_complex(int NV, int NE, std::vector<int> &edgei, std::vector<int> &edgej, bool oriented) {
     
     int dim = 1;
     
     CellComplex comp(dim, true, oriented);
+       
     
-    if(dual) {
-    
-        int index = 0;
-        for(int i = 0; i < NE; i++, index++) {
-            std::vector<int> facets;
-            facets.push_back(edgei[i]);
-            facets.push_back(edgej[i]);
+    // Vertices are guarenteed to have matching cell number and label
+    for(int i = 0; i < NV; i++) {
+        std::vector<int> facets;
+        std::vector<int> coeffs;
+        comp.add_cell(i, 0, facets, coeffs);
+    }
 
-            std::vector<int> coeffs;
-            if(oriented) {
-                coeffs.push_back(-1);
-                coeffs.push_back(1);
-            }
-            comp.add_cell(index, 1, facets, coeffs);
-        }
 
-        for(int i = 0; i < NV; i++, index++) {
-            std::vector<int> facets;
-            std::vector<int> coeffs;
-            comp.add_cell(index, 0, facets, coeffs);
-        }
-    } else {
-        int index = 0;
-        for(int i = 0; i < NV; i++, index++) {
-            std::vector<int> facets;
-            std::vector<int> coeffs;
-            comp.add_cell(index, 0, facets, coeffs);
-        }
-        
-        
-        for(int i = 0; i < NE; i++, index++) {
-            std::vector<int> facets;
-            facets.push_back(edgei[i]);
-            facets.push_back(edgej[i]);
+    for(int i = 0; i < NE; i++) {
+        std::vector<int> facets;
+        facets.push_back(edgei[i]);
+        facets.push_back(edgej[i]);
 
-            std::vector<int> coeffs;
-            if(oriented) {
-                coeffs.push_back(-1);
-                coeffs.push_back(1);
-            }
-            comp.add_cell(index, 1, facets, coeffs);
+        std::vector<int> coeffs;
+        if(oriented) {
+            coeffs.push_back(-1);
+            coeffs.push_back(1);
         }
+        comp.add_cell(i, 1, facets, coeffs);
  
     }
     
@@ -81,14 +61,17 @@ CellComplex construct_graph_complex(int NV, int NE, std::vector<int> &edgei, std
     
 }
 
-
-std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, int dim, int NV, RXVec vert_pos, RXVec L) {
+std::vector<std::vector<int> > find_corners(CellComplex &comp, int dim, RXVec vert_pos, RXVec L) {
     
-    std::vector<std::vector< std::vector<int> > > corners(NV);
-    
-    // Iterate over each vertex
-    for(int i = 0; i < NV; i++) {
+    std::vector<std::vector<int> > corners;
         
+    // Iterate over each vertex
+    for(int i = 0; i < comp.ncells; i++) {
+        
+        if(comp.get_dim(i) != 0) {
+            continue;
+        }
+                
         // Get all vertices
         std::vector<int> verts;
         // Get all vertex positions relative to center vertex
@@ -110,18 +93,16 @@ std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, in
             
             verts.push_back(j);
             
-            
-            /////////////////////////////////////////////////////////////
-            /// Periodic boundaries!!!!
-                        
+
             XVec bvec = vert_pos.segment(dim*j, dim) - O;
+                        
             bvec -= ((bvec.array() / L.array()).round() * L.array()).matrix();
-                
+                          
             positions[j] = bvec.normalized();
           
             
         }
-                
+                        
         // Must have at least dim vertices other than the central vertex for a corner to exist
         if((int)verts.size() < dim + 1) {
             continue;
@@ -142,7 +123,7 @@ std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, in
                     simplex.insert(verts[j]);
                 }
             }
-                        
+                                    
             // Calculate positions of all verts relative to one vert
             XMat cross_mat(dim, dim-1);
             
@@ -172,13 +153,13 @@ std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, in
                 continue;
             }
             normal /= norm;
-            
+                        
             int above = 0;
             int below = 0;
             for(unsigned int j = 0; j < verts.size(); j++) {
                 if(!mask[j]) {
                     
-                    XVec v = positions[j] - A;
+                    XVec v = positions[verts[j]] - A;
                     
                     if(v.dot(normal) > 0) {
                         above++;
@@ -199,7 +180,10 @@ std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, in
         for(auto simplex: hull_simps) {
             
             if(!simplex.count(i)) {
-                corners[i].emplace_back(simplex.begin(), simplex.end());
+                
+                corners.emplace_back(1, i);
+                corners.back().insert(corners.back().end(), simplex.begin(), simplex.end());
+                
             }
             
         }
@@ -210,39 +194,39 @@ std::vector<std::vector< std::vector<int> > > find_corners(CellComplex &comp, in
     
 }
 
-std::vector<std::vector<double> > calc_corner_strain(std::vector<std::vector< std::vector<int> > > &corners, RXVec disp, CellComplex &comp, int dim, int NV, RXVec vert_pos, RXVec L) {
+std::vector<double> calc_corner_strains(std::vector< std::vector<int> > &corners, RXVec disp, CellComplex &comp, int dim, int NV, RXVec vert_pos, RXVec L) {
     
-    std::vector<std::vector<double> > corner_strains;
+    std::vector<double> corner_strains;
     
-    for(int i = 0; i < NV; i++) {
+    for(auto corner: corners) {
         
-        for(auto corner: corners[i]) {
+        int vi = corner[0];
+        
+        XVec O = vert_pos.segment(dim*vi, dim);
+        XVec uO = disp.segment(dim*vi, dim);
+
+        XMat X = XMat::Zero(dim, dim);
+        XMat Y = XMat::Zero(dim, dim);
+
+        for(int m = 0; m < dim; m++) {  
+
+            int vj = corner[1+m];
+            XVec bvec = vert_pos.segment(dim*vj, dim) - O;
+            bvec -= ((bvec.array() / L.array()).round() * L.array()).matrix();
+
+            XVec du = disp.segment(dim*vj, dim) - uO;
             
-            XVec O = vert_pos.segment(dim*i, dim);
-            XVec uO = disp.segment(dim*i, dim);
-            
-            XMat X = XVec::Zero(dim, dim);
-            XMat Y = XVec::Zero(dim, dim);
-            
-            for(int m = 0; m < dim; m++) {  
-                
-                XVec bvec = vert_pos.segment(dim*corner[m], dim) - O;
-                bvec -= ((bvec.array() / L.array()).round() * L.array()).matrix();
-                
-                XVec du = disp.segment(dim*corner[m], dim) - uO;
-                
-                X += bvec * bvec.transpose();
-                Y += du * bvec.transpose();
-                
-            }
-            
-            XMat eps = Y * X.inverse();
-            eps = 0.5 * (eps + eps.transpose());
-            
-            corner_strains[i].push_back(eps.norm());
-            
+            X += bvec * bvec.transpose();
+            Y += du * bvec.transpose();
+
         }
-        
+
+        XMat eps = Y * X.inverse();
+
+        eps = 0.5 * (eps + eps.transpose());
+
+        corner_strains.push_back(eps.norm());
+         
     }
     
     return corner_strains;
@@ -250,7 +234,89 @@ std::vector<std::vector<double> > calc_corner_strain(std::vector<std::vector< st
     
 }
 
-std::vector<double> corner_to_cell_time(std::vector<std::vector<double> > &corners_vals, CellComplex &comp, int target_dim) {
+std::vector<double> calc_edge_extension(RXVec disp, CellComplex &comp, int dim, RXVec vert_pos, RXVec L) {
+    
+    
+    std::vector<double> ext;
+    
+    for(int i = 0; i < comp.ncells; i++) {
+        
+        if(comp.get_dim(i) != 1) {
+            continue;
+        }
+
+        auto range = comp.get_facet_range(i);
+        int vi = *(range.first);
+        int vj = *(range.first+1);
+        
+        XVec posi = vert_pos.segment(dim*vi, dim);
+        XVec posj = vert_pos.segment(dim*vj, dim);
+        
+        XVec bvec = posj - posi;
+        bvec -= ((bvec.array() / L.array()).round() * L.array()).matrix();
+        bvec.normalize();
+        
+        XVec ui = disp.segment(dim*vi, dim);
+        XVec uj = disp.segment(dim*vj, dim);
+        
+        XVec du = uj - ui;
+        
+        ext.push_back(bvec.dot(du));
+            
+        
+    }
+    
+    return ext;
+    
+}
+
+
+std::vector<double> corner_to_edge_time(std::vector<std::vector<int> > corners, std::vector<double> &corner_time, CellComplex &comp, bool low_to_high) {
+    
+    
+    // Sort each corner in order of corner insertion time
+    auto cmp = [&corner_time, low_to_high](const int &lhs, const int &rhs) {
+        if(low_to_high) {                    
+            return corner_time[lhs] < corner_time[rhs];
+        } else {
+            return corner_time[lhs] > corner_time[rhs];
+        }
+    };
+    
+    std::vector<int> order(corners.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::sort(order.begin(), order.end(), cmp);
+        
+    
+    // Create map of vertices to edges
+    std::map<std::pair<int, int>, int> verts_to_edge;
+    int index = 0;
+    for(int i = 0; i < comp.ncells; i++) {
+        if(comp.get_dim(i) != 1) {
+            continue;
+        }
+        
+        auto range = comp.get_facet_range(i);
+        int vi = *(range.first);
+        int vj = *(range.first+1);
+        
+        verts_to_edge.emplace(std::piecewise_construct, std::forward_as_tuple(vi, vj), 
+                    std::forward_as_tuple(index));
+        
+        verts_to_edge.emplace(std::piecewise_construct, std::forward_as_tuple(vj, vi), 
+                    std::forward_as_tuple(index));
+    }
+    
+    
+    
+    // Calculate insertion time of each edge
+    std::vector<double> edge_time;
+    for(auto corner: order) {
+        
+    }
+   
+    
+    
     
 }
     

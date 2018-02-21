@@ -295,6 +295,8 @@ CellComplex construct_morse_complex(py::array_t<int> V, CellComplex &comp, bool 
     CellComplex mcomp(comp.dim, false, oriented);
     
     
+    // Morse complex is labeled according to corresponding cell in original complex
+    // To get label of cell, consult original complex
     std::unordered_map<int, int> label_to_cell;
     std::vector<int> cell_to_label;
     
@@ -309,6 +311,7 @@ CellComplex construct_morse_complex(py::array_t<int> V, CellComplex &comp, bool 
             
         }
     }
+
     
     for(auto s: cell_to_label) {
         
@@ -395,7 +398,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             }
             
             int close_alpha = -1;
-            double close_alpha_time;
+            double close_alpha_time = 0.0;
             std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, comp.oriented);
             for(auto trip: morse_boundary) {
                 int c, k;
@@ -414,7 +417,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             }
             
             int close_beta = -1;
-            double close_beta_time;
+            double close_beta_time = 0.0;
             morse_boundary = calc_morse_boundary(close_alpha, coV, comp, true, comp.oriented);
             for(auto trip: morse_boundary) {
                 int c, k;
@@ -516,18 +519,19 @@ std::unordered_map<int, std::unordered_set<int>> find_basins(CellComplex &mcomp,
     
     for(int c = 0; c < mcomp.ncells; c++) {
         if(mcomp.get_dim(c) == 0) {
+            // Cell in original complex
             int s = mcomp.get_label(c);
-            int index = dual ? filt.get_star(s) : s;
-            
+                       
             
             std::unordered_set<int> mfeature;
             mfeature.insert(s);
             
             std::unordered_set<int> feature = convert_morse_to_real_complex(mfeature, coV, comp, true);
-            
+                        
             std::unordered_set<int> pixels = convert_to_pixels(feature, filt, comp, dual);
-            
-            basins.emplace(std::piecewise_construct, std::forward_as_tuple(index), 
+                        
+            int pix = comp.get_label((dual ? filt.get_star(s) : s)); 
+            basins.emplace(std::piecewise_construct, std::forward_as_tuple(pix), 
                            std::forward_as_tuple(pixels.begin(), pixels.end()));
                      
         }

@@ -9,8 +9,20 @@ import scipy.sparse as sparse
 import scipy.optimize as opt
 import scipy.spatial as spatial
 
+import queue
+
 import phat
 
+
+def construct_filtration(mcomp, filtration):
+        
+    Q = queue.PriorityQueue()
+    for i in range(mcomp.ncells):
+        Q.put((filtration.get_filtration_order(mcomp.get_label(i)), i))
+        
+    while not Q.empty():
+        (order, c) = Q.get()
+        yield c
 
 def compute_persistence(comp, filtration, extended=False, birth_cycles=False, optimal_cycles=False,
                        weights=None, relative_cycles=False):
