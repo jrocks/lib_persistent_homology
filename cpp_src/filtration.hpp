@@ -99,7 +99,7 @@ public:
         std::vector<int> filtration(ncells);
         std::iota(filtration.begin(), filtration.end(), 0);
         std::sort(filtration.begin(), filtration.end(), 
-                 [this](int lhs, int rhs) {return this->filtration_order[lhs] < this->filtration_order[rhs];});
+                 [this](const int &lhs, const int &rhs) {return this->filtration_order[lhs] < this->filtration_order[rhs];});
         
         return filtration;
     }
@@ -282,49 +282,6 @@ void perform_watershed_transform(Filtration &filt, CellComplex &comp, bool dual)
 
 void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
     
-        
-//     class Comparator {
-        
-//         CellComplex &comp;
-        
-        
-//         // Use vector of tuples and then can actually use lexicographic ordering
-//         std::vector<std::vector<int> > &lex_val;
-//         bool dual;
-//         public:
-//             Comparator(CellComplex &comp, std::vector<std::vector<int> > &lex_val, const bool& dual=false):
-//                         comp(comp), lex_val(lex_val), dual(dual) {}
-//             bool operator() (const int& lhs, const int&rhs) const {
-                
-//                 // If dual, first compare upper costars (smallest goes first)
-//                 if(dual && lex_val[lhs].back() != lex_val[rhs].back()) {
-//                     return lex_val[lhs].back() < lex_val[rhs].back();
-//                 // If not dual, first compare lower stars (smallest goes first)
-//                 } else if(!dual && lex_val[lhs].front() != lex_val[rhs].front()) {
-//                     return lex_val[lhs].front() < lex_val[rhs].front();
-//                 // Second compare dimensions (smallest goes first)
-//                 } else if(comp.get_dim(lhs) != comp.get_dim(rhs)) {
-//                     return comp.get_dim(lhs) < comp.get_dim(rhs);
-//                 // Third compare length of lexicographic values (smallest goes first)
-//                 } else if(lex_val[lhs].size() != lex_val[rhs].size()) {
-//                     return lex_val[lhs].size() < lex_val[rhs].size();
-//                 // Finally compare lexicographic values (smallest goes first)
-//                 // This will be inverted when actually constructing gradient
-//                 } else {
-//                     for(unsigned int i = 0; i < lex_val[lhs].size(); i++) {
-//                         if(lex_val[lhs][i] != lex_val[rhs][i]) {
-//                             return lex_val[lhs][i] < lex_val[rhs][i];
-//                         }
-//                     }
-                    
-//                     // If cells have identical lexicographic orderings, 
-//                     // then sort by raw cell index
-//                     return (lhs < rhs);
-//                 } 
-                           
-//             }
-//     };    
-        
     std::vector<int> cell_to_star(comp.ncells);
     std::vector<std::vector<int> > lex_val(comp.ncells, std::vector<int>());
     
@@ -350,8 +307,7 @@ void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
         // Sort from high to low
         std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>());  
         
-    }
-    
+    }    
     
     auto cmp = [&comp, &lex_val, dual](const int &lhs, const int &rhs) {
         // If dual, first compare upper costars (smallest goes first)
@@ -363,27 +319,38 @@ void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
         // Second compare dimensions (smallest goes first)
         } else if(comp.get_dim(lhs) != comp.get_dim(rhs)) {
             return comp.get_dim(lhs) < comp.get_dim(rhs);
-        // Third compare length of lexicographic values (smallest goes first)
-        } else if(lex_val[lhs].size() != lex_val[rhs].size()) {
-            return lex_val[lhs].size() < lex_val[rhs].size();
-        // Finally compare lexicographic values (smallest goes first)
-        // This will be inverted when actually constructing gradient
+        // Third compare lexicographic values
+        } else if(lex_val[lhs] != lex_val[rhs]) {
+            return lex_val[lhs] < lex_val[rhs];
+            
+        // Finally, if cells have identical lexicographic orderings, 
+        // then sort by raw cell index
         } else {
-            for(unsigned int i = 0; i < lex_val[lhs].size(); i++) {
-                if(lex_val[lhs][i] != lex_val[rhs][i]) {
-                    return lex_val[lhs][i] < lex_val[rhs][i];
-                }
-            }
+            return lhs < rhs;
+        }
+            
+            
+            
+//         // Third compare length of lexicographic values (smallest goes first)
+//         } else if(lex_val[lhs].size() != lex_val[rhs].size()) {
+//             return lex_val[lhs].size() < lex_val[rhs].size();
+//         // Finally compare lexicographic values (smallest goes first)
+//         // This will be inverted when actually constructing gradient
+//         } else {
+//             for(unsigned int i = 0; i < lex_val[lhs].size(); i++) {
+//                 if(lex_val[lhs][i] != lex_val[rhs][i]) {
+//                     return lex_val[lhs][i] < lex_val[rhs][i];
+//                 }
+//             }
 
-            // If cells have identical lexicographic orderings, 
-            // then sort by raw cell index
-            return (lhs < rhs);
-        } 
+//             // If cells have identical lexicographic orderings, 
+//             // then sort by raw cell index
+//             return (lhs < rhs);
+//         } 
     };
     
     std::vector<int> cells(comp.ncells);
     std::iota(cells.begin(), cells.end(), 0);
-    // Comparator cmp(comp, lex_val, dual);
     std::sort(cells.begin(), cells.end(), cmp);
     
     for(int i = 0; i < comp.ncells; i++) {
@@ -399,5 +366,46 @@ void construct_filtration(Filtration &filt, CellComplex &comp, bool dual) {
 }
 
 
+Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, CellComplex &red_comp, bool dual) {
+    
+    // Reduce filtration to only cover specified complex
+    int target_dim = dual ? red_comp.dim : 0;
+    
+    std::vector<int> pcells;
+    std::vector<double> time;
+    for(int i = 0; i < full_comp.ncells; i++) {
+        // Full complex must have label -1 for all cells not to be included in reduced complex below the reduced complex dimension
+        if(full_comp.get_dim(i) == target_dim &&  full_comp.get_label(i) != -1) {
+            time.push_back(full_filt.get_time(i));
+            pcells.push_back(full_comp.get_label(i));
+        }
+    }
+    
+    Filtration red_filt(red_comp, time, dual);
+
+    std::sort(pcells.begin(), pcells.end(),
+             [&full_filt] (const int &lhs, const int &rhs) { 
+                 return full_filt.get_filtration_order(lhs) < full_filt.get_filtration_order(rhs);
+             });
+    
+    for(int ti = 0; ti < red_filt.nprimary_cells; ti++) {
+        red_filt.set_primary_order(pcells[ti], ti);
+    }
+    
+    
+    construct_filtration(red_filt, red_comp, dual);
+    
+    return red_filt;
+    
+    // 1. Use full filtration ordering to get primary order of edges
+    // 2. How to choose ordering of vertices?
+        // can either redo vertex ordering by constructing a new filtration, or preserve ordering from full filtration
+        // Might want to reorder
+    // I don't think the ordering within the upper costar matters as long as lower dimension comes before higher dimension
+    // In fact, the paper says it is so, so might as well run construct_filtration again to get the proper star cells
+    
+
+    
+}
     
 #endif // FILTRATION

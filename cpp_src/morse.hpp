@@ -55,10 +55,12 @@ std::unordered_set<int> get_lower_star(int alpha, bool co, Filtration &filt, Cel
 std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Filtration &filt, CellComplex &comp, bool dual) {     
     
     auto cmp = [&filt, dual](const int& lhs, const int &rhs) {
-        if(dual) {                    
-            return (-filt.get_filtration_order(lhs) > -filt.get_filtration_order(rhs));
+        if(dual) {     
+            // Always pop largest value
+            return filt.get_filtration_order(lhs) < filt.get_filtration_order(rhs);
         } else {
-            return (filt.get_filtration_order(lhs) > filt.get_filtration_order(rhs));
+            // Always pop lowest value
+            return filt.get_filtration_order(lhs) > filt.get_filtration_order(rhs);
         }
     };
         

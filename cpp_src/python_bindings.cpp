@@ -45,7 +45,13 @@ PYBIND11_MODULE(chomology, m) {
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     
+    
+    py::class_<Graph>(m, "Graph")
+        .def(py::init<int, int, std::vector<int>&, std::vector<int>&>())
+        .def("set_embedding", &Graph::set_embedding);
+    
     m.def("construct_graph_complex", &construct_graph_complex);
+    m.def("construct_corner_complex", &construct_corner_complex);
     m.def("find_corners", &find_corners);
     m.def("calc_corner_strains", &calc_corner_strains);
     m.def("calc_edge_extension", &calc_edge_extension);
@@ -66,6 +72,7 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("perform_watershed_transform", &perform_watershed_transform);
     m.def("construct_filtration", &construct_filtration);
+    m.def("reduce_filtration", &reduce_filtration);
         
     m.def("get_star", &get_star,
          "Finds the star/costar of a give cell.");
