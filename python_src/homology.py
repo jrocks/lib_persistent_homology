@@ -18,7 +18,7 @@ def construct_filtration(mcomp, filtration):
         
     Q = queue.PriorityQueue()
     for i in range(mcomp.ncells):
-        Q.put((filtration.get_filtration_order(mcomp.get_label(i)), i))
+        Q.put((filtration.get_total_order(mcomp.get_label(i)), i))
         
     while not Q.empty():
         (order, c) = Q.get()
@@ -43,7 +43,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
                 if comp.regular:
                     col.add(cell_to_col[cj])
                 else:
-                    if comp.get_coeffs(ci)[cj] != 0:
+                    if comp.get_coeffs(ci)[cj] % 2 != 0:
                         col.add(cell_to_col[cj])
                 
             if birth_cycles:

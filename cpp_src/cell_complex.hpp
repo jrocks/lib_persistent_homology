@@ -76,14 +76,23 @@ public:
     
     
     
-    
-    
     int get_dim(int alpha) {
         return dims[alpha];
     }
     
     int get_label(int alpha) {
         return labels[alpha];
+    }
+    
+    std::unordered_set<int> get_labels(std::unordered_set<int> &cell_list) {
+        
+        std::unordered_set<int> cell_labels;
+        
+        for(auto alpha: cell_list) {
+            cell_labels.insert(labels[alpha]);
+        }
+         
+        return cell_labels;
     }
     
     std::vector<int> get_facets(int alpha) {        

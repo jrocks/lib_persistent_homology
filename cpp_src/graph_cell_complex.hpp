@@ -121,119 +121,7 @@ CellComplex construct_graph_complex(Graph &graph, bool oriented) {
     
 }
 
-CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, CellComplex &graph_comp, int dim) {
-        
-    CellComplex comp(dim, true, false);
-          
-    // Map of corner vertices to lists of vertices of simplices to cell index in corner complex
-    std::vector<std::map<std::vector<int> , int> > vertices_to_index;
-    
-    // First process vertices
-    for(int i = 0; i < graph_comp.ncells; i++) {
-        if(graph_comp.get_dim(i) == 0) {
-            
-            auto range = graph_comp.get_facet_range(i);
-            std::vector<int> facets(range.first, range.second);
-            std::vector<int> coeffs;
-            comp.add_cell(i, graph_comp.get_dim(i), facets, coeffs);
-            
-            vertices_to_index.emplace_back();
-            vertices_to_index.back().emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
-        }
-    }
-    
-    // Next process edges
-    for(int i = 0; i < graph_comp.ncells; i++) {
-        if(graph_comp.get_dim(i) == 1) {
-            
-            auto range = graph_comp.get_facet_range(i);
-            std::vector<int> facets(range.first, range.second);
-            std::vector<int> coeffs;
-            comp.add_cell(i, graph_comp.get_dim(i), facets, coeffs);
-            
-            std::unordered_set<int> vertices = get_star(i, true, graph_comp, 0);
-                
-            std::vector<int> sorted(vertices.begin(), vertices.end());
-            std::sort(sorted.begin(), sorted.end());
-            
-            int vi = sorted.front();
-            int vj = sorted.back();
-            
-            vertices_to_index[vi][sorted] = i;
-            vertices_to_index[vj][sorted] = i;
-            
-            vertices_to_index[vi].emplace(std::piecewise_construct, std::forward_as_tuple(1, vj), std::forward_as_tuple(vj));
-            vertices_to_index[vj].emplace(std::piecewise_construct, std::forward_as_tuple(1, vi), std::forward_as_tuple(vi));
-            
-        }
-    }
-    
-    std::vector<int> corner_to_cell;
-    
-    // Iterate through each corner and add all higher-dimensional faces of corner simplices
-    for(int d = 1; d <= dim; d++) {
-        
-        for(unsigned int i = 0; i < corners.size(); i++) {
-            
-            int vi = corners[i][0];
-            
-            // Iterate through every size d+1 subset
-            
-            // A mask to pick out exactly d+1 verts
-            std::vector<bool> mask(d+1, true);
-            mask.resize(corners[i].size(), false);
-            do {  
-                
-                // Find vertices in simplex
-                std::unordered_set<int> simplex;
-                for(unsigned int j = 0; j < corners[i].size(); j++) {
-                    if(mask[j]) {
-                        simplex.insert(corners[i][j]);
-                    }
-                }
-                
-                // Sorted list of vertices of cell
-                std::vector<int> sorted(simplex.begin(), simplex.end());
-                std::sort(sorted.begin(), sorted.end());
-                
-                // If simplex already exists in graph complex, then skip                
-                if(vertices_to_index[vi].count(sorted)) {
-                    continue;
-                }
-                
-                vertices_to_index[vi][sorted] = comp.ncells;
-                
-                // Find facets
-                std::vector<int> facets;
-                std::vector<int> coeffs;
-                for(unsigned int j = 0; j < simplex.size(); j++) {
-                    std::vector<int> facet(sorted);
-                    facet.erase(facet.begin()+j);
-                    facets.push_back(vertices_to_index[vi][facet]);
-                }
 
-                // Label new cells -1 to indicate they don't correspond to anything in original graph complex
-                // Or if cell corresponds to corner, label it with corner index
-                if(d == dim) {
-                    comp.add_cell(i, d, facets, coeffs);
-                } else {
-                    comp.add_cell(-1, d, facets, coeffs);
-                }
-                    
-                
-            } while(std::prev_permutation(mask.begin(), mask.end()));
-
-        }
-        
-    }
-    
-    
-    comp.construct_cofacets();
-    comp.make_compressed(); 
-
-    return comp;
-    
-}
 
 std::vector<std::vector<int> > find_corners(Graph &graph) {
     
@@ -348,15 +236,20 @@ std::vector<std::vector<int> > find_corners(Graph &graph) {
                 corners.emplace_back(1, vi);
                 corners.back().insert(corners.back().end(), simplex.begin(), simplex.end());
                 
+                std::sort(corners.back().begin()+1, corners.back().end());
+                
             }
             
         }
         
     }
     
+    std::sort(corners.begin(), corners.end());
+    
     return corners;
     
 }
+
 
 std::vector<double> calc_corner_strains(std::vector< std::vector<int> > &corners, RXVec disp, Graph &graph) {
     
@@ -431,6 +324,206 @@ std::vector<double> calc_edge_extension(RXVec disp, Graph &graph) {
     return ext;
     
 }
+
+
+
+std::tuple<std::vector<double>, std::vector<int> > perform_corner_transform(std::vector<std::vector<int> > &corners, std::vector<double> &corner_strains,
+                                          Graph &graph, bool ascend = true) {
+      
+    
+    // Return vertex_time which just consists of double vales
+    // and vertex_order which is a discretized version of vertex_time which is a lex sort of lex vals
+    // low to high with each lex val sorted high to low
+    // vertex_order allows for ties so that watershed alg can do its job
+    // give vertex_order to watershed alg, but vertex_time to filtration
+    
+    std::vector<double> vertex_time(graph.NV);
+    std::vector<int> vertex_order(graph.NV);
+    
+    std::vector<std::vector<double> > lex_val(graph.NV);
+    for(unsigned int ci = 0; ci < corners.size(); ci++) {
+        lex_val[corners[ci][0]].push_back(corner_strains[ci]);
+    }
+        
+    for(int i = 0; i < graph.NV; i++) {
+        if(ascend) {
+            // Sort from largest to smallest
+            std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>()); 
+            vertex_time[i] = lex_val[i].back();
+        } else {
+            // Sort from smallest to largest
+            std::sort(lex_val[i].begin(), lex_val[i].end(), std::less<int>());
+            vertex_time[i] = lex_val[i].back();
+        }
+        
+        
+    }
+    
+    // This sorting should be equivalent to sorting on edges
+    auto lex_cmp = [&lex_val, ascend](const int &lhs, const int &rhs) {
+        
+        // Ascending filtraiton
+        if(ascend) {
+            // Compare smallest corner (smallest goes first) 
+            if(lex_val[lhs].back() != lex_val[rhs].back()) {
+                return lex_val[lhs].back() < lex_val[rhs].back();
+            // Compare lexicographic values (smallest goes first)
+            } else if(lex_val[lhs] != lex_val[rhs]) {
+                return lex_val[lhs] < lex_val[rhs];
+            // Finally, if cells have identical lexicographic orderings, 
+            // then sort by raw cell index
+            } else {
+                py::print("Breaking tie with indices", lhs, rhs);
+                return lhs < rhs;
+            }
+        } else {
+            // largest corner (largest goes first) 
+            if(lex_val[lhs].back() != lex_val[rhs].back()) {
+                return lex_val[lhs].back() > lex_val[rhs].back();
+            // Compare lexicographic values (largest goes first)
+            } else if(lex_val[lhs] != lex_val[rhs]) {
+                return lex_val[lhs] > lex_val[rhs];
+            // Finally, if cells have identical lexicographic orderings, 
+            // then sort by raw cell index
+            } else {
+                py::print("Breaking tie with indices", lhs, rhs);
+                return lhs > rhs;
+            }
+        }
+            
+    };
+    
+    std::vector<int> cells(graph.NV);
+    std::iota(cells.begin(), cells.end(), 0);
+    std::sort(cells.begin(), cells.end(), lex_cmp);
+    
+    int index = 0;
+    vertex_order[cells[0]] = index;
+    for(int i = 1; i < graph.NV; i++) {
+        if(lex_val[cells[i]] > lex_val[cells[i-1]]) {
+            index++;
+        }
+        
+        vertex_order[cells[i]] = index;
+    }
+      
+    return std::forward_as_tuple(vertex_time, vertex_order);
+    
+    
+}                                         
+        
+
+// 1. find corners and corner strains
+// 2. construct corner and graph complexes
+// 3. watershed on corner complex
+// 4. construct ascending and descending filtrations on corner complex
+// 5. reduce both to graph complex
+                                          
+CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Graph &graph) {
+     
+    CellComplex comp(graph.dim, true, false);
+          
+    // Map of vertices to lists of vertices of all simplices of all corners at that vertex to index of simplex in comp
+    std::vector<std::map<std::vector<int> , int> > vertices_to_index(graph.NV);
+    
+    // First process vertices
+    for(int i = 0; i < graph.NV; i++) {
+
+        std::vector<int> facets;
+        std::vector<int> coeffs;
+        comp.add_cell(i, 0, facets, coeffs);
+        
+        vertices_to_index[i].emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
+        
+    }
+    
+    // Next process edges
+    for(int i = 0; i < graph.NE; i++) {
+        int vi = graph.edgei[i];
+        int vj = graph.edgej[i];
+        
+        std::vector<int> facets;
+        facets.push_back(vi);
+        facets.push_back(vj);
+
+        std::vector<int> coeffs;
+        
+        comp.add_cell(graph.NV + i, 1, facets, coeffs);
+        
+        std::sort(facets.begin(), facets.end());
+        vertices_to_index[vi][facets] = graph.NV + i;
+        vertices_to_index[vj][facets] = graph.NV + i;
+        
+        vertices_to_index[vi].emplace(std::piecewise_construct, std::forward_as_tuple(1, vj), std::forward_as_tuple(vj));
+        vertices_to_index[vj].emplace(std::piecewise_construct, std::forward_as_tuple(1, vi), std::forward_as_tuple(vi));
+    }
+    
+    
+    std::vector<int> corner_to_cell;
+    
+    // Iterate through each corner and add all higher-dimensional faces of corner simplices
+    for(int d = 1; d <= graph.dim; d++) {
+        
+        for(unsigned int i = 0; i < corners.size(); i++) {
+            
+            int vi = corners[i][0];
+            
+            // Iterate through every size d+1 subset
+            
+            // A mask to pick out exactly d+1 verts
+            std::vector<bool> mask(d+1, true);
+            mask.resize(corners[i].size(), false);
+            do {  
+                
+                // Find vertices in simplex
+                std::vector<int> simplex;
+                for(unsigned int j = 0; j < corners[i].size(); j++) {
+                    if(mask[j]) {
+                        simplex.push_back(corners[i][j]);
+                    }
+                }
+                
+                // Sorted list of vertices of cell
+                std::sort(simplex.begin(), simplex.end());
+                
+                // If simplex already exists in graph complex, then skip                
+                if(vertices_to_index[vi].count(simplex)) {
+                    continue;
+                }
+                                
+                vertices_to_index[vi][simplex] = comp.ncells;
+                
+                // Find facets
+                std::vector<int> facets;
+                std::vector<int> coeffs;
+                for(unsigned int j = 0; j < simplex.size(); j++) {
+                    std::vector<int> facet(simplex);
+                    facet.erase(facet.begin()+j);
+                    facets.push_back(vertices_to_index[vi][facet]);
+                }
+                
+                // Label new cells -1 to indicate they don't correspond to anything in original graph complex
+                // Or if cell corresponds to corner, label it with corner index
+                if(d == graph.dim) {
+                    comp.add_cell(i, d, facets, coeffs);
+                } else {
+                    comp.add_cell(-1, d, facets, coeffs);
+                }
+                    
+                
+            } while(std::prev_permutation(mask.begin(), mask.end()));
+
+        }
+        
+    }
+    
+    
+    comp.construct_cofacets();
+    comp.make_compressed(); 
+
+    return comp;
+}
+
 
     
 #endif // GRAPHCOMPLEX
