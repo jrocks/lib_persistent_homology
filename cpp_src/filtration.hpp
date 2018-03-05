@@ -357,7 +357,7 @@ Filtration construct_filtration(std::vector<double> &time, std::vector<int> &sub
             // Finally, if cells have identical lexicographic orderings, 
             // then sort by raw cell index
             } else {
-                py::print("Breaking tie with indices", lhs, rhs);
+                // py::print("Breaking tie with indices", lhs, rhs);
                 return lhs < rhs;
             }
         } else {
@@ -378,7 +378,7 @@ Filtration construct_filtration(std::vector<double> &time, std::vector<int> &sub
             // Finally, if cells have identical lexicographic orderings, 
             // then sort by raw cell index
             } else {
-                py::print("Breaking tie with indices", lhs, rhs);
+                // py::print("Breaking tie with indices", lhs, rhs);
                 return lhs > rhs;
             }
         }
