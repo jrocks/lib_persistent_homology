@@ -1,5 +1,5 @@
-#ifndef MORSE
-#define MORSE
+#ifndef MORSE_HPP
+#define MORSE_HPP
    
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -18,7 +18,7 @@ namespace py = pybind11;
 #include "filtration.hpp"
     
 
-std::unordered_set<int> get_lower_star(int alpha, bool co, Filtration &filt, CellComplex &comp, int target_dim) {
+std::unordered_set<int> get_lower_star(int alpha, bool co, StarFiltration &filt, CellComplex &comp, int target_dim) {
         
     int star_index = filt.get_filt_cell(alpha);
     
@@ -52,7 +52,7 @@ std::unordered_set<int> get_lower_star(int alpha, bool co, Filtration &filt, Cel
 
 
 
-std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Filtration &filt, CellComplex &comp) {     
+std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(StarFiltration &filt, CellComplex &comp) {     
         
     auto cmp = [&filt](const int& lhs, const int &rhs) {
         if(filt.co) {     
@@ -677,7 +677,7 @@ Converts each cell to cells of new dimension that are in same inclusion set
 
 ***************************************************/
                                 
-std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int target_dim, Filtration &filt, CellComplex &comp, bool minimal = true) {
+std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int target_dim, StarFiltration &filt, CellComplex &comp, bool minimal = true) {
         
     std::unordered_set<int> new_feature;
     
@@ -744,7 +744,7 @@ Finds the morse skeleton in dimension sdim
 
 ***************************************************/
 std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, 
-                                                                   Filtration &filt, CellComplex &comp) {
+                                                                   StarFiltration &filt, CellComplex &comp) {
         
     std::unordered_map<int, std::unordered_set<int> > basins;
         
@@ -778,7 +778,7 @@ std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &
 
 // Finds the morse skeleton in dimension sdim
 std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int sdim, py::array_t<int> V, py::array_t<int> coV,
-                                            Filtration &filt, CellComplex &comp) {
+                                            StarFiltration &filt, CellComplex &comp) {
         
     std::unordered_set<int> skeleton;
     
@@ -807,4 +807,4 @@ std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int sdim, py::ar
 
 
     
-#endif // MORSE
+#endif // MORSE_HPP

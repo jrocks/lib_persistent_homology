@@ -1,5 +1,5 @@
-#ifndef GRAPHCOMPLEX
-#define GRAPHCOMPLEX
+#ifndef GRAPHCOMPLEX_HPP
+#define GRAPHCOMPLEX_HPP
     
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -170,7 +170,7 @@ std::vector<std::vector<int> > find_corners(Graph &graph) {
 
             // Find vertices in simplex
             std::unordered_set<int> simplex;
-            for(unsigned int j = 0; j < verts.size(); j++) {
+            for(std::size_t j = 0; j < verts.size(); j++) {
                 if(mask[j]) {
                     simplex.insert(verts[j]);
                 }
@@ -208,7 +208,7 @@ std::vector<std::vector<int> > find_corners(Graph &graph) {
                         
             int above = 0;
             int below = 0;
-            for(unsigned int j = 0; j < verts.size(); j++) {
+            for(std::size_t j = 0; j < verts.size(); j++) {
                 if(!mask[j]) {
                     
                     XVec v = positions[verts[j]] - A;
@@ -341,7 +341,7 @@ std::tuple<std::vector<double>, std::vector<int> > perform_corner_transform(std:
     std::vector<int> vertex_order(graph.NV);
     
     std::vector<std::vector<double> > lex_val(graph.NV);
-    for(unsigned int ci = 0; ci < corners.size(); ci++) {
+    for(std::size_t ci = 0; ci < corners.size(); ci++) {
         lex_val[corners[ci][0]].push_back(corner_strains[ci]);
     }
         
@@ -464,7 +464,7 @@ CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Gr
     // Iterate through each corner and add all higher-dimensional faces of corner simplices
     for(int d = 1; d <= graph.dim; d++) {
         
-        for(unsigned int i = 0; i < corners.size(); i++) {
+        for(std::size_t i = 0; i < corners.size(); i++) {
             
             int vi = corners[i][0];
             
@@ -477,7 +477,7 @@ CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Gr
                 
                 // Find vertices in simplex
                 std::vector<int> simplex;
-                for(unsigned int j = 0; j < corners[i].size(); j++) {
+                for(std::size_t j = 0; j < corners[i].size(); j++) {
                     if(mask[j]) {
                         simplex.push_back(corners[i][j]);
                     }
@@ -496,7 +496,7 @@ CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Gr
                 // Find facets
                 std::vector<int> facets;
                 std::vector<int> coeffs;
-                for(unsigned int j = 0; j < simplex.size(); j++) {
+                for(std::size_t j = 0; j < simplex.size(); j++) {
                     std::vector<int> facet(simplex);
                     facet.erase(facet.begin()+j);
                     facets.push_back(vertices_to_index[vi][facet]);
@@ -526,4 +526,4 @@ CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Gr
 
 
     
-#endif // GRAPHCOMPLEX
+#endif // GRAPHCOMPLEX_HPP

@@ -1,13 +1,14 @@
-#define TIME 0
-#define STAR 1
-#define LEX 2
-
 #include "cell_complex.hpp"
 #include "cubical_cell_complex.hpp"
 #include "graph_cell_complex.hpp"
 #include "filtration.hpp"
 #include "morse.hpp"
 #include "persistent_homology.hpp"
+
+#ifdef DELAUNAY
+    #include "delaunay_cell_complex.hpp"
+#endif   
+
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -16,7 +17,20 @@
 namespace py = pybind11;
 
 
+template <int DIM> void init(py::module &m) {
+    
+    m.def((std::string("construct_delaunay_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_delaunay_complex<DIM>);
+    m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>);
+    
+}
+
+
 PYBIND11_MODULE(chomology, m) {
+    
+    // init<1>(m);
+    init<2>(m);
+    // init<3>(m);
+    
     
     py::class_<CellComplex>(m, "CellComplex")
         .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)
@@ -58,24 +72,37 @@ PYBIND11_MODULE(chomology, m) {
     m.def("perform_corner_transform", &perform_corner_transform);
     m.def("construct_corner_complex", &construct_corner_complex);
     
+        
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
-        .def_readonly("fdim", &Filtration::fdim)
-        .def_readonly("nsteps", &Filtration::nsteps)
-        .def(py::init<std::vector<double>&, std::vector<int>&, CellComplex&, bool, bool>(),
-            py::arg("time"), py::arg("subcomplex_order"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false)
-        .def("get_filt_cell", &Filtration::get_filt_cell)
+        .def(py::init<std::vector<double>&, CellComplex&, bool>(),
+            py::arg("time"), py::arg("comp"), py::arg("ascend")=true)
         .def("get_time", &Filtration::get_time)
-        .def("get_subcomplex_order", &Filtration::get_subcomplex_order)
-        .def("add_to_subcomplex", &Filtration::add_to_subcomplex)
         .def("set_total_order", &Filtration::set_total_order)
         .def("get_total_order", &Filtration::get_total_order)
         .def("get_filtration", &Filtration::get_filtration);
+    
+    py::class_<StarFiltration>(m, "StarFiltration")
+        .def_readonly("ncells", &StarFiltration::ncells)
+        .def_readonly("fdim", &StarFiltration::fdim)
+        .def_readonly("nsteps", &StarFiltration::nsteps)
+        .def(py::init<std::vector<double>&, std::vector<int>&, CellComplex&, bool, bool>(),
+            py::arg("time"), py::arg("subcomplex_order"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false)
+        .def("get_filt_cell", &StarFiltration::get_filt_cell)
+        .def("get_time", &StarFiltration::get_time)
+        .def("get_subcomplex_order", &StarFiltration::get_subcomplex_order)
+        .def("add_to_subcomplex", &StarFiltration::add_to_subcomplex)
+        .def("set_total_order", &StarFiltration::set_total_order)
+        .def("get_total_order", &StarFiltration::get_total_order)
+        .def("get_filtration", &StarFiltration::get_filtration);
         
+    
+    m.def("construct_filtration", &construct_filtration,
+         py::arg("time"), py::arg("comp"), py::arg("ascend")=true);
     
     m.def("perform_watershed_transform", &perform_watershed_transform, 
           py::arg("time"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false);
-    m.def("construct_filtration", &construct_filtration,
+    m.def("construct_star_filtration", &construct_star_filtration,
          py::arg("time"), py::arg("subcomplex_order"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false);
     m.def("reduce_filtration", &reduce_filtration);
         

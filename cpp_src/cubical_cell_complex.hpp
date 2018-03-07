@@ -1,5 +1,5 @@
-#ifndef CUBICALCOMPLEX
-#define CUBICALCOMPLEX
+#ifndef CUBICALCOMPLEX_HPP
+#define CUBICALCOMPLEX_HPP
  
     
 #include <vector>
@@ -295,4 +295,4 @@ std::unordered_set<int> get_boundary_pixels(std::unordered_set<int> &pixels, std
 }
 
     
-#endif // CUBICALCOMPLEX
+#endif // CUBICALCOMPLEX_HPP

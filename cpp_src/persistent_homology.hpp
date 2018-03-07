@@ -1,5 +1,5 @@
-#ifndef PERSIST
-#define PERSIST
+#ifndef PERSIST_HPP
+#define PERSIST_HPP
     
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -161,4 +161,4 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
     
 }
     
-#endif // PERSIST
+#endif // PERSIST_HPP

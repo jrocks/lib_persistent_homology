@@ -1,5 +1,5 @@
-#ifndef FILTRATION
-#define FILTRATION
+#ifndef FILTRATION_HPP
+#define FILTRATION_HPP
     
     
 #include <pybind11/pybind11.h>
@@ -14,73 +14,28 @@ namespace py = pybind11;
     
 #include "cell_complex.hpp"
     
+    
 class Filtration {
     
 public:
     
     // Number of cells
     const int ncells;
-    // Dimension of cells defining filtration
-    const int fdim;
-    // Number of steps in filtration (number of cells of dimension fdim)
-    const int nsteps;
     // Ascending or descending filtration?
     const bool ascend;
-    // star or costar filtration?
-    const bool co;
     
-private:
- 
-    // Cell which defines each subcomplex
-    // Cells on which time is explicitly defined
-    std::vector<int> filt_cell;
-    
-    // Filtration time of subcomplexes
+    // Filtration time of cells
     std::vector<double> time;
-    // Ordering of subcomplexes
-    std::vector<int> subcomplex_order;
-       
-    // Which subcomplex each cells first appears
-    std::vector<int> subcomplex;
     // Total filtration orderering of cells
     std::vector<int> total_order;
     
     
-public:
+    Filtration(std::vector<double> &time, CellComplex &comp, bool ascend = true) : 
+        ncells(comp.ncells), ascend(ascend), time(time), total_order(comp.ncells){}
     
-    Filtration(std::vector<double> &time, std::vector<int> &subcomplex_order, CellComplex &comp, bool ascend = true, bool co = false) : 
-        ncells(comp.ncells), fdim(co ? comp.dim : 0), nsteps(time.size()), ascend(ascend), co(co),
-        filt_cell(time.size()), time(time), subcomplex_order(subcomplex_order), 
-        subcomplex(comp.ncells), total_order(comp.ncells) {
-            
-            for(int i = 0, index = 0; i < ncells; i++) {
-                if(comp.get_dim(i) == fdim) {
-                    subcomplex[i] = index;
-                    filt_cell[index] = i;
-                    index++;
-                }
-            }
-                        
-        }
-    
-    // Get filtration cell defining subcomplex which contains cell alpha
-    int get_filt_cell(int alpha) {
-        return filt_cell[subcomplex[alpha]];
-    }
-    
-    // Get insertion time of the subcomplex of cell alpha
+    // Get insertion time of cell alpha
     double get_time(int alpha) {
-        return time[subcomplex[alpha]];
-    }
-    
-    // Get insertion order of subcomplex containing alpha
-    int get_subcomplex_order(int alpha) {
-        return subcomplex_order[subcomplex[alpha]];
-    }
-    
-    // Add cell alpha to the subcomplex containing cell beta
-    void add_to_subcomplex(int alpha, int beta) {
-        subcomplex[alpha] = subcomplex[beta];
+        return time[alpha];
     }
     
     // Set the total ordering of cell alpha
@@ -100,6 +55,68 @@ public:
                  [this](const int &lhs, const int &rhs) {return this->total_order[lhs] < this->total_order[rhs];});
         
         return filtration;
+    }
+    
+};
+    
+class StarFiltration : public Filtration {
+    
+public:
+    
+    // Dimension of cells defining filtration
+    const int fdim;
+    // Number of steps in filtration (number of cells of dimension fdim)
+    const int nsteps;
+    // star or costar filtration?
+    const bool co;
+    
+private:
+ 
+    // Cell which defines each subcomplex
+    // Cells on which time is explicitly defined
+    std::vector<int> filt_cell;
+    
+    // Ordering of subcomplexes
+    std::vector<int> subcomplex_order;
+    // Which subcomplex each cells first appears
+    std::vector<int> subcomplex;
+    
+    
+    
+public:
+    
+    StarFiltration(std::vector<double> &time, std::vector<int> &subcomplex_order, CellComplex &comp, bool ascend = true, bool co = false) :
+        Filtration(time,comp, ascend), fdim(co ? comp.dim : 0), nsteps(time.size()), co(co),
+        filt_cell(time.size()), subcomplex_order(subcomplex_order), subcomplex(comp.ncells) {
+            
+        for(int i = 0, index = 0; i < ncells; i++) {
+            if(comp.get_dim(i) == fdim) {
+                subcomplex[i] = index;
+                filt_cell[index] = i;
+                index++;
+            }
+        }
+
+    }
+    
+    // Get filtration cell defining subcomplex which contains cell alpha
+    int get_filt_cell(int alpha) {
+        return filt_cell[subcomplex[alpha]];
+    }
+    
+    // Get insertion time of the subcomplex of cell alpha
+    double get_time(int alpha) {
+        return time[subcomplex[alpha]];
+    }
+    
+    // Get insertion order of subcomplex containing alpha
+    int get_subcomplex_order(int alpha) {
+        return subcomplex_order[subcomplex[alpha]];
+    }
+    
+    // Add cell alpha to the subcomplex containing cell beta
+    void add_to_subcomplex(int alpha, int beta) {
+        subcomplex[alpha] = subcomplex[beta];
     }
     
 };
@@ -298,9 +315,9 @@ std::vector<int> perform_watershed_transform(std::vector<double> &time, CellComp
 
 
 
-Filtration construct_filtration(std::vector<double> &time, std::vector<int> &subcomplex_order, CellComplex &comp, bool ascend = true , bool co = false) {
+StarFiltration construct_star_filtration(std::vector<double> &time, std::vector<int> &subcomplex_order, CellComplex &comp, bool ascend = true , bool co = false) {
     
-    Filtration filt(time, subcomplex_order, comp, ascend, co);
+    StarFiltration filt(time, subcomplex_order, comp, ascend, co);
     
     auto star_cmp = [&filt, ascend, co](const int &lhs, const int &rhs) {
         if((ascend && co) || (!ascend && !co)) {
@@ -400,7 +417,7 @@ Filtration construct_filtration(std::vector<double> &time, std::vector<int> &sub
 }
 
 
-Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, CellComplex &red_comp) {
+StarFiltration reduce_filtration(StarFiltration &full_filt, CellComplex &full_comp, CellComplex &red_comp) {
     
     // This other method mixes subcomplexes up because it relabels them
     // Edges are still added in correct order
@@ -455,7 +472,7 @@ Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, Cell
         }
     }
     
-    Filtration red_filt(time, subcomplex_order, red_comp, full_filt.ascend, full_filt.co);
+    StarFiltration red_filt(time, subcomplex_order, red_comp, full_filt.ascend, full_filt.co);
     
     
     std::vector<int> red_cells;
@@ -486,5 +503,55 @@ Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, Cell
     return red_filt;
     
 }
+
+
+Filtration construct_filtration(std::vector<double> &time, CellComplex &comp, bool ascend = true) {
     
-#endif // FILTRATION
+    Filtration filt(time, comp, true);
+    
+    auto cmp = [&time, &comp, ascend](const int &lhs, const int &rhs) {
+        
+        if(comp.get_dim(lhs) < comp.get_dim(rhs)) {
+            
+            std::unordered_set<int> faces = get_star(rhs, true, comp, -1);
+            if(faces.count(lhs)) {
+                return true;
+            }
+            
+        } else if(comp.get_dim(lhs) > comp.get_dim(rhs)) {
+            
+            std::unordered_set<int> faces = get_star(lhs, true, comp, -1);
+            if(faces.count(rhs)) {
+                return false;
+            }
+            
+        }
+        
+        if(time[lhs] != time[rhs]) {
+            if(ascend) {
+                return time[lhs] < time[rhs];
+            } else {
+                return time[lhs] > time[rhs];
+            }
+        } else {
+            return lhs < rhs;
+        }
+        
+    };
+    
+    std::vector<int> cell_order(comp.ncells);
+    std::iota(cell_order.begin(), cell_order.end(), 0);
+    std::sort(cell_order.begin(), cell_order.end(), cmp);
+    
+    
+    for(int i = 0; i < comp.ncells; i++) {
+        filt.set_total_order(cell_order[i], i);
+    }
+    
+    return filt;
+    
+    
+    
+}
+    
+#endif // FILTRATION_HPP

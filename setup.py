@@ -18,8 +18,15 @@ class get_pybind_include(object):
     def __str__(self):
         import pybind11
         return pybind11.get_include(self.user)
-
-
+    
+use_delaunay_cell_complex = True    
+    
+    
+define_macros = []
+if use_delaunay_cell_complex:
+    define_macros.append(("DELAUNAY", None))
+    
+    
 ext_modules = [
     Extension(
         'chomology',
@@ -29,7 +36,8 @@ ext_modules = [
             get_pybind_include(),
             get_pybind_include(user=True)
         ],
-        libraries=["m"],
+        libraries=["m", "CGAL", "gmp"],
+        define_macros=define_macros,
         language='c++'
     ),
 ]
@@ -93,7 +101,7 @@ setup(
     version=__version__,
     author='Jason W. Rocks',
     author_email='rocks@sas.upenn.edu',
-    url='https://bitbucket.org/jrocks/network_tuning',
+    url='https://bitbucket.org/jrocks/lib_persistent_homology',
     description='Persistent Homology Utilities and Algorithms',
     long_description='',
     ext_modules=ext_modules,

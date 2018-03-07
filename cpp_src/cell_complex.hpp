@@ -1,5 +1,5 @@
-#ifndef CELLCOMPLEX
-#define CELLCOMPLEX
+#ifndef CELLCOMPLEX_HPP
+#define CELLCOMPLEX_HPP
     
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -258,6 +258,10 @@ std::unordered_set<int> get_boundary(std::unordered_set<int> &cells, CellComplex
 
 
 
+
+// Should rename to get_faces instead
+// CellComplex::get_faces(int alpha, bool co)
+// CellComplex::get_faces(int alpha, bool co, int target_dim)
 std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int target_dim) {
         
     std::unordered_set<int> star;
@@ -287,4 +291,4 @@ std::unordered_set<int> get_star(int alpha, bool co, CellComplex &comp, int targ
 
 
 
-#endif // CELLCOMPLEX
+#endif // CELLCOMPLEX_HPP
