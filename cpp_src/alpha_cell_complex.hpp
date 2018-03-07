@@ -1,5 +1,5 @@
-#ifndef DELAUNAYCOMPLEX_HPP
-#define DELAUNAYCOMPLEX_HPP
+#ifndef ALPHACOMPLEX_HPP
+#define ALPHACOMPLEX_HPP
     
     
 #include <Eigen/Core>
@@ -24,7 +24,7 @@ typedef Eigen::Ref<XVec > RXVec;
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
     
-template <int DIM> CellComplex construct_delaunay_complex(int NV, RXVec vert_pos, std::vector<double> &weights) {
+template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, std::vector<double> &weights) {
     
     typedef Eigen::Matrix<double, DIM, 1> DVec;
     
@@ -235,4 +235,4 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
 
     
     
-#endif //DELAUNAYCOMPLEX_HPP
+#endif //ALPHACOMPLEX_HPP

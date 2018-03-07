@@ -19,12 +19,20 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include(self.user)
     
-use_delaunay_cell_complex = True    
+
+use_alpha_cell_complex = True
+use_graph_cell_complex = True
     
-    
+libraries = ["m"]
 define_macros = []
-if use_delaunay_cell_complex:
-    define_macros.append(("DELAUNAY", None))
+
+if use_alpha_cell_complex:
+    libraries.append("CGAL")
+    libraries.append("gmp")
+    define_macros.append(("ALPHA", None))
+    
+if use_alpha_cell_complex:
+    define_macros.append(("GRAPH", None))
     
     
 ext_modules = [
@@ -36,7 +44,7 @@ ext_modules = [
             get_pybind_include(),
             get_pybind_include(user=True)
         ],
-        libraries=["m", "CGAL", "gmp"],
+        libraries=libraries,
         define_macros=define_macros,
         language='c++'
     ),

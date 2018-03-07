@@ -1,12 +1,15 @@
 #include "cell_complex.hpp"
 #include "cubical_cell_complex.hpp"
-#include "graph_cell_complex.hpp"
 #include "filtration.hpp"
 #include "morse.hpp"
 #include "persistent_homology.hpp"
 
-#ifdef DELAUNAY
-    #include "delaunay_cell_complex.hpp"
+#ifdef GRAPH
+    #include "graph_cell_complex.hpp"
+#endif
+    
+#ifdef ALPHA
+    #include "alpha_cell_complex.hpp"
 #endif   
 
 
@@ -19,8 +22,11 @@ namespace py = pybind11;
 
 template <int DIM> void init(py::module &m) {
     
-    m.def((std::string("construct_delaunay_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_delaunay_complex<DIM>);
+    
+#ifdef ALPHA    
+    m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>);
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>);
+#endif
     
 }
 
@@ -61,6 +67,7 @@ PYBIND11_MODULE(chomology, m) {
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     m.def("get_boundary_pixels", &get_boundary_pixels);
     
+#ifdef GRAPH
     py::class_<Graph>(m, "Graph")
         .def(py::init<int, int, std::vector<int>&, std::vector<int>&>())
         .def("set_embedding", &Graph::set_embedding);
@@ -71,7 +78,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("calc_edge_extension", &calc_edge_extension);
     m.def("perform_corner_transform", &perform_corner_transform);
     m.def("construct_corner_complex", &construct_corner_complex);
-    
+#endif
         
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
