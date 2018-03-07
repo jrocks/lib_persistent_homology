@@ -33,6 +33,10 @@ public:
     Filtration(std::vector<double> &time, CellComplex &comp, bool ascend = true) : 
         ncells(comp.ncells), ascend(ascend), time(time), total_order(comp.ncells){}
     
+    bool operator()(const int &lhs, const int &rhs) {
+        return this->total_order[lhs] < this->total_order[rhs];
+    }
+    
     // Get insertion time of cell alpha
     double get_time(int alpha) {
         return time[alpha];
@@ -51,8 +55,7 @@ public:
     std::vector<int> get_filtration() {
         std::vector<int> filtration(ncells);
         std::iota(filtration.begin(), filtration.end(), 0);
-        std::sort(filtration.begin(), filtration.end(), 
-                 [this](const int &lhs, const int &rhs) {return this->total_order[lhs] < this->total_order[rhs];});
+        std::sort(filtration.begin(), filtration.end(), *this);
         
         return filtration;
     }
@@ -141,7 +144,7 @@ std::vector<int> perform_watershed_transform(std::vector<double> &time, CellComp
         }
     }
     std::sort(filt_cell_argsort.begin(), filt_cell_argsort.end(),
-       [&time, &cell_to_index, ascend](int lhs, int rhs) {
+       [&time, &cell_to_index, ascend](const int &lhs, const int &rhs) {
            if(ascend) {
                // <=?
                return time[cell_to_index[lhs]] < time[cell_to_index[rhs]];

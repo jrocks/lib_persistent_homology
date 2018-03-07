@@ -55,13 +55,17 @@ std::unordered_set<int> get_lower_star(int alpha, bool co, StarFiltration &filt,
 std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(StarFiltration &filt, CellComplex &comp) {     
         
     auto cmp = [&filt](const int& lhs, const int &rhs) {
-        if(filt.co) {     
-            // Always pop largest value
-            return filt.get_total_order(lhs) < filt.get_total_order(rhs);
-        } else {
-            // Always pop lowest value
-            return filt.get_total_order(lhs) > filt.get_total_order(rhs);
-        }
+        // Always pop largest value
+        // or Always pop lowest value
+        return (filt.co && filt(lhs, rhs)) || (!filt.co && filt(rhs, lhs));
+        
+//         if(filt.co) {     
+            
+//             return filt.get_total_order(lhs) < filt.get_total_order(rhs);
+//         } else {
+            
+//             return filt.get_total_order(lhs) > filt.get_total_order(rhs);
+//         }
     };
         
     py::array_t<int> V;
@@ -682,11 +686,14 @@ std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int
     std::unordered_set<int> new_feature;
     
     auto cmp = [&filt](const int &lhs, const int &rhs) {
-        if(filt.co) {
-            return filt.get_total_order(lhs) < filt.get_total_order(rhs);
-        } else {
-            return filt.get_total_order(lhs) > filt.get_total_order(rhs);
-        }
+        
+        return (filt.co && filt(lhs, rhs)) || (!filt.co && filt(rhs, lhs));
+        
+        // if(filt.co) {
+        //     return filt.get_total_order(lhs) < filt.get_total_order(rhs);
+        // } else {
+        //     return filt.get_total_order(lhs) > filt.get_total_order(rhs);
+        // }
     };
     
     for(auto s: feature) {
