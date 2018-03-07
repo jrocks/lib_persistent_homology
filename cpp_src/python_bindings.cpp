@@ -19,23 +19,30 @@
     
 namespace py = pybind11;
 
+#ifdef GRAPH
+template <int DIM> void init_graph_templates(py::module &m) {
+    
+    py::class_<Embedding<DIM> >(m, (std::string("Embedding")+std::to_string(DIM)+std::string("D")).c_str())
+        .def(py::init<RXVec, RXVec>());
+    m.def((std::string("find_corners_")+std::to_string(DIM)+std::string("D")).c_str(), &find_corners<DIM>);
+    m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_corner_strains<DIM>);
+    m.def((std::string("calc_edge_extension_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_edge_extension<DIM>);
+    m.def((std::string("construct_corner_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_corner_complex<DIM>);
+        
+}
+#endif
 
-template <int DIM> void init(py::module &m) {
+#ifdef ALPHA
+template <int DIM> void init_alpha_templates(py::module &m) {
     
-    
-#ifdef ALPHA    
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>);
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>);
-#endif
-    
+       
 }
+#endif
 
 
 PYBIND11_MODULE(chomology, m) {
-    
-    // init<1>(m);
-    init<2>(m);
-    // init<3>(m);
     
     
     py::class_<CellComplex>(m, "CellComplex")
@@ -68,16 +75,23 @@ PYBIND11_MODULE(chomology, m) {
     m.def("get_boundary_pixels", &get_boundary_pixels);
     
 #ifdef GRAPH
+    
+    init_graph_templates<1>(m);
+    init_graph_templates<2>(m);
+    
+
     py::class_<Graph>(m, "Graph")
-        .def(py::init<int, int, std::vector<int>&, std::vector<int>&>())
-        .def("set_embedding", &Graph::set_embedding);
+        .def(py::init<int, int, std::vector<int>&, std::vector<int>&>());
     
     m.def("construct_graph_complex", &construct_graph_complex);
-    m.def("find_corners", &find_corners);
-    m.def("calc_corner_strains", &calc_corner_strains);
-    m.def("calc_edge_extension", &calc_edge_extension);
-    m.def("perform_corner_transform", &perform_corner_transform);
-    m.def("construct_corner_complex", &construct_corner_complex);
+    // m.def("perform_corner_transform", &perform_corner_transform);
+#endif
+    
+    
+#ifdef ALPHA
+    
+    init_alpha_templates<2>(m);
+
 #endif
         
     py::class_<Filtration>(m, "Filtration")
@@ -89,7 +103,7 @@ PYBIND11_MODULE(chomology, m) {
         .def("get_total_order", &Filtration::get_total_order)
         .def("get_filtration", &Filtration::get_filtration);
     
-    py::class_<StarFiltration>(m, "StarFiltration")
+    py::class_<StarFiltration, Filtration>(m, "StarFiltration")
         .def_readonly("ncells", &StarFiltration::ncells)
         .def_readonly("fdim", &StarFiltration::fdim)
         .def_readonly("nsteps", &StarFiltration::nsteps)
