@@ -31,7 +31,7 @@ if use_alpha_cell_complex:
     libraries.append("gmp")
     define_macros.append(("ALPHA", None))
     
-if use_alpha_cell_complex:
+if use_graph_cell_complex:
     define_macros.append(("GRAPH", None))
     
     
