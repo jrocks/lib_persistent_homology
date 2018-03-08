@@ -156,11 +156,11 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
         
     }
     
-    py::print(columns);
+    // py::print(columns);
         
     reduce_smith_normal_form(columns);
     
-    py::print(columns);    
+    // py::print(columns);    
     
     std::vector<std::pair<int, int> > ord_pairs; 
     std::vector<std::pair<int, int> > rel_pairs;
@@ -198,8 +198,7 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
     
     std::vector<std::vector<int> > g = reduce_smith_normal_form(columns, true);
     
-    py::print(g);
-    
+    // py::print(g);
     
     std::unordered_map<int, std::vector<int> > cycles;
     
