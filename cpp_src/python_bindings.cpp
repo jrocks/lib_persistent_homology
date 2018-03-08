@@ -152,5 +152,6 @@ PYBIND11_MODULE(chomology, m) {
     m.def("get_boundary", &get_boundary);
     
     m.def("calc_extended_persistence", &calc_extended_persistence);
+    m.def("calc_birth_cycles", &calc_birth_cycles);
      
 };
