@@ -249,7 +249,7 @@ def compute_persistence(comp, filtration, extended=False, birth_cycles=False, op
 
                         A_i.append(cell_to_x[d][ki])
                         A_j.append(2*cell_counts[d] + 2*len(B[d+1]) + len(Z[d]) + zi)
-                        A_val.append(Z[d][kj][ki])
+                        A_val.append(-Z[d][kj][ki])
 
                 
                 b_eq = np.zeros(cell_counts[d], float)

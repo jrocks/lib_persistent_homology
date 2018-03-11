@@ -1,9 +1,6 @@
 #ifndef PERSIST_HPP
 #define PERSIST_HPP
     
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-    
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -14,6 +11,8 @@ namespace py = pybind11;
 #include "cell_complex.hpp"
 #include "filtration.hpp"
     
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
     
 std::tuple<std::vector<std::vector<int> >, std::vector<int>, std::vector<int> > 
     calc_boundary_mat(Filtration &filt, CellComplex &comp) {
@@ -69,8 +68,6 @@ std::vector<int> add_cols_Z2(std::vector<int> &col1, std::vector<int> &col2) {
 
 std::vector<std::vector<int> > reduce_smith_normal_form(std::vector<std::vector<int> > &columns, bool birth_cycles=false) {
     
-    // pivot row of each column if it has one
-    std::unordered_map<int, int> pivot_row;
     // row to reduced column with pivot in that row
     std::unordered_map<int, int> pivot_col;
      
@@ -189,7 +186,7 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
     
 }
 
-std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, CellComplex &comp) {
+std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, CellComplex &comp, int dim=-1) {
     
     auto bound_mat = calc_boundary_mat(filt, comp);
     
@@ -208,6 +205,11 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
         }
         
         int cj = col_to_cell[j];
+        
+        if(dim != -1 && comp.get_dim(cj) != dim) {
+            continue;
+        }
+        
         cycles[cj];
         for(auto gi: g[j]) {
             cycles[cj].push_back(col_to_cell[gi]);
@@ -218,141 +220,6 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
 }
 
 
-// std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> > >
-//     calc_extended_persistence(Filtration &filt_asc, Filtration &filt_desc, CellComplex &comp) {
-    
-//     std::vector<std::vector<int> > columns(2*comp.ncells);
-    
-//     std::vector<int> cell_to_col_asc(comp.ncells);
-//     std::vector<int> cell_to_col_desc(comp.ncells);
-    
-//     std::vector<int> col_to_cell(2*comp.ncells);
-            
-//     int icol = 0;
-//     for(auto ci: filt_asc.get_filtration()) {
-                        
-//         if(comp.regular) {
-//             auto facet_range = comp.get_facet_range(ci);
-//             for(auto it = facet_range.first; it != facet_range.second; it++) {
-//                 columns[icol].push_back(cell_to_col_asc[*it]);
-//             }
-//         } else {
-//             auto facet_range = comp.get_facet_range(ci);
-//             auto coeff_range = comp.get_coeff_range(ci);
-//             for(auto itf = facet_range.first, itc = coeff_range.first; itf != facet_range.second; itf++, itc++) {
-//                 if((*itc) % 2!= 0) {
-//                     columns[icol].push_back(cell_to_col_asc[*itf]);
-//                 }
-//             }
-//         }
-        
-//         columns[icol].shrink_to_fit();
-//         std::sort(columns[icol].begin(), columns[icol].end());
-//         cell_to_col_asc[ci] = icol;
-//         col_to_cell[icol] = ci;
-//         icol++;
-//     }
-          
-//     for(auto ci: filt_desc.get_filtration()) {
-                
-//         columns[icol].push_back(cell_to_col_asc[ci]);
-        
-//         if(comp.regular) {
-//             auto facet_range = comp.get_facet_range(ci);
-//             for(auto it = facet_range.first; it != facet_range.second; it++) {
-//                 columns[icol].push_back(cell_to_col_desc[*it]);
-//             }
-//         } else {
-//             auto facet_range = comp.get_facet_range(ci);
-//             auto coeff_range = comp.get_coeff_range(ci);
-//             for(auto itf = facet_range.first, itc = coeff_range.first; itf != facet_range.second; itf++, itc++) {
-//                 if((*itc) % 2 != 0) {
-//                     columns[icol].push_back(cell_to_col_desc[*itf]);
-//                 }
-//             }
-//         }
-        
-//         columns[icol].shrink_to_fit();
-//         std::sort(columns[icol].begin(), columns[icol].end());
-//         cell_to_col_desc[ci] = icol;
-//         col_to_cell[icol] = ci;
-//         icol++;
-//     }
-        
-//     // py::print(columns);
-    
-//     // pivot row of each column if it has one
-//     std::unordered_map<int, int> pivot_row;
-//     // row to reduced column with pivot in that row
-//     std::unordered_map<int, int> pivot_col;
-    
-//     for(unsigned int j = 0; j < columns.size(); j++) {
-         
-//         if(columns[j].size()) {
-//             pivot_row[j] = *std::max_element(columns[j].begin(), columns[j].end());
-//         }
-        
-//         while(columns[j].size() && pivot_col.count(pivot_row[j])) {
-
-//             int l = pivot_col[pivot_row[j]];
-            
-// //             py::print(j, columns[j]);
-// //             py::print(l, columns[l]);
-            
-//             // Symmetric difference
-//             std::vector<int> col_sum(columns[j].size() + columns[l].size());
-//             auto it = std::set_symmetric_difference (columns[j].begin(), columns[j].end(), 
-//                                                      columns[l].begin(), columns[l].end(), 
-//                                                      col_sum.begin());
-//             col_sum.resize(it-col_sum.begin());
-            
-//             columns[j].assign(col_sum.begin(), col_sum.end());
-            
-//             // py::print(j, "+", l, col_sum);
-            
-//             if(columns[j].size()) {
-//                 pivot_row[j] = *std::max_element(columns[j].begin(), columns[j].end());
-//             } else {
-//                 pivot_row.erase(j);
-//             }
-                        
-//         }
-
-//         if(columns[j].size()) {
-//             pivot_col[pivot_row[j]] = j;
-//         }
-                
-//         columns[j].shrink_to_fit();
-                            
-//     }
-    
-    
-//     // py::print(columns);
-        
-//     std::vector<std::pair<int, int> > ord_pairs; 
-//     std::vector<std::pair<int, int> > rel_pairs;
-//     std::vector<std::pair<int, int> > ext_pairs;
-//     for(auto pair: pivot_row) {
-//         int i = pair.second;
-//         int j = pair.first;
-//         int ci = col_to_cell[i];
-//         int cj = col_to_cell[j];
-        
-//         if(j < comp.ncells) {
-//             ord_pairs.emplace_back(ci, cj);
-//         } else if(i < comp.ncells) {
-//             ext_pairs.emplace_back(ci, cj);
-//         } else {
-//             rel_pairs.emplace_back(ci, cj);
-//         }
-        
-        
-//     }
-    
-//     return std::forward_as_tuple(ord_pairs, rel_pairs, ext_pairs);
-    
-    
-// }
 
 
     

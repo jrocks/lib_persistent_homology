@@ -10,11 +10,16 @@
     
 #ifdef ALPHA
     #include "alpha_cell_complex.hpp"
-#endif   
+#endif  
+    
+#ifdef OPTIMAL
+    #include "optimal.hpp"
+#endif
 
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/iostream.h>
 #include <pybind11/eigen.h>
     
 namespace py = pybind11;
@@ -93,6 +98,14 @@ PYBIND11_MODULE(chomology, m) {
     init_alpha_templates<2>(m);
 
 #endif
+    
+    
+#ifdef OPTIMAL
+    m.def("calc_optimal_cycles", &calc_optimal_cycles, 
+          py::arg("filt"), py::arg("comp"), py::arg("dim")=-1,
+         py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>());
+#endif
         
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
@@ -152,6 +165,6 @@ PYBIND11_MODULE(chomology, m) {
     m.def("get_boundary", &get_boundary);
     
     m.def("calc_extended_persistence", &calc_extended_persistence);
-    m.def("calc_birth_cycles", &calc_birth_cycles);
+    m.def("calc_birth_cycles", &calc_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
      
 };

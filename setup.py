@@ -22,9 +22,18 @@ class get_pybind_include(object):
 
 use_alpha_cell_complex = True
 use_graph_cell_complex = True
+use_optimal_cycles = True
     
+include_dirs=[
+    # Path to pybind11 headers
+    get_pybind_include(),
+    get_pybind_include(user=True)
+]
 libraries = ["m"]
+library_dirs = []
 define_macros = []
+# This option ensures that all linked shared libraries actually exist
+extra_link_args = ["-Wl,--no-undefined"]
 
 if use_alpha_cell_complex:
     libraries.append("CGAL")
@@ -34,18 +43,36 @@ if use_alpha_cell_complex:
 if use_graph_cell_complex:
     define_macros.append(("GRAPH", None))
     
+if use_optimal_cycles:
+    CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
+    
+    include_dirs.append(CPLEX_path+"/concert/include")
+    include_dirs.append(CPLEX_path+"/cplex/include") 
+    
+    library_dirs.append(CPLEX_path+"/concert/lib/x86-64_linux/static_pic")
+    library_dirs.append(CPLEX_path+"/cplex/lib/x86-64_linux/static_pic")
+    
+    
+    # The order of these libraries matters
+    libraries.append("concert")
+    libraries.append("ilocplex")
+    libraries.append("cplex")
+    # libraries.append("pthread")
+    libraries.append("dl")
+    
+    define_macros.append(("IL_STD", None))
+    define_macros.append(("OPTIMAL", None))
+    
     
 ext_modules = [
     Extension(
         'chomology',
         ['cpp_src/python_bindings.cpp'],
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True)
-        ],
+        include_dirs=include_dirs,
+        library_dirs=library_dirs,
         libraries=libraries,
         define_macros=define_macros,
+        extra_link_args=extra_link_args,
         language='c++'
     ),
 ]
@@ -93,6 +120,7 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
+
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
@@ -101,7 +129,7 @@ class BuildExt(build_ext):
         elif ct == 'msvc':
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
         for ext in self.extensions:
-            ext.extra_compile_args = opts
+            ext.extra_compile_args.extend(opts)
         build_ext.build_extensions(self)
 
 setup(
