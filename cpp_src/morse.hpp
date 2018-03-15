@@ -367,7 +367,7 @@ std::vector<std::tuple<int, int, int> > find_connections(int s, int t, py::array
 }
 
 
-void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, Filtration &filt, CellComplex &comp, bool verbose=false) {
+void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, StarFiltration &filt, CellComplex &comp, bool verbose=false) {
     
     auto Vbuf = V.mutable_unchecked<1>();
     auto coVbuf = coV.mutable_unchecked<1>();    
@@ -378,8 +378,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
         }
     }
     
-    std::sort(crit_cells.begin(), crit_cells.end(),
-       [&filt](int lhs, int rhs) {return filt.get_total_order(lhs) < filt.get_total_order(rhs);});
+    std::sort(crit_cells.begin(), crit_cells.end(), filt);
     
     for(int n = 1; ; n++) {
         
@@ -397,7 +396,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             }
             
             int close_alpha = -1;
-            double close_alpha_time = 0.0;
+            int close_alpha_time = 0;
             std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, comp.oriented);
             for(auto trip: morse_boundary) {
                 int c, k;
@@ -416,7 +415,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             }
             
             int close_beta = -1;
-            double close_beta_time = 0.0;
+            int close_beta_time = 0;
             morse_boundary = calc_morse_boundary(close_alpha, coV, comp, true, comp.oriented);
             for(auto trip: morse_boundary) {
                 int c, k;
@@ -429,9 +428,10 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
                     }
                 }
             }
-            
+                        
             if(s == close_beta) {
                 n_cancel++;
+                                
                 if(filt.get_time(close_beta)-filt.get_time(close_alpha) <= threshold) {
                     cancel_pairs.emplace_back(close_alpha, close_beta); 
                 }
@@ -521,7 +521,7 @@ std::unordered_set<int> convert_morse_to_real(std::unordered_set<int> &mfeature,
 
 // Update this to look more like extract_persistence_feature
 // Also change so that it immediately spits out morse feature by default
-std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &comp, Filtration &filt, bool morse) {
+std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &comp, StarFiltration &filt, bool morse) {
         
     
     std::unordered_set<int> seen;

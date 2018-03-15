@@ -113,6 +113,7 @@ PYBIND11_MODULE(chomology, m) {
         .def_readonly("ncells", &Filtration::ncells)
         .def(py::init<std::vector<double>&, CellComplex&, bool>(),
             py::arg("time"), py::arg("comp"), py::arg("ascend")=true)
+        .def_readonly("time", &Filtration::time)
         .def("get_time", &Filtration::get_time)
         .def("set_total_order", &Filtration::set_total_order)
         .def("get_total_order", &Filtration::get_total_order)
@@ -122,6 +123,7 @@ PYBIND11_MODULE(chomology, m) {
         .def_readonly("ncells", &StarFiltration::ncells)
         .def_readonly("fdim", &StarFiltration::fdim)
         .def_readonly("nsteps", &StarFiltration::nsteps)
+        .def_readonly("time", &Filtration::time)
         .def(py::init<std::vector<double>&, std::vector<int>&, CellComplex&, bool, bool>(),
             py::arg("time"), py::arg("subcomplex_order"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false)
         .def("get_filt_cell", &StarFiltration::get_filt_cell)
