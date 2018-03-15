@@ -59,13 +59,6 @@ std::tuple<py::array_t<int>, py::array_t<int>>  construct_discrete_gradient(Star
         // or Always pop lowest value
         return (filt.co && filt(lhs, rhs)) || (!filt.co && filt(rhs, lhs));
         
-//         if(filt.co) {     
-            
-//             return filt.get_total_order(lhs) < filt.get_total_order(rhs);
-//         } else {
-            
-//             return filt.get_total_order(lhs) > filt.get_total_order(rhs);
-//         }
     };
         
     py::array_t<int> V;
@@ -526,62 +519,8 @@ std::unordered_set<int> convert_morse_to_real(std::unordered_set<int> &mfeature,
 }
 
 
-
-std::vector<std::unordered_set<int> > extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, bool morse) {
-        
-    
-    std::unordered_set<int> seen;
-    std::queue<int> Q;
-    if(comp.get_dim(i) == 0) {
-        seen.insert(i);
-        Q.push(i);
-    } else {
-        seen.insert(j);
-        Q.push(j);
-    }
-  
-    int orderi = morse ? filt.get_total_order(comp.get_label(i)) : filt.get_total_order(i);
-    int orderj = morse ? filt.get_total_order(comp.get_label(j)) : filt.get_total_order(j);
-        
-    bool co = (comp.get_dim(i) != 0);
-        
-    while(!Q.empty()) {
-        int a = Q.front();
-        Q.pop();
-        
-        // py::print("a", a);
-        
-        for(auto b: get_star(a, co, comp, -1)) {
-            
-            // py::print("b", b);
-            
-            int orderb = morse ? filt.get_total_order(comp.get_label(b)) : filt.get_total_order(b);
-    
-            if((!co && orderb >= orderj) 
-              ||(co && orderb <= orderi)) {
-                continue;
-            }
-
-            for(auto c: get_star(b, !co, comp, -1)) {
-                // py::print("c", c);
-                if(!seen.count(c) && c != a) {
-                    Q.push(c);
-                    seen.insert(c);
-                }
-                
-            }
-        }
-    }
-    
-    std::vector<std::unordered_set<int> > feature(comp.dim+1);
-    for(auto s: seen) {
-        feature[comp.get_dim(s)].insert(s);
-    }
-    
-    return feature;
-    
-}
-
+// Update this to look more like extract_persistence_feature
+// Also change so that it immediately spits out morse feature by default
 std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &comp, Filtration &filt, bool morse) {
         
     
@@ -654,7 +593,7 @@ or if no vertices, then just to lowest boundary vertex
 1. For each vertex find all 2-cells that are cofaces
 2. For each 2-cell, find vertices in inclusion set
 3. If nonzero vertices in inclusion set, check if current vertex is lowest
-3. Otherwise check if current vertex is lowest boundary
+4. Otherwise check if current vertex is lowest boundary
 
 This method ensure that vertices corresponding to minima always map to 2-cell
 
@@ -672,7 +611,7 @@ or if no 2-cells, then just to highest coboundary 2-cell
 1. For each 2-cells find all vertices that are faces
 2. For each vertex, find 2-cells in inclusion set
 3. If nonzero 2-cells in inclusion set, check if current 2-cell is highest
-3. Otherwise check if current 2-cell is highest cobounday
+4. Otherwise check if current 2-cell is highest cobounday
 
 This method ensure that 2-cells corresponding to maxima always map to a vertex
 
@@ -689,11 +628,6 @@ std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int
         
         return (filt.co && filt(lhs, rhs)) || (!filt.co && filt(rhs, lhs));
         
-        // if(filt.co) {
-        //     return filt.get_total_order(lhs) < filt.get_total_order(rhs);
-        // } else {
-        //     return filt.get_total_order(lhs) > filt.get_total_order(rhs);
-        // }
     };
     
     for(auto s: feature) {

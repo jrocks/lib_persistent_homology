@@ -31,7 +31,9 @@ template <int DIM> void init_graph_templates(py::module &m) {
         .def(py::init<RXVec, RXVec>());
     m.def((std::string("find_corners_")+std::to_string(DIM)+std::string("D")).c_str(), &find_corners<DIM>);
     m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_corner_strains<DIM>);
-    m.def((std::string("calc_edge_extension_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_edge_extension<DIM>);
+    m.def((std::string("calc_edge_extension_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_edge_extension<DIM>, 
+         py::arg("disp"), py::arg("graph"), py::arg("embed"), py::arg("is_strain") = false);
+    
     m.def((std::string("construct_corner_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_corner_complex<DIM>);
         
 }
@@ -160,11 +162,30 @@ PYBIND11_MODULE(chomology, m) {
     m.def("change_feature_dim", &change_feature_dim);
     m.def("find_morse_basins", &find_morse_basins);
     m.def("find_morse_skeleton", &find_morse_skeleton);
-    m.def("extract_persistence_feature", &extract_persistence_feature);
     m.def("extract_morse_feature", &extract_morse_feature);
     m.def("get_boundary", &get_boundary);
     
-    m.def("calc_extended_persistence", &calc_extended_persistence);
+    m.def("calc_extended_persistence", (std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
+                                        std::vector<std::pair<int, int> >, 
+                                        std::vector<std::pair<int, int> > >,
+                                        std::unordered_map<int, std::vector<int> > > (*)
+                                        (Filtration&, Filtration&, CellComplex&, bool, int)) &calc_extended_persistence,
+                                     py::arg("filt_asc"), py::arg("filt_desc"), py::arg("comp"),
+                                     py::arg("ext_cycles"), py::arg("dim")=-1);
+    
+    m.def("calc_extended_persistence", (std::tuple<std::vector<std::pair<int, int> >, 
+                                        std::vector<std::pair<int, int> >, 
+                                        std::vector<std::pair<int, int> > > (*)
+                                        (Filtration&, Filtration&, CellComplex&)) &calc_extended_persistence,
+                                     py::arg("filt_asc"), py::arg("filt_desc"), py::arg("comp"));
+    
+    
     m.def("calc_birth_cycles", &calc_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
+    
+    m.def("extract_persistence_feature", &extract_persistence_feature, 
+         py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("complement")=false);
      
 };
+
+
+

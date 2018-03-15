@@ -290,7 +290,7 @@ template <int DIM> std::vector<double> calc_corner_strains(std::vector< std::vec
     
 }
 
-template <int DIM> std::vector<double> calc_edge_extension(RXVec disp, Graph &graph, Embedding<DIM> &embed) {
+template <int DIM> std::vector<double> calc_edge_extension(RXVec disp, Graph &graph, Embedding<DIM> &embed, bool is_strain=false) {
     
     typedef Eigen::Matrix<double, DIM, 1> DVec;
     
@@ -306,6 +306,9 @@ template <int DIM> std::vector<double> calc_edge_extension(RXVec disp, Graph &gr
         
         DVec bvec = posj - posi;
         bvec -= ((bvec.array() / embed.L.array()).round() * embed.L.array()).matrix();
+        
+        double l0 = bvec.norm();
+        
         bvec.normalize();
         
         DVec ui = disp.segment<DIM>(DIM*vi);
@@ -313,7 +316,13 @@ template <int DIM> std::vector<double> calc_edge_extension(RXVec disp, Graph &gr
         
         DVec du = uj - ui;
         
-        ext.push_back(bvec.dot(du));
+        double eps = bvec.dot(du);
+        
+        if(is_strain) {
+            eps /= l0;
+        }
+        
+        ext.push_back(eps);
             
         
     }

@@ -118,8 +118,11 @@ std::vector<std::vector<int> > reduce_smith_normal_form(std::vector<std::vector<
 
 // // Note: This algorithm does not work for a discrete Morse complex
 // // Maxima and minima must both be the same type of cell for this to work (e.g. standard cell complex or Morse-Smale complex)
-std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> > >
-    calc_extended_persistence(Filtration &filt_asc, Filtration &filt_desc, CellComplex &comp) {
+std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
+    std::vector<std::pair<int, int> >, 
+    std::vector<std::pair<int, int> > >,
+    std::unordered_map<int, std::vector<int> > >
+    calc_extended_persistence(Filtration &filt_asc, Filtration &filt_desc, CellComplex &comp, bool ext_cycles, int dim=-1) {
 
     // Get boundary matrices for ascending and descending filtrations
     auto bound_mat_asc = calc_boundary_mat(filt_asc, comp);
@@ -162,6 +165,7 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
     std::vector<std::pair<int, int> > ord_pairs; 
     std::vector<std::pair<int, int> > rel_pairs;
     std::vector<std::pair<int, int> > ext_pairs;
+    std::unordered_map<int, std::vector<int> > cycles;
     for(std::size_t j = 0; j < columns.size(); j++) {
         if(!columns[j].size()) {
             continue;
@@ -175,6 +179,14 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
             ord_pairs.emplace_back(ci, cj);
         } else if(i < comp.ncells) {
             ext_pairs.emplace_back(ci, cj);
+            
+            if(ext_cycles && (dim == -1 || comp.get_dim(ci) == dim)) {
+                cycles[ci];
+                for(auto ck: columns[j]) {
+                    cycles[ci].push_back(col_to_cell[ck]);
+                }
+            }
+            
         } else {
             rel_pairs.emplace_back(ci, cj);
         }
@@ -182,9 +194,22 @@ std::tuple<std::vector<std::pair<int, int> >, std::vector<std::pair<int, int> >,
         
     }
     
-    return std::forward_as_tuple(ord_pairs, rel_pairs, ext_pairs);
+    return std::forward_as_tuple(std::forward_as_tuple(ord_pairs, rel_pairs, ext_pairs), cycles);
     
 }
+
+
+std::tuple<std::vector<std::pair<int, int> >, 
+    std::vector<std::pair<int, int> >, 
+    std::vector<std::pair<int, int> > >
+    calc_extended_persistence(Filtration &filt_asc, Filtration &filt_desc, CellComplex &comp) {
+
+    auto result = calc_extended_persistence(filt_asc, filt_desc, comp, false);
+    
+    return std::get<0>(result);
+    
+}
+
 
 std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, CellComplex &comp, int dim=-1) {
     
@@ -220,7 +245,106 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
 }
 
 
+std::vector<std::unordered_set<int> > extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, bool complement=false) {
+        
+    bool co = (comp.get_dim(i) != 0);
+    
+    std::unordered_set<int> seen;
+    std::queue<int> Q;
+    if(!co) {
+        seen.insert(i);
+        Q.push(i);
+    } else {
+        seen.insert(j);
+        Q.push(j);
+    }
+  
+    int orderi = filt.get_total_order(i);
+    int orderj = filt.get_total_order(j);
+         
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+        
+        // py::print("a", a);
+        
+        for(auto b: get_star(a, co, comp, -1)) {
+            
+            // py::print("b", b);
+            
+            if((!co && filt.get_total_order(b) >= orderj)
+              || (co && filt.get_total_order(b) <= orderi)) {
+                continue;
+            }
 
+            for(auto c: get_star(b, !co, comp, -1)) {
+                // py::print("c", c);
+                
+                if((!co && filt.get_total_order(c) <= orderi)
+                  || (co && filt.get_total_order(c) >= orderj)) {
+                    continue;
+                }
+                
+                if(!seen.count(c) && c != a) {
+                    Q.push(c);
+                    seen.insert(c);
+                }
+                
+            }
+        }
+    }
+    
+    if(complement) {
+        
+        std::unordered_set<int> comp_seen;
+        if(!co) {
+            seen.insert(j);
+            Q.push(j);
+        } else {
+            seen.insert(i);
+            Q.push(i);
+        }
+        
+        while(!Q.empty()) {
+            int a = Q.front();
+            Q.pop();
+
+            // py::print("a", a);
+
+            for(auto b: get_star(a, !co, comp, -1)) {
+
+                // py::print("b", b);
+
+                for(auto c: get_star(b, co, comp, -1)) {
+                    // py::print("c", c);
+                    
+                    if((!co && filt.get_total_order(c) >= orderj)
+                      || (co && filt.get_total_order(c) <= orderi)) {
+                        continue;
+                    }
+                    
+                    if(!seen.count(c) && !comp_seen.count(c) && c != a) {
+                        Q.push(c);
+                        comp_seen.insert(c);
+                    }
+
+                }
+            }
+        }
+        
+        seen = comp_seen;
+        
+    }
+    
+    
+    std::vector<std::unordered_set<int> > feature(comp.dim+1);
+    for(auto s: seen) {
+        feature[comp.get_dim(s)].insert(s);
+    }
+    
+    return feature;
+    
+}
 
     
 #endif // PERSIST_HPP
