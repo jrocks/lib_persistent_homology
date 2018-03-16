@@ -2,8 +2,13 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
+import pathlib
 
 __version__ = '0.0.1'
+
+
+# Touch source file to force recompile
+pathlib.Path('cpp_src/python_bindings.cpp').touch()
 
 
 class get_pybind_include(object):
@@ -20,9 +25,9 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
     
 
-use_alpha_cell_complex = True
+use_alpha_cell_complex = False
 use_graph_cell_complex = True
-use_optimal_cycles = True
+use_optimal_cycles = False
     
 include_dirs=[
     # Path to pybind11 headers

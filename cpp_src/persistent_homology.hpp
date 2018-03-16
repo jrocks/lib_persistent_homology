@@ -245,9 +245,13 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
 }
 
 
-std::vector<std::unordered_set<int> > extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, bool complement=false) {
+std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
         
     bool co = (comp.get_dim(i) != 0);
+    
+    if(target_dim == -1) {
+        target_dim = co ? comp.dim : 0;
+    }
     
     std::unordered_set<int> seen;
     std::queue<int> Q;
@@ -337,9 +341,11 @@ std::vector<std::unordered_set<int> > extract_persistence_feature(int i, int j, 
     }
     
     
-    std::vector<std::unordered_set<int> > feature(comp.dim+1);
+    std::unordered_set<int> feature;
     for(auto s: seen) {
-        feature[comp.get_dim(s)].insert(s);
+        if(comp.get_dim(s) == target_dim) {
+            feature.insert(s);
+        }
     }
     
     return feature;

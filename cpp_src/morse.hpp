@@ -521,43 +521,51 @@ std::unordered_set<int> convert_morse_to_real(std::unordered_set<int> &mfeature,
 
 // Update this to look more like extract_persistence_feature
 // Also change so that it immediately spits out morse feature by default
-std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &comp, StarFiltration &filt, bool morse) {
+std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &mcomp, StarFiltration &filt, int target_dim=-1, bool complement=false) {
         
+    
+    bool co = (mcomp.get_dim(i) != 0);
+    
+    if(target_dim == -1) {
+        target_dim = co ? mcomp.dim : 0;
+    }
     
     std::unordered_set<int> seen;
     std::queue<int> Q;
-    if(comp.get_dim(i) == 0) {
+    if(!co) {
         seen.insert(i);
         Q.push(i);
     } else {
         seen.insert(j);
         Q.push(j);
     }
-    
-    int orderi = morse ? filt.get_total_order(comp.get_label(i)) : filt.get_total_order(i);
-    int orderj = morse ? filt.get_total_order(comp.get_label(j)) : filt.get_total_order(j);
-        
-        
+  
+    int orderi = filt.get_total_order(mcomp.get_label(i));
+    int orderj = filt.get_total_order(mcomp.get_label(j));
+         
     while(!Q.empty()) {
         int a = Q.front();
         Q.pop();
         
-        auto rangea = (comp.get_dim(i) == 0) ? comp.get_cofacet_range(a) : comp.get_facet_range(a);
-        for(auto ita = rangea.first; ita != rangea.second; ita++) {
-
-            int b = *ita;
+        // py::print("a", a);
+        
+        for(auto b: get_star(a, co, mcomp, -1)) {
             
-            int orderb = morse ? filt.get_total_order(comp.get_label(b)) : filt.get_total_order(b);
-    
-            if((comp.get_dim(i) == 0 && orderb >= orderj) 
-              ||(comp.get_dim(i) != 0 && orderb <= orderi)) {
+            // py::print("b", b);
+                        
+            if((!co && filt.get_total_order(mcomp.get_label(b)) >= orderj)
+              || (co && filt.get_total_order(mcomp.get_label(b)) <= orderi)) {
                 continue;
             }
 
-            auto rangeb = (comp.get_dim(i) == 0) ? comp.get_facet_range(b) : comp.get_cofacet_range(b);
-            for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
-
-                int c = *itb;
+            for(auto c: get_star(b, !co, mcomp, -1)) {
+                // py::print("c", c);
+                
+                if((!co && filt.get_total_order(mcomp.get_label(c)) <= orderi)
+                  || (co && filt.get_total_order(mcomp.get_label(c)) >= orderj)) {
+                    continue;
+                }
+                
                 if(!seen.count(c) && c != a) {
                     Q.push(c);
                     seen.insert(c);
@@ -567,14 +575,60 @@ std::unordered_set<int> extract_morse_feature(int i, int j, CellComplex &comp, S
         }
     }
     
+    if(complement) {
+        
+        std::unordered_set<int> comp_seen;
+        if(!co) {
+            seen.insert(j);
+            Q.push(j);
+        } else {
+            seen.insert(i);
+            Q.push(i);
+        }
+        
+        while(!Q.empty()) {
+            int a = Q.front();
+            Q.pop();
+
+            // py::print("a", a);
+
+            for(auto b: get_star(a, !co, mcomp, -1)) {
+
+                // py::print("b", b);
+
+                for(auto c: get_star(b, co, mcomp, -1)) {
+                    // py::print("c", c);
+                    
+                    if((!co && filt.get_total_order(mcomp.get_label(c)) >= orderj)
+                      || (co && filt.get_total_order(mcomp.get_label(c)) <= orderi)) {
+                        continue;
+                    }
+                    
+                    if(!seen.count(c) && !comp_seen.count(c) && c != a) {
+                        Q.push(c);
+                        comp_seen.insert(c);
+                    }
+
+                }
+            }
+        }
+        
+        seen = comp_seen;
+        
+    }
+    
     std::unordered_set<int> feature;
+    
     for(auto s: seen) {
-        feature.insert(comp.get_label(s));
+        if(mcomp.get_dim(s) == target_dim) {
+            feature.insert(mcomp.get_label(s));
+        }
     }
     
     return feature;
     
 }
+
     
 
 /***************************************************
@@ -679,6 +733,18 @@ std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int
 
 
 
+
+std::unordered_set<int> extract_morse_feature_to_real(int i, int j, CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV,
+                                                      CellComplex &comp, StarFiltration &filt, bool complement=false) {
+    
+    std::unordered_set<int> feature = extract_morse_feature(i, j, mcomp, filt, -1, complement);
+    feature = convert_morse_to_real(feature, V, coV, comp);    
+    feature = change_feature_dim(feature, filt.fdim, filt, comp, true);
+    feature = comp.get_labels(feature);
+    
+    return feature;
+    
+}
 
 /***************************************************
 Finds the morse skeleton in dimension sdim

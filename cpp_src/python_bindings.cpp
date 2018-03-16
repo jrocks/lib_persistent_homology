@@ -164,7 +164,12 @@ PYBIND11_MODULE(chomology, m) {
     m.def("change_feature_dim", &change_feature_dim);
     m.def("find_morse_basins", &find_morse_basins);
     m.def("find_morse_skeleton", &find_morse_skeleton);
-    m.def("extract_morse_feature", &extract_morse_feature);
+    m.def("extract_morse_feature", &extract_morse_feature, 
+         py::arg("i"), py::arg("j"), py::arg("mcomp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
+    m.def("extract_morse_feature_to_real", &extract_morse_feature_to_real, 
+         py::arg("i"), py::arg("j"), py::arg("mcomp"), py::arg("V"), py::arg("coV"), 
+          py::arg("comp"), py::arg("filt"), py::arg("complement")=false);
+    
     m.def("get_boundary", &get_boundary);
     
     m.def("calc_extended_persistence", (std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
@@ -185,7 +190,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("calc_birth_cycles", &calc_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
     
     m.def("extract_persistence_feature", &extract_persistence_feature, 
-         py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("complement")=false);
+         py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
      
 };
 
