@@ -35,7 +35,8 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
     // Explicitly defined in order to stick an integer label into each Triangulation_vertex
     typedef CGAL::Triangulation_data_structure<typename Kernel::Dimension,
                                             CGAL::Triangulation_vertex<CGAL::Regular_triangulation_traits_adapter<Kernel>, int>,
-                                            CGAL::Triangulation_full_cell<CGAL::Regular_triangulation_traits_adapter<Kernel> > > Triangulation_data_structure;
+                                            CGAL::Triangulation_full_cell<CGAL::Regular_triangulation_traits_adapter<Kernel> > >
+                                                Triangulation_data_structure;
     // Regular Delaunay triangulation
     typedef CGAL::Regular_triangulation<Kernel, Triangulation_data_structure> Regular_triangulation;
 
@@ -71,19 +72,19 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
     }
     
     
-    py::print("Regular triangulation successfully computed: " , t.number_of_vertices(), " vertices, ",
-    t.number_of_finite_full_cells()," finite cells.");
+    // py::print("Regular triangulation successfully computed: " , t.number_of_vertices(), " vertices, ",
+    // t.number_of_finite_full_cells()," finite cells.");
 
-    for(auto it = t.finite_full_cells_begin(); it != t.finite_full_cells_end(); it++) {
-        py::print("Cell:");
+//     for(auto it = t.finite_full_cells_begin(); it != t.finite_full_cells_end(); it++) {
+//         py::print("Cell:");
                 
-        for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
-            // Need to dereference first, since vit is a pointer to a vertex handle
-            py::print((*vit)->data());
+//         for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
+//             // Need to dereference first, since vit is a pointer to a vertex handle
+//             py::print((*vit)->data());
                         
-        }
+//         }
         
-    }
+//     }
     
     // Iterate through each corner and add all higher-dimensional faces of corner simplices
     for(int d = 1; d <= DIM; d++) {
@@ -217,6 +218,8 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
     
     std::vector<double> alpha_vals(comp.ncells);
     
+    double min_alpha = 1e10;
+    
     for(int i = 0; i < comp.ncells; i++) {
         std::unordered_set<int> star = get_star(i, true, comp, 0);
         std::vector<int> vertices;
@@ -224,8 +227,20 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
         for(auto j: star) {
             vertices.push_back(comp.get_label(j));
         }
-                
-        alpha_vals[i] = calc_radius_squared<DIM>(vertices, vert_pos, weights);
+        
+        if(comp.get_dim(i) != 0) {
+            alpha_vals[i] = calc_radius_squared<DIM>(vertices, vert_pos, weights);
+            
+            if(alpha_vals[i] < min_alpha) {
+                min_alpha = alpha_vals[i];
+            }
+        }
+    }
+    
+    for(int i = 0; i < comp.ncells; i++) {
+        if(comp.get_dim(i) == 0) {
+            alpha_vals[i] = min_alpha;
+        }
     }
     
     return alpha_vals;

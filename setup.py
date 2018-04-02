@@ -25,7 +25,7 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
     
 
-use_alpha_cell_complex = False
+use_alpha_cell_complex = True
 use_graph_cell_complex = True
 use_optimal_cycles = False
     
@@ -125,7 +125,6 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
-
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
