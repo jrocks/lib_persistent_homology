@@ -88,7 +88,9 @@ PYBIND11_MODULE(chomology, m) {
     
 
     py::class_<Graph>(m, "Graph")
-        .def(py::init<int, int, std::vector<int>&, std::vector<int>&>());
+        .def(py::init<int, int, std::vector<int>&, std::vector<int>&>())
+        .def_readonly("NV", &Graph::NV)
+        .def_readonly("NE", &Graph::NE);
     
     m.def("construct_graph_complex", &construct_graph_complex);
     // m.def("perform_corner_transform", &perform_corner_transform);
@@ -191,6 +193,9 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("extract_persistence_feature", &extract_persistence_feature, 
          py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
+    
+    m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<double>&, std::vector<double>&, std::vector<double>&, int)) &calc_persistence_landscape);
+    m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<std::pair<int, int> >&, std::vector<double>&, int, StarFiltration&)) &calc_persistence_landscape);
      
 };
 
