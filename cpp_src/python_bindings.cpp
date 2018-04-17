@@ -158,19 +158,25 @@ PYBIND11_MODULE(chomology, m) {
     m.def("calc_morse_boundary", &calc_morse_boundary);
     m.def("construct_morse_complex", &construct_morse_complex);
     m.def("find_connections", &find_connections);
-    m.def("simplify_morse_complex", &simplify_morse_complex, 
-          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("insert_order"), py::arg("verbose") = false);
     m.def("convert_morse_to_real", &convert_morse_to_real, 
           py::arg("mfeature"), py::arg("V"), py::arg("coV"), py::arg("comp"), py::arg("follow_bounds")=true);
     m.def("change_feature_dim", &change_feature_dim);
-    m.def("find_morse_basins", &find_morse_basins);
+    m.def("find_morse_basins", &find_morse_basins,
+         py::arg("mcomp"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"), py::arg("target_dim")=-1);
+    m.def("find_morse_basin_borders", &find_morse_basin_borders,
+         py::arg("mcomp"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"), py::arg("target_dim")=-1);
     m.def("find_morse_skeleton", &find_morse_skeleton);
     m.def("extract_morse_feature", &extract_morse_feature, 
          py::arg("i"), py::arg("j"), py::arg("mcomp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
     m.def("extract_morse_feature_to_real", &extract_morse_feature_to_real, 
          py::arg("i"), py::arg("j"), py::arg("mcomp"), py::arg("V"), py::arg("coV"), 
-          py::arg("comp"), py::arg("filt"), py::arg("complement")=false);
+          py::arg("comp"), py::arg("filt"), py::arg("complement")=false, py::arg("target_dim")=-1);
+    
+    
+    m.def("simplify_morse_complex", &simplify_morse_complex, 
+          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+          py::arg("insert_order"), py::arg("leq") = true, py::arg("verbose") = false);
+    m.def("find_cancel_threshold", &find_cancel_threshold);
     
     m.def("get_boundary", &get_boundary);
     

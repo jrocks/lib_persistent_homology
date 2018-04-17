@@ -14,6 +14,8 @@ namespace py = pybind11;
 #include <numeric>
 #include <utility>
     
+#include <time.h>
+    
 #include "cell_complex.hpp"
 #include "filtration.hpp"
     
@@ -367,126 +369,6 @@ std::vector<std::tuple<int, int, int> > find_connections(int s, int t, py::array
 }
 
 
-void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, StarFiltration &filt, CellComplex &comp, bool verbose=false) {
-    
-    auto Vbuf = V.mutable_unchecked<1>();
-    auto coVbuf = coV.mutable_unchecked<1>();    
-    std::vector<int> crit_cells;
-    for(int s = 0; s < Vbuf.size(); s++) {
-        if(Vbuf(s) == s) {
-            crit_cells.push_back(s);
-        }
-    }
-    
-    std::sort(crit_cells.begin(), crit_cells.end(), filt);
-    
-    for(int n = 1; ; n++) {
-        
-        
-        if(verbose) {
-            py::print("Pass:", n);
-            py::print("Critical Cells:", crit_cells.size());
-        }
-        
-        int n_cancel = 0;
-        std::vector<std::pair<int, int> >  cancel_pairs;
-        for(auto s: crit_cells) {
-            if(comp.get_dim(s) == 0) {
-                continue;
-            }
-            
-            int close_alpha = -1;
-            int close_alpha_time = 0;
-            std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, comp.oriented);
-            for(auto trip: morse_boundary) {
-                int c, k;
-                std::tie(c, k, std::ignore) = trip;
-                
-                if(k == 1) {
-                    if(close_alpha == -1 || filt.get_total_order(c) > close_alpha_time) {
-                        close_alpha = c;
-                        close_alpha_time = filt.get_total_order(c);
-                    }
-                }
-            }
-            
-            if(close_alpha == -1) {
-                continue;
-            }
-            
-            int close_beta = -1;
-            int close_beta_time = 0;
-            morse_boundary = calc_morse_boundary(close_alpha, coV, comp, true, comp.oriented);
-            for(auto trip: morse_boundary) {
-                int c, k;
-                std::tie(c, k, std::ignore) = trip;
-                
-                if(k == 1) {
-                    if(close_beta == -1 || filt.get_total_order(c) < close_beta_time) {
-                        close_beta = c;
-                        close_beta_time = filt.get_total_order(c);
-                    }
-                }
-            }
-                        
-            if(s == close_beta) {
-                n_cancel++;
-                                
-                if(filt.get_time(close_beta)-filt.get_time(close_alpha) <= threshold) {
-                    cancel_pairs.emplace_back(close_alpha, close_beta); 
-                }
-            }
-                
-        }
-        
-        
-        if(verbose) {
-            py::print("Cancellable Pairs:", n_cancel);
-        }
-        
-        for(auto pair: cancel_pairs) {
-            
-            // s is the higher dimensional cell
-            int s = pair.second;
-            int t = pair.first;
-            
-                                    
-            std::vector<std::pair<int, int> > reverse_pairs;
-            
-            std::vector<std::tuple<int, int, int> > connections = find_connections(s, t, V, coV, comp);
-            for(auto trip: connections) {
-                int a, b;
-                std::tie(a, b, std::ignore) = trip;
-                reverse_pairs.emplace_back(a, b);
-            }
-            
-            for(auto pair: reverse_pairs) {
-                int a = pair.first;
-                int b = pair.second;
-                
-                Vbuf(b) = a;
-                coVbuf(a) = b;
-                Vbuf(a) = -1;
-                coVbuf(b) = -1;
-            }
-            
-            crit_cells.erase(std::find(crit_cells.begin(), crit_cells.end(), s));
-            crit_cells.erase(std::find(crit_cells.begin(), crit_cells.end(), t));
-            
-        }
-        
-        if(verbose) {
-            py::print("Cancelled Pairs:", cancel_pairs.size());
-            py::print("Remaining Critical Cells:", crit_cells.size());
-        }
-        
-        if(cancel_pairs.empty()) {
-            break;
-        }
-        
-    } 
-    
-}
 
 std::unordered_set<int> convert_morse_to_real(std::unordered_set<int> &mfeature, py::array_t<int> V, py::array_t<int> coV,
                                                       CellComplex &comp, bool follow_bounds = true) {
@@ -735,11 +617,16 @@ std::unordered_set<int> change_feature_dim(std::unordered_set<int> &feature, int
 
 
 std::unordered_set<int> extract_morse_feature_to_real(int i, int j, CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV,
-                                                      CellComplex &comp, StarFiltration &filt, bool complement=false) {
+                                                      CellComplex &comp, StarFiltration &filt, bool complement=false, int target_dim=-1) {
+    
+    
+    if(target_dim == -1) {
+        target_dim = filt.fdim;
+    }
     
     std::unordered_set<int> feature = extract_morse_feature(i, j, mcomp, filt, -1, complement);
     feature = convert_morse_to_real(feature, V, coV, comp);    
-    feature = change_feature_dim(feature, filt.fdim, filt, comp, true);
+    feature = change_feature_dim(feature, target_dim, filt, comp, true);
     feature = comp.get_labels(feature);
     
     return feature;
@@ -747,13 +634,17 @@ std::unordered_set<int> extract_morse_feature_to_real(int i, int j, CellComplex 
 }
 
 /***************************************************
-Finds the morse skeleton in dimension sdim
+Finds the morse basins and converts to target_dim
 
 ***************************************************/
 std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, 
-                                                                   StarFiltration &filt, CellComplex &comp) {
+                                                                   StarFiltration &filt, CellComplex &comp, int target_dim=-1) {
         
     std::unordered_map<int, std::unordered_set<int> > basins;
+    
+    if(target_dim == -1) {
+        target_dim = filt.fdim;
+    }
         
     for(int c = 0; c < mcomp.ncells; c++) {
         if(mcomp.get_dim(c) == 0) {
@@ -767,7 +658,7 @@ std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &
             std::unordered_set<int> rfeature = convert_morse_to_real(mfeature, V, coV, comp);
                                
             // Change dimension of features to representative dimension
-            std::unordered_set<int> feature = change_feature_dim(rfeature, filt.fdim, filt, comp, true);
+            std::unordered_set<int> feature = change_feature_dim(rfeature, target_dim, filt, comp, true);
             
             std::unordered_set<int> feature_labels = comp.get_labels(feature);
             
@@ -781,6 +672,75 @@ std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &
     }
     
     return basins;
+}
+
+
+std::unordered_set<int> find_border(std::unordered_set<int> &feature, CellComplex &comp) {
+
+    std::unordered_set<int> border;
+    
+    for(auto c: feature) {
+        
+        auto rangea = comp.get_cofacet_range(c);
+        
+        for(auto ita = rangea.first; ita != rangea.second; ita++) {
+            
+            int a = *ita;
+            
+            auto rangeb = comp.get_facet_range(a);
+            for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
+            
+                int b = *itb;
+                
+                if(!feature.count(b)) {
+                    border.insert(a);
+                }
+                
+            
+            }
+            
+        }
+        
+    }
+    
+
+    return border;
+    
+}
+
+std::unordered_set<int> find_morse_basin_borders(CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, 
+                                                                   StarFiltration &filt, CellComplex &comp, int target_dim=-1) {
+        
+    std::unordered_set<int> basin_borders;
+    
+    if(target_dim == -1) {
+        target_dim = filt.fdim;
+    }
+        
+    for(int c = 0; c < mcomp.ncells; c++) {
+        if(mcomp.get_dim(c) == 0) {
+            // Cell in original complex
+            int s = mcomp.get_label(c);
+            
+            std::unordered_set<int> mfeature;
+            mfeature.insert(s);
+            
+            // Find the corresponding cells in real complex
+            std::unordered_set<int> rfeature = convert_morse_to_real(mfeature, V, coV, comp);
+                               
+            std::unordered_set<int> rborder = find_border(rfeature, comp);
+            
+             // Change dimension of features to representative dimension
+            std::unordered_set<int> border = change_feature_dim(rborder, target_dim, filt, comp, false);
+            
+            std::unordered_set<int> feature_labels = comp.get_labels(border);
+
+            basin_borders.insert(feature_labels.begin(), feature_labels.end());
+                     
+        }
+    }
+    
+    return basin_borders;
 }
 
 // Finds the morse skeleton in dimension sdim
@@ -811,6 +771,370 @@ std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int sdim, py::ar
     return skeleton;
 }
 
+
+
+
+std::pair<int, int> find_cancel_pair(int s, py::array_t<int> V, py::array_t<int> coV, 
+                           StarFiltration &filt, CellComplex &comp) {
+    
+    if(comp.get_dim(s) == 0) {
+        return std::make_pair(-1, -1);
+    }
+
+    bool single_Vpath = false;
+    int close_alpha = 0;
+    int close_alpha_time = 0;
+    std::vector<std::tuple<int, int, int> > morse_boundary = calc_morse_boundary(s, V, comp, false, comp.oriented);
+    for(auto trip: morse_boundary) {
+        int c, k;
+        std::tie(c, k, std::ignore) = trip;
+        
+        // if(s == 1073) {
+        //     py::print("alpha", trip, filt.get_total_order(c));
+        // }
+        
+        // If alpha is latest boundary so far, then record time and cell        
+        if(k % 2 != 0 && (close_alpha == -1 || filt.get_total_order(c) > close_alpha_time)) {
+            
+            close_alpha = c;
+            close_alpha_time = filt.get_total_order(c);
+            
+            // If there is only one V-path, then a cancellable close pair may exist
+            single_Vpath = (k == 1);
+        }
+    }
+
+    // if(s == 1073) {
+    //     py::print("close_alpha", close_alpha, "single_path", single_Vpath);
+    // }
+        
+    if(close_alpha == -1 || !single_Vpath) {
+        return std::make_pair(-1, -1);
+    }
+
+    int close_beta = -1;
+    int close_beta_time = 0;
+    morse_boundary = calc_morse_boundary(close_alpha, coV, comp, true, comp.oriented);
+    for(auto trip: morse_boundary) {
+        int c, k;
+        std::tie(c, k, std::ignore) = trip;
+
+
+        if(k % 2 != 0 && (close_beta == -1 || filt.get_total_order(c) < close_beta_time)) {
+            close_beta = c;
+            close_beta_time = filt.get_total_order(c);
+                        
+        }
+        
+        
+        
+    }
+        
+    if(s == close_beta) {
+        return std::make_pair(close_alpha, close_beta);   
+    } else {
+        return std::make_pair(-1, -1);
+    }
+    
+    
+}
+
+void cancel_close_pair(std::pair<int, int> &pair, py::array_t<int> V, py::array_t<int> coV, CellComplex &comp) {
+    
+    auto Vbuf = V.mutable_unchecked<1>();
+    auto coVbuf = coV.mutable_unchecked<1>();   
+    
+    int s = pair.second;
+    int t = pair.first;
+
+    std::vector<std::pair<int, int> > reverse_pairs;
+    
+    std::vector<std::tuple<int, int, int> > connections = find_connections(s, t, V, coV, comp);
+    for(auto trip: connections) {
+        int a, b;
+        std::tie(a, b, std::ignore) = trip;
+        reverse_pairs.emplace_back(a, b);
+    }
+    
+    for(auto pair: reverse_pairs) {
+        int a = pair.first;
+        int b = pair.second;
+
+        Vbuf(b) = a;
+        coVbuf(a) = b;
+        Vbuf(a) = -1;
+        coVbuf(b) = -1;
+    }
+    
+    
+}
+
+double find_cancel_threshold(std::pair<int, int> pair, py::array_t<int> V, py::array_t<int> coV, 
+                           StarFiltration &filt, CellComplex &comp, bool verbose) {
+    
+    
+    py::array_t<int> V_tmp;
+    py::array_t<int> coV_tmp;
+    
+    V_tmp.resize({comp.ncells});   
+    coV_tmp.resize({comp.ncells});   
+    
+    std::copy(V.mutable_data(), V.mutable_data() + V.size(), V_tmp.mutable_data());
+    std::copy(coV.mutable_data(), coV.mutable_data() + coV.size(), coV_tmp.mutable_data());
+    
+    
+
+    auto Vbuf = V_tmp.mutable_unchecked<1>();
+    std::vector<int> unpaired_crit_cells;
+    for(int s = 0; s < Vbuf.size(); s++) {
+        if(Vbuf(s) == s) {
+            unpaired_crit_cells.push_back(s);
+        }
+    }
+    
+
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue<std::pair<double, std::pair<int, int> >, 
+        std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+    double threshold = 0.0;
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Unpaired Critical Cells:", unpaired_crit_cells.size(), py::arg("flush")=true);
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+                
+        // First check if pair is already a cancellable pair
+        std::pair<int, int> cpair = find_cancel_pair(pair.second, V_tmp, coV_tmp, filt, comp);
+        if(cpair == pair) {
+            
+            double p = filt.get_time(cpair.second)-filt.get_time(cpair.first);
+            
+            return p > threshold ? p : threshold;
+        }
+                
+        // Otherwise pass through all unpaired critical cells and find cancellable pairs
+        std::vector<int> remove;
+        for(auto s: unpaired_crit_cells) {
+                        
+            cpair = find_cancel_pair(s, V_tmp, coV_tmp, filt, comp);
+            if(cpair.first != -1) {
+            
+                // py::print(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                
+                cancel_pairs.emplace(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                
+                remove.push_back(cpair.first);
+                remove.push_back(cpair.second);
+                
+            }   
+        }
+                
+        for(auto s: remove) {
+            unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+        }        
+                
+        // Cancel critical pair with lowest persistence
+        
+        if(cancel_pairs.empty()) {
+            break;
+        }
+        
+        auto top = cancel_pairs.top();
+        cancel_pairs.pop();
+        cpair = top.second;
+        
+        if(top.first > threshold) {
+            threshold = top.first;
+        }
+        
+                
+        cancel_close_pair(cpair, V_tmp, coV_tmp, comp);
+                
+    } 
+    
+    return -1.0;
+    
+}
+
+void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, StarFiltration &filt, CellComplex &comp, bool leq=true, bool verbose=false) {
+    
+    auto Vbuf = V.mutable_unchecked<1>();
+    std::vector<int> unpaired_crit_cells;
+    for(int s = 0; s < Vbuf.size(); s++) {
+        if(Vbuf(s) == s) {
+            unpaired_crit_cells.push_back(s);
+        }
+    }
+    
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue<std::pair<double, std::pair<int, int> >, 
+        std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Critical Cells:", unpaired_crit_cells.size() + 2*cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+        // Pass through all unpaired critical cells and find cancellable pairs
+        std::vector<int> remove;
+        for(auto s: unpaired_crit_cells) {
+            
+            auto cpair = find_cancel_pair(s, V, coV, filt, comp);            
+            
+            if(cpair.first != -1) {
+                
+                cancel_pairs.emplace(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                
+                remove.push_back(cpair.first);
+                remove.push_back(cpair.second);
+                
+            }   
+        }
+        
+        for(auto s: remove) {
+            
+            
+            unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+            
+        }       
+        
+        
+        // Cancel critical pairs with persistence below threshold
+        
+        if(verbose) {
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+        int n_cancel = 0;
+        
+        while(!cancel_pairs.empty() && ((leq &&  cancel_pairs.top().first <= threshold)
+                  || (!leq && cancel_pairs.top().first < threshold))) {
+            
+            auto top = cancel_pairs.top();
+            cancel_pairs.pop();
+            auto cpair = top.second;
+            cancel_close_pair(cpair, V, coV, comp);
+                        
+            n_cancel++;
+            
+        }
+        
+        if(verbose) {
+            py::print("Cancelled Pairs:", n_cancel, py::arg("flush")=true);
+            py::print("Remaining Critical Cells:", unpaired_crit_cells.size() + 2*cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+        if(n_cancel == 0) {
+            return;
+        }
+        
+    } 
+        
+}
+
+
+// void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<int> coV, StarFiltration &filt, CellComplex &comp, bool leq=true, bool verbose=false) {
+    
+//     auto Vbuf = V.mutable_unchecked<1>();
+//     std::vector<int> unpaired_crit_cells;
+//     for(int s = 0; s < Vbuf.size(); s++) {
+//         if(Vbuf(s) == s) {
+//             unpaired_crit_cells.push_back(s);
+//         }
+//     }
+    
+//     auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+//         return lhs > rhs;
+//     };
+    
+//     std::priority_queue<std::pair<double, std::pair<int, int> >, 
+//         std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+//     for(int n = 1; ; n++) {
+        
+//         if(verbose) {
+//             py::print("Pass:", n, py::arg("flush")=true);
+//             py::print("Critical Cells:", unpaired_crit_cells.size() + 2*cancel_pairs.size(), py::arg("flush")=true);
+//         }
+        
+//         // Pass through all unpaired critical cells and find cancellable pairs
+//         std::vector<int> remove;
+//         for(auto s: unpaired_crit_cells) {
+            
+//             auto cpair = find_cancel_pair(s, V, coV, filt, comp);            
+            
+//             if(cpair.first != -1) {
+                
+//                 py::print("Cancel", filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair, comp.get_dim(cpair.first), comp.get_dim(cpair.second), py::arg("flush")=true);
+            
+//                 cancel_pairs.emplace(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                
+//                 remove.push_back(cpair.first);
+//                 remove.push_back(cpair.second);
+                
+//             }   
+//         }
+        
+//         py::print(remove, py::arg("flush")=true);
+//         py::print(unpaired_crit_cells, py::arg("flush")=true);
+
+        
+//         for(auto s: remove) {
+            
+//             if(n == 3) {
+//                 py::print(s, py::arg("flush")=true);
+//             }
+            
+//             unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+            
+//         }       
+        
+        
+//         // Cancel critical pairs with persistence below threshold
+        
+//         if(verbose) {
+//             py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+//         }
+        
+//         int n_cancel = 0;
+        
+//         while(!cancel_pairs.empty() && ((leq &&  cancel_pairs.top().first <= threshold)
+//                   || (!leq && cancel_pairs.top().first < threshold))) {
+            
+//             auto top = cancel_pairs.top();
+//             cancel_pairs.pop();
+//             auto cpair = top.second;
+//             cancel_close_pair(cpair, V, coV, comp);
+                        
+//             n_cancel++;
+            
+//         }
+        
+//         if(verbose) {
+//             py::print("Cancelled Pairs:", n_cancel, py::arg("flush")=true);
+//             py::print("Remaining Critical Cells:", unpaired_crit_cells.size() + 2*cancel_pairs.size(), py::arg("flush")=true);
+//         }
+        
+//         if(n_cancel == 0) {
+//             return;
+//         }
+        
+//     } 
+        
+// }
 
 
     

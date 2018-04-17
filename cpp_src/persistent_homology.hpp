@@ -366,8 +366,8 @@ std::vector<std::vector<double> > calc_persistence_landscape(std::vector<double>
         
         for(std::size_t j = 0; j < birth.size(); j++) {
             
-            double t1 = birth[j]);
-            double t2 = death[j]);
+            double t1 = birth[j];
+            double t2 = death[j];
             
             double b = fmin(t1, t2);
             double d = fmax(t1, t2);
