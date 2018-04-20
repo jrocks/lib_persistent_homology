@@ -177,6 +177,7 @@ PYBIND11_MODULE(chomology, m) {
           py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
           py::arg("insert_order"), py::arg("leq") = true, py::arg("verbose") = false);
     m.def("find_cancel_threshold", &find_cancel_threshold);
+    m.def("find_join_threshold", &find_join_threshold);
     
     m.def("get_boundary", &get_boundary);
     

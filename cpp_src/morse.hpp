@@ -13,7 +13,7 @@ namespace py = pybind11;
 #include <algorithm>
 #include <numeric>
 #include <utility>
-    
+#include <math.h>
 #include <time.h>
     
 #include "cell_complex.hpp"
@@ -869,6 +869,122 @@ void cancel_close_pair(std::pair<int, int> &pair, py::array_t<int> V, py::array_
     
 }
 
+double find_join_threshold(std::vector<int> &verts, py::array_t<int> V, py::array_t<int> coV, 
+                           StarFiltration &filt, CellComplex &comp, bool verbose) {
+    
+    
+    py::array_t<int> V_tmp;
+    py::array_t<int> coV_tmp;
+    
+    V_tmp.resize({comp.ncells});   
+    coV_tmp.resize({comp.ncells});   
+    
+    std::copy(V.mutable_data(), V.mutable_data() + V.size(), V_tmp.mutable_data());
+    std::copy(coV.mutable_data(), coV.mutable_data() + coV.size(), coV_tmp.mutable_data());
+    
+    
+
+    auto Vbuf = V_tmp.mutable_unchecked<1>();
+    std::vector<int> unpaired_crit_cells;
+    for(int s = 0; s < Vbuf.size(); s++) {
+        if(Vbuf(s) == s) {
+            unpaired_crit_cells.push_back(s);
+        }
+    }
+    
+
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue<std::pair<double, std::pair<int, int> >, 
+        std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+    double threshold = 0.0;
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Unpaired Critical Cells:", unpaired_crit_cells.size(), py::arg("flush")=true);
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+                
+        // First check how many basins the vertices are divided into
+        std::unordered_set<int> basins;
+        for(auto s: verts) {
+            
+            // Check if vertex is critical
+            if(Vbuf(s) == s) {
+                basins.insert(s);
+                continue;
+            }
+            
+            // Need to make sure only goes one direction when starting from edge
+        
+            // If not, then start from adjacent edge and flow to critical vertex
+            std::vector<std::tuple<int, int, int> > traversal = traverse_flow(Vbuf(s), V_tmp, comp, false, false);
+            for(auto trip: traversal) {
+                int b, c;
+                std::tie(std::ignore, b, c) = trip;
+                if(b == c) {
+                    basins.insert(c);
+                }
+            }
+        }
+        
+        
+        if(basins.size() == 1) {
+            return threshold;
+        }
+
+                
+        // Otherwise pass through all unpaired critical cells and find cancellable pairs
+        std::vector<int> remove;
+        for(auto s: unpaired_crit_cells) {
+                        
+            auto cpair = find_cancel_pair(s, V_tmp, coV_tmp, filt, comp);
+            if(cpair.first != -1) {
+            
+                // py::print(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                
+                cancel_pairs.emplace(std::abs(filt.get_time(cpair.second)-filt.get_time(cpair.first)), cpair);
+                
+                remove.push_back(cpair.first);
+                remove.push_back(cpair.second);
+                
+            }   
+        }
+                
+        for(auto s: remove) {
+            unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+        }        
+                
+        // Cancel critical pair with lowest persistence
+        
+        if(cancel_pairs.empty()) {
+            break;
+        }
+        
+        auto top = cancel_pairs.top();
+        cancel_pairs.pop();
+        auto cpair = top.second;
+                
+        if(top.first > threshold) {
+            threshold = top.first;
+        }
+        
+                
+        cancel_close_pair(cpair, V_tmp, coV_tmp, comp);
+                
+    } 
+    
+    return -1.0;
+    
+}
+
+
 double find_cancel_threshold(std::pair<int, int> pair, py::array_t<int> V, py::array_t<int> coV, 
                            StarFiltration &filt, CellComplex &comp, bool verbose) {
     
@@ -915,7 +1031,7 @@ double find_cancel_threshold(std::pair<int, int> pair, py::array_t<int> V, py::a
         std::pair<int, int> cpair = find_cancel_pair(pair.second, V_tmp, coV_tmp, filt, comp);
         if(cpair == pair) {
             
-            double p = filt.get_time(cpair.second)-filt.get_time(cpair.first);
+            double p = std::abs(filt.get_time(cpair.second)-filt.get_time(cpair.first));
             
             return p > threshold ? p : threshold;
         }
@@ -929,7 +1045,7 @@ double find_cancel_threshold(std::pair<int, int> pair, py::array_t<int> V, py::a
             
                 // py::print(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
                 
-                cancel_pairs.emplace(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                cancel_pairs.emplace(std::abs(filt.get_time(cpair.second)-filt.get_time(cpair.first)), cpair);
                 
                 remove.push_back(cpair.first);
                 remove.push_back(cpair.second);
@@ -950,6 +1066,8 @@ double find_cancel_threshold(std::pair<int, int> pair, py::array_t<int> V, py::a
         auto top = cancel_pairs.top();
         cancel_pairs.pop();
         cpair = top.second;
+        
+        // py::print("top", top, py::arg("flush")=true);
         
         if(top.first > threshold) {
             threshold = top.first;
@@ -996,7 +1114,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             
             if(cpair.first != -1) {
                 
-                cancel_pairs.emplace(filt.get_time(cpair.second)-filt.get_time(cpair.first), cpair);
+                cancel_pairs.emplace(std::abs(filt.get_time(cpair.second)-filt.get_time(cpair.first)), cpair);
                 
                 remove.push_back(cpair.first);
                 remove.push_back(cpair.second);
@@ -1027,7 +1145,7 @@ void simplify_morse_complex(double threshold, py::array_t<int> V, py::array_t<in
             cancel_pairs.pop();
             auto cpair = top.second;
             cancel_close_pair(cpair, V, coV, comp);
-                        
+                              
             n_cancel++;
             
         }
