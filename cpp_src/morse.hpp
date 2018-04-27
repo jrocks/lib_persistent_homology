@@ -377,12 +377,14 @@ std::unordered_set<int> convert_morse_to_real(std::unordered_set<int> &mfeature,
     
     for(auto s: mfeature) {
         
-        bool co = !follow_bounds;
+        bool co;
         
         if(comp.get_dim(s) == 0) {
             co = true;
         } else if(comp.get_dim(s) == comp.dim) {
             co = false;
+        } else {
+            co = !follow_bounds;
         }
         
         feature.insert(s);
@@ -632,6 +634,30 @@ std::unordered_set<int> extract_morse_feature_to_real(int i, int j, CellComplex 
     return feature;
     
 }
+
+std::unordered_set<int> extract_morse_basin(int s, CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV,
+                                                      CellComplex &comp, StarFiltration &filt, int target_dim=-1) {
+    
+    
+    if(target_dim == -1) {
+        target_dim = filt.fdim;
+    }
+    
+    std::unordered_set<int> mfeature;
+    mfeature.insert(mcomp.get_label(s));    
+    
+    // Find the corresponding cells in real complex
+    std::unordered_set<int> rfeature = convert_morse_to_real(mfeature, V, coV, comp);
+
+    // Change dimension of features to representative dimension
+    std::unordered_set<int> feature = change_feature_dim(rfeature, target_dim, filt, comp, true);
+
+    std::unordered_set<int> feature_labels = comp.get_labels(feature);
+    
+    return feature_labels;
+    
+}
+
 
 /***************************************************
 Finds the morse basins and converts to target_dim

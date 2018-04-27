@@ -1,9 +1,16 @@
 #ifndef CUBICALCOMPLEX_HPP
 #define CUBICALCOMPLEX_HPP
  
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
+typedef Eigen::VectorXd XVec;
+typedef Eigen::MatrixXd XMat;
+
 #include <map>
 #include <algorithm>
 #include <vector>   
+#include "math.h"
     
 #include "cell_complex.hpp"
 #include "filtration.hpp"
@@ -13,10 +20,6 @@
     
 
 CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bool dual) {
-    
-//     int dim = shape.size();
-    
-//     CellComplex comp(dim, true, oriented);
     
     int dim = shape.size();
     
@@ -54,19 +57,8 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
     std::vector<int> multi_index(dim, 0);
     for(int k = 0; k <= dim; k++) {
         
-        // py::print("k", k, py::arg("flush")=true);
-        
-//         for(auto l: verts_to_cell[k]) {
-        
-//             py::print(l, py::arg("flush")=true);
-//         }
-        
         for(int i = 0; i < size; i++) {
-            
-//             py::print("i", i, py::arg("flush")=true);
-            
-//             py::print(i, multi_index, py::arg("flush")=true);
-            
+
             // For dimension k cells, iterate through every combination of k coordinates
             std::vector<bool> mask(k, true);
             mask.resize(dim, false);
@@ -86,9 +78,7 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                         coords.push_back(m);
                     }
                 }
-                
-                // py::print("coords", coords, py::arg("flush")=true);
-                
+                                
                 if(skip) {
                     continue;
                 }
@@ -110,9 +100,7 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                     verts.push_back(coords_to_index(tmp_index));
                     
                 }
-                
-                // py::print("verts", verts, py::arg("flush")=true);
-                
+                                
                 
                 // Find facets
                 std::vector<int> facets;
@@ -131,25 +119,19 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                         }
                     }
                     
-                    
-                    // py::print("facet_verts", facet_verts, py::arg("flush")=true);
-                    
+                                    
                     if(verts_to_cell[k].count(facet_verts)) {
                         facets.push_back(verts_to_cell[k][facet_verts]);
                     }
                     
                 } while(std::prev_permutation(facet_mask.begin(), facet_mask.end()));
                 
-                
-                // py::print("facets", facets, py::arg("flush")=true);
-                
+                            
                 
                 int label = verts_to_cell[k+1].size();
                 
                 std::vector<int> coeffs;
                 
-                
-                // py::print(label, k, facets, coeffs, py::arg("flush")=true);
                 
                 
                 comp.add_cell(label, k, facets, coeffs);
@@ -180,189 +162,6 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
         verts_to_cell[k].clear();
         
     }
-    
-
-    
-    
-    // cubical complexes are labeled according to corresponding pixel
-    
-    
-//     if(dim == 2) {
-//         int nrows = dual ? shape[0] + 1: shape[0];
-//         int ncols = dual ? shape[1] + 1: shape[1];
-        
-//         int nverts = nrows*ncols;
-//         int nhedges = nrows*(ncols-1);
-
-        
-//         // vertices
-//         for(int i = 0; i < nrows*ncols; i++) {
-//             std::vector<int> facets;
-//             std::vector<int> coeffs;
-//             comp.add_cell(i, 0, facets, coeffs);
-//         }
-        
-//         // horizontal edges
-//         for(int i = 0; i < nrows; i++) {
-//             for(int j = 0; j < ncols-1; j++) {
-//                 std::vector<int> facets;                
-//                 facets.push_back(ncols*i + j);
-//                 facets.push_back(ncols*i + j+1);
-                
-//                 std::vector<int> coeffs;
-//                 if(oriented) {
-//                     coeffs.push_back(-1);
-//                     coeffs.push_back(1);
-//                 }
-                
-//                 comp.add_cell((ncols-1)*i + j, 1, facets, coeffs);
-                
-//             }
-//         }
-        
-//         // vertical edges
-//         for(int i = 0; i < nrows-1; i++) {
-//             for(int j = 0; j < ncols; j++) {
-//                 std::vector<int> facets;                
-//                 facets.push_back(ncols*i + j);
-//                 facets.push_back(ncols*(i+1) + j);
-                
-//                 std::vector<int> coeffs;
-//                 if(oriented) {
-//                     coeffs.push_back(-1);
-//                     coeffs.push_back(1);
-//                 }
-                
-//                 comp.add_cell(nhedges + ncols*i + j, 1, facets, coeffs);
-                
-//             }
-//         }
-        
-//         // faces
-//         for(int i = 0; i < nrows-1; i++) {
-//             for(int j = 0; j < ncols-1; j++) {
-//                 std::vector<int> facets;                
-//                 facets.push_back(nverts + (ncols-1)*i + j);
-//                 facets.push_back(nverts + nhedges + ncols*i + j+1);
-//                 facets.push_back(nverts + (ncols-1)*(i+1) + j);
-//                 facets.push_back(nverts + nhedges + ncols*i + j);
-                
-//                 std::vector<int> coeffs;
-//                 if(oriented) {
-//                     coeffs.push_back(1);
-//                     coeffs.push_back(1);
-//                     coeffs.push_back(-1);
-//                     coeffs.push_back(-1);
-//                 }
-                
-//                 comp.add_cell((ncols-1)*i + j, 2, facets, coeffs);
-                
-//             }
-//         }
-//     } else if(dim == 3) {
-        
-//         int size = 1;
-//         std::vector<int> lengths(dim);
-//         for(int d = 0; d < dim; d++) {
-//             lengths[d] = dual ? shape[d] + 1: shape[d];
-//             size *= lengths[d];
-//         }
-        
-//         // vertices
-//         for(int i = 0; i < size; i++) {
-//             std::vector<int> facets;
-//             std::vector<int> coeffs;
-//             comp.add_cell(i, 0, facets, coeffs);
-//         }
-        
-//         // first edge batch
-//         for(int i = 0; i < lengths[0]; i++) {
-//             for(int j = 0; j < lengths[1]; j++) {
-//                 for(int k = 0; k < lengths[2]-1; k++){
-//                     std::vector<int> facets; 
-//                     facets.push_back(lengths[1]*lengths[2]*i + lengths[2]*j + k);
-//                     facets.push_back(lengths[1]*lengths[2]*i + lengths[2]*j + k+1);
-
-//                     std::vector<int> coeffs;
-//                     if(oriented) {
-//                         coeffs.push_back(-1);
-//                         coeffs.push_back(1);
-//                     }
-
-//                     comp.add_cell(lengths[1]*(lengths[2]-1)*i + (lengths[2]-1)*j + k, 1, facets, coeffs);
-                    
-//                 }
-//             }
-//         }
-        
-//         // second edge batch
-//         int nedges = lengths[0]*lengths[1]*(lengths[2]-1);
-//         for(int i = 0; i < lengths[0]; i++) {
-//             for(int j = 0; j < lengths[1]-1; j++) {
-//                 for(int k = 0; k < lengths[2]; k++){
-//                     std::vector<int> facets; 
-//                     facets.push_back(lengths[1]*lengths[2]*i + lengths[2]*j + k);
-//                     facets.push_back(lengths[1]*lengths[2]*i + lengths[2]*(j+1) + k);
-
-//                     std::vector<int> coeffs;
-//                     if(oriented) {
-//                         coeffs.push_back(-1);
-//                         coeffs.push_back(1);
-//                     }
-
-//                     comp.add_cell(nedges + (lengths[1]-1)*lengths[2]*i + lengths[2]*j + k, 1, facets, coeffs);
-//                 }
-//             }
-//         }
-        
-//         // third edge batch
-//         int nedges += lengths[0]*(lengths[1]-1)*lengths[2];
-//         for(int i = 0; i < lengths[0]-1; i++) {
-//             for(int j = 0; j < lengths[1]; j++) {
-//                 for(int k = 0; k < lengths[2]; k++){
-//                     std::vector<int> facets; 
-//                     facets.push_back(lengths[1]*lengths[2]*i + lengths[2]*j + k);
-//                     facets.push_back(lengths[1]*lengths[2]*(i+1) + lengths[2]*j + k);
-
-//                     std::vector<int> coeffs;
-//                     if(oriented) {
-//                         coeffs.push_back(-1);
-//                         coeffs.push_back(1);
-//                     }
-
-//                     comp.add_cell(nedges + lengths[1]*lengths[2]*i + lengths[2]*j + k, 1, facets, coeffs);
-//                 }
-//             }
-//         }
-        
-        
-//         int nverts = lengths[0]*lengths[1]*lengths[2];
-//         // first face batch
-//         for(int i = 0; i < lengths[0]-1; i++) {
-//             for(int j = 0; j < lengths[1]-1; j++) {
-//                 for(int k = 0; k < lengths[2]; k++){
-
-//                     std::vector<int> facets;                
-//                     facets.push_back(nverts + (ncols-1)*i + j);
-//                     facets.push_back(nverts + nhedges + ncols*i + j+1);
-//                     facets.push_back(nverts + (ncols-1)*(i+1) + j);
-//                     facets.push_back(nverts + nhedges + ncols*i + j);
-
-//                     std::vector<int> coeffs;
-//                     if(oriented) {
-//                         coeffs.push_back(1);
-//                         coeffs.push_back(1);
-//                         coeffs.push_back(-1);
-//                         coeffs.push_back(-1);
-//                     }
-
-//                     comp.add_cell((ncols-1)*i + j, 2, facets, coeffs);
-                    
-//                 }
-//             }
-//         }
-        
-//     }
     
     comp.construct_cofacets();
     comp.make_compressed(); 
@@ -567,6 +366,49 @@ std::unordered_set<int> get_boundary_pixels(std::unordered_set<int> &pixels, std
     }
     
     return boundary;
+}
+
+double calc_elongation(std::unordered_set<int> &pixels, std::vector<int> &shape) {
+    
+    int dim = shape.size();
+    
+    // int nrows = shape[0];
+    int ncols = shape[1];
+    
+    XVec CM = XVec::Zero(dim);
+    for(auto p: pixels) {
+        int row = (p - p % ncols) / ncols;
+        int col = p % ncols;
+        
+        CM(0) += row;
+        CM(1) += col;
+ 
+    }
+    
+    CM /= pixels.size();
+    
+    XMat I = XMat::Zero(dim, dim);
+    
+    for(auto p: pixels) {
+        int row = (p - p % ncols) / ncols;
+        int col = p % ncols;
+        
+        XVec x = XVec::Zero(dim);
+        x(0) = row;
+        x(1) = col;
+        
+        x -= CM;
+        
+        I += x.squaredNorm() * XMat::Identity(dim, dim) - x * x.transpose();
+        
+    }
+    
+    Eigen::SelfAdjointEigenSolver<XMat > eigensolver(I);
+    XVec evals = eigensolver.eigenvalues();
+    
+    return sqrt(evals(1) / evals(0));
+    
+    
 }
 
     

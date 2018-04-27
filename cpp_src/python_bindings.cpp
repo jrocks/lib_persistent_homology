@@ -80,6 +80,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     m.def("get_boundary_pixels", &get_boundary_pixels);
+    m.def("calc_elongation", &calc_elongation);
     
 #ifdef GRAPH
     
@@ -161,6 +162,9 @@ PYBIND11_MODULE(chomology, m) {
     m.def("convert_morse_to_real", &convert_morse_to_real, 
           py::arg("mfeature"), py::arg("V"), py::arg("coV"), py::arg("comp"), py::arg("follow_bounds")=true);
     m.def("change_feature_dim", &change_feature_dim);
+    m.def("extract_morse_basin", &extract_morse_basin, 
+         py::arg("s"), py::arg("mcomp"), py::arg("V"), py::arg("coV"), 
+          py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1);
     m.def("find_morse_basins", &find_morse_basins,
          py::arg("mcomp"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"), py::arg("target_dim")=-1);
     m.def("find_morse_basin_borders", &find_morse_basin_borders,
