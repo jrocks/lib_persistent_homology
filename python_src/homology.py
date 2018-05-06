@@ -14,11 +14,16 @@ import queue
 import phat
 
 
-def construct_filtration(mcomp, filtration):
+def construct_filtration(comp, filtration, label=True):
         
     Q = queue.PriorityQueue()
-    for i in range(mcomp.ncells):
-        Q.put((filtration.get_total_order(mcomp.get_label(i)), i))
+    
+    if label:
+        for i in range(comp.ncells):
+            Q.put((filtration.get_total_order(comp.get_label(i)), i))
+    else:
+        for i in range(comp.ncells):
+            Q.put((filtration.get_total_order(i), i))
         
     while not Q.empty():
         (order, c) = Q.get()

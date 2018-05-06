@@ -41,7 +41,7 @@ template <int DIM> void init_graph_templates(py::module &m) {
 
 #ifdef ALPHA
 template <int DIM> void init_alpha_templates(py::module &m) {
-    
+        
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>);
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>);
        
@@ -107,7 +107,7 @@ PYBIND11_MODULE(chomology, m) {
     
 #ifdef OPTIMAL
     m.def("calc_optimal_cycles", &calc_optimal_cycles, 
-          py::arg("filt"), py::arg("comp"), py::arg("dim")=-1,
+          py::arg("filt"), py::arg("comp"), py::arg("weights"), py::arg("dim")=-1, py::arg("verbose")=false,
          py::call_guard<py::scoped_ostream_redirect,
                      py::scoped_estream_redirect>());
 #endif

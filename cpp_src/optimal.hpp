@@ -21,7 +21,7 @@ namespace py = pybind11;
 
 
 void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector<int> &a, 
-                    SMat &g, SMat &A, SMat &z) {
+                    SMat &g, SMat &A, SMat &z, std::vector<double> &w, bool verbose=false) {
         
     // Create map of rows in full boundary matrix to rows in boundary matrix of just cells in optimization problem
     std::unordered_map<int, int> full_to_red_index;
@@ -42,7 +42,7 @@ void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector
         }
     }
             
-    // Range is vector equality constraints, so the lower and upper bounds are both zj
+    // Range is vector of equality constraints, so the lower and upper bounds are both zj
     IloRangeArray range (env, zj, zj);
     // Add range to model
     mod.add(range);
@@ -54,8 +54,8 @@ void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector
     
     // First add identity columns for x^+
     for(std::size_t i = 0; i < x.size(); i++) {
-        // Add 1.0*x[i] to objective function
-        IloNumColumn col = cost(1.0);
+        // Add w[i]*x[i] to objective function
+        IloNumColumn col = cost(w[i]);
         // Add column with 1.0 for x[i]
         col += range[i](1.0);
         // Add x[i] to list of variables
@@ -65,8 +65,8 @@ void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector
     
     // Add negative identity columns for x^-
     for(std::size_t i = 0; i < x.size(); i++) {
-        // Add 1.0*x[i] to objective function
-        IloNumColumn col = cost(1.0);
+        // Add w[i]*x[i] to objective function
+        IloNumColumn col = cost(w[i]);
         // Add column with -1.0 for x[i]
         col += range[i](-1.0);
         // Add x[i] to list of variables
@@ -144,19 +144,24 @@ void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector
     // Solve model
 
     IloCplex cplex(mod);
-    cplex.setOut(env.getNullStream());
+    
+    if(!verbose) {
+        cplex.setOut(env.getNullStream());
+    }
     
     
     // cplex.exportModel("optimal_cycle.lp");
 
     cplex.solve();
     
-//     cplex.out() << "solution status = " << cplex.getStatus() << std::endl;
-//     cplex.out() << std::endl;
-//     cplex.out() << "cost   = " << cplex.getObjValue() << std::endl;
-//     for (int i = 0; i < vars.getSize(); i++) {
-//         cplex.out() << "  x" << i << " = " << cplex.getValue(vars[i]) << std::endl;
-//     }
+    if(verbose) {
+        cplex.out() << "solution status = " << cplex.getStatus() << std::endl;
+        cplex.out() << std::endl;
+        cplex.out() << "cost   = " << cplex.getObjValue() << std::endl;
+        for (int i = 0; i < vars.getSize(); i++) {
+            cplex.out() << "  x" << i << " = " << cplex.getValue(vars[i]) << std::endl;
+        }
+    }
     
     
     for(std::size_t i = 0; i < x.size(); i++) {
@@ -170,15 +175,25 @@ void optimize_cycle(int j, std::vector<int> &x, std::vector<int> &y, std::vector
 }
 
 
-std::unordered_map<int, std::vector<int> > calc_optimal_cycles(Filtration &filt, CellComplex &comp, int dim=-1) {
+std::unordered_map<int, std::vector<int> > calc_optimal_cycles(Filtration &filt, CellComplex &comp, std::vector<double> &weights, int dim=-1, bool verbose=false) {
+        
+    if(!comp.oriented) {
+        py::print("Cell complex does not have oriented cells");
+        return std::unordered_map<int, std::vector<int> >();
+    }
+    
+    if((int)weights.size() != comp.ncells) {
+        weights.assign(comp.ncells, 1.0);
+    }
     
     SMat A(comp.ncells, comp.ncells);
     std::vector<int> cell_to_col(comp.ncells);    
     std::vector<int> col_to_cell(comp.ncells);
     
+    
     std::vector<Trip> trip_list;
     
-    std::vector<int> cell_order = filt.get_filtration();
+    std::vector<int> cell_order = filt.get_filtration();    
     for(int j = 0; j < comp.ncells; j++) {
         
         int cj = cell_order[j];
@@ -197,7 +212,6 @@ std::unordered_map<int, std::vector<int> > calc_optimal_cycles(Filtration &filt,
         col_to_cell[j] = cj;
         
     }
-    
     A.setFromTriplets(trip_list.begin(), trip_list.end());
             
     // Cycle basis
@@ -212,16 +226,18 @@ std::unordered_map<int, std::vector<int> > calc_optimal_cycles(Filtration &filt,
     std::vector<int> y;
     // Columns of z to include in optimization
     std::vector<int> a;
+    // Weights of simplices in x
+    std::vector<double> w;
     
      // row to reduced column with pivot in that row
-    std::unordered_map<int, int> pivot_col;
+    std::unordered_map<int, int> pivot_col;    
     
     for(int j = 0; j < A.cols(); j++) { 
         
         if(dim == -1 || comp.get_dim(col_to_cell[j]) == dim) {
             x.push_back(j);
+            w.push_back(weights[col_to_cell[j]]);
         }
-        
         
         while(A.col(j).nonZeros()) {
             
@@ -245,7 +261,7 @@ std::unordered_map<int, std::vector<int> > calc_optimal_cycles(Filtration &filt,
         }
         
         if(!A.col(j).nonZeros() && comp.get_dim(col_to_cell[j]) == dim) {
-            optimize_cycle(j, x, y, a, g, A, z);
+            optimize_cycle(j, x, y, a, g, A, z, w, verbose);
             a.push_back(j);
         }
 
