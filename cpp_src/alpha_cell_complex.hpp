@@ -224,18 +224,17 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
 
 
 
-template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vector<double> &weights, CellComplex &comp) {
-    
+template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vector<double> &weights, CellComplex &comp, double alpha0 = -1.0) {
+        
     typedef Eigen::Matrix<double, DIM, 1> DVec;
     
     std::vector<double> alpha_vals(comp.ncells);
-    
-    double min_alpha = 1e10;
-    
+        
     for(int c = comp.ncells-1; c >= 0; c--) {
         
         // Skip vertices
         if(comp.get_dim(c) == 0) {
+            alpha_vals[c] = alpha0;
             continue;
         }
         
@@ -247,10 +246,6 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
         std::tie(alpha, a) = calc_circumsphere<DIM>(tmp, vert_pos, weights);
         
         alpha_vals[c] = alpha;
-        
-        if(alpha < min_alpha) {
-            min_alpha = alpha;
-        }
         
         // Skip highest dimension triangles
         if(comp.get_dim(c) == DIM) {
@@ -306,13 +301,6 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
         alpha_vals[c] = conflict_alpha;
         
         
-    }
-    
-    
-    for(int i = 0; i < comp.ncells; i++) {
-        if(comp.get_dim(i) == 0) {
-            alpha_vals[i] = min_alpha;
-        }
     }
     
     return alpha_vals;

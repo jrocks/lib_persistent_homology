@@ -3,6 +3,7 @@
 #include "filtration.hpp"
 #include "morse.hpp"
 #include "persistent_homology.hpp"
+#include "util_algs.hpp"
 
 #ifdef GRAPH
     #include "graph_cell_complex.hpp"
@@ -43,8 +44,8 @@ template <int DIM> void init_graph_templates(py::module &m) {
 template <int DIM> void init_alpha_templates(py::module &m) {
         
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>);
-    m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>);
-       
+    m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
+         py::arg("vert_pos"), py::arg("weights"), py::arg("comp"), py::arg("alpha0")=-1.0);
 }
 #endif
 
@@ -207,6 +208,11 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<double>&, std::vector<double>&, std::vector<double>&, int)) &calc_persistence_landscape);
     m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<std::pair<int, int> >&, std::vector<double>&, int, StarFiltration&)) &calc_persistence_landscape);
+    
+    
+    
+    m.def("find_distances", &find_distances);
+    m.def("get_neighborhood", &get_neighborhood);
      
 };
 
