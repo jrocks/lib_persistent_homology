@@ -701,38 +701,74 @@ std::unordered_map<int, std::unordered_set<int>> find_morse_basins(CellComplex &
 }
 
 
-std::unordered_set<int> find_border(std::unordered_set<int> &feature, CellComplex &comp) {
+// std::unordered_set<int> find_border(std::unordered_set<int> &feature, CellComplex &comp) {
 
-    std::unordered_set<int> border;
+//     std::unordered_set<int> border;
     
-    for(auto c: feature) {
+//     for(auto c: feature) {
         
-        auto rangea = comp.get_cofacet_range(c);
+//         auto rangea = comp.get_cofacet_range(c);
         
-        for(auto ita = rangea.first; ita != rangea.second; ita++) {
+//         for(auto ita = rangea.first; ita != rangea.second; ita++) {
             
-            int a = *ita;
+//             int a = *ita;
             
-            auto rangeb = comp.get_facet_range(a);
-            for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
+//             auto rangeb = comp.get_facet_range(a);
+//             for(auto itb = rangeb.first; itb != rangeb.second; itb++) {
             
-                int b = *itb;
+//                 int b = *itb;
                 
-                if(!feature.count(b)) {
-                    border.insert(a);
-                }
+//                 if(!feature.count(b)) {
+//                     border.insert(a);
+//                 }
                 
             
-            }
+//             }
             
-        }
+//         }
         
-    }
+//     }
     
 
-    return border;
+//     return border;
     
-}
+// }
+
+// std::unordered_set<int> find_morse_basin_borders(CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, 
+//                                                                    StarFiltration &filt, CellComplex &comp, int target_dim=-1) {
+        
+//     std::unordered_set<int> basin_borders;
+    
+//     if(target_dim == -1) {
+//         target_dim = filt.fdim;
+//     }
+        
+//     for(int c = 0; c < mcomp.ncells; c++) {
+//         if(mcomp.get_dim(c) == 0) {
+//             // Cell in original complex
+//             int s = mcomp.get_label(c);
+            
+//             std::unordered_set<int> mfeature;
+//             mfeature.insert(s);
+            
+//             // Find the corresponding cells in real complex
+//             std::unordered_set<int> rfeature = convert_morse_to_real(mfeature, V, coV, comp);
+                               
+//             std::unordered_set<int> rborder = find_border(rfeature, comp);
+            
+//              // Change dimension of features to representative dimension
+//             std::unordered_set<int> border = change_feature_dim(rborder, target_dim, filt, comp, false);
+            
+//             std::unordered_set<int> feature_labels = comp.get_labels(border);
+
+//             basin_borders.insert(feature_labels.begin(), feature_labels.end());
+                     
+//         }
+//     }
+    
+//     return basin_borders;
+// }
+
 
 std::unordered_set<int> find_morse_basin_borders(CellComplex &mcomp, py::array_t<int> V, py::array_t<int> coV, 
                                                                    StarFiltration &filt, CellComplex &comp, int target_dim=-1) {
@@ -754,10 +790,12 @@ std::unordered_set<int> find_morse_basin_borders(CellComplex &mcomp, py::array_t
             // Find the corresponding cells in real complex
             std::unordered_set<int> rfeature = convert_morse_to_real(mfeature, V, coV, comp);
                                
-            std::unordered_set<int> rborder = find_border(rfeature, comp);
+            // Change dimension of features to representative dimension
+            std::unordered_set<int> feature = change_feature_dim(rfeature, target_dim, filt, comp, true);
             
-             // Change dimension of features to representative dimension
-            std::unordered_set<int> border = change_feature_dim(rborder, target_dim, filt, comp, false);
+            std::unordered_set<int> boundary = get_boundary(feature, comp);
+            
+            std::unordered_set<int> border = change_feature_dim(boundary, target_dim, filt, comp, false);
             
             std::unordered_set<int> feature_labels = comp.get_labels(border);
 
@@ -768,6 +806,7 @@ std::unordered_set<int> find_morse_basin_borders(CellComplex &mcomp, py::array_t
     
     return basin_borders;
 }
+    
 
 // Finds the morse skeleton in dimension sdim
 std::unordered_set<int> find_morse_skeleton(CellComplex &mcomp, int sdim, py::array_t<int> V, py::array_t<int> coV,
