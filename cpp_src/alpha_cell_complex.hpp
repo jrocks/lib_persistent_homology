@@ -24,6 +24,77 @@ typedef Eigen::Ref<XVec > RXVec;
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
     
+
+template <int DIM> double calc_power_distance(double alpha, Eigen::Matrix<double, DIM, 1> a, Eigen::Matrix<double, DIM, 1> pos, double weight) {
+    return (a - pos).squaredNorm() - weight - alpha;
+}
+
+
+template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circumsphere(std::vector<int> &vertices, RXVec vert_pos, std::vector<double> &weights) {
+    
+    typedef Eigen::Matrix<double, DIM, 1> DVec;
+    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    
+    if(vertices.size() == 1) {
+        return std::make_tuple(0.0, DVec::Zero());
+    } else if(vertices.size() == DIM + 1) {
+        
+        XMat A = XMat::Zero(DIM+1, DIM+1);
+        
+        for(std::size_t i = 0; i < DIM+1; i++) {
+            A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
+        }
+        
+        A.block<DIM+1,1>(0, DIM) = XVec::Ones(DIM+1);        
+        
+        XVec b = XVec::Zero(DIM+1);
+        for(std::size_t i = 0; i < DIM+1; i++) {
+            int vi = vertices[i];
+            b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
+        }
+                
+        XVec x = A.partialPivLu().solve(b);
+    
+        return std::make_tuple(x(DIM) + x.segment<DIM>(0).squaredNorm(), x.segment<DIM>(0));
+        
+    } else {
+        
+        XMat A = XMat::Zero(DIM+vertices.size(), DIM+vertices.size());
+        
+        for(std::size_t i = 0; i < vertices.size(); i++) {
+            A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
+        }
+        
+        A.block(0, DIM, vertices.size(), 1) = XVec::Ones(vertices.size());
+        
+        DVec v0 = vert_pos.segment<DIM>(DIM*vertices[0]);
+        for(std::size_t i = 1; i < vertices.size(); i++) {
+            A.block<DIM,1>(vertices.size(), DIM+i) = v0 - vert_pos.segment<DIM>(DIM*vertices[i]);
+        }
+        
+        A.block<DIM, DIM>(vertices.size(), 0) = DMat::Identity();
+        
+        
+        XVec b = XVec::Zero(DIM+vertices.size());
+        for(std::size_t i = 0; i < vertices.size(); i++) {
+            int vi = vertices[i];
+            b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
+        }
+        
+        b.segment<DIM>(vertices.size()) = v0;
+        
+        XVec x = A.partialPivLu().solve(b);
+    
+        return std::make_tuple(x(DIM) + x.segment<DIM>(0).squaredNorm(), x.segment<DIM>(0));
+        
+        
+    }
+    
+    
+    
+    
+}
+
 template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, std::vector<double> &weights) {
     
     typedef Eigen::Matrix<double, DIM, 1> DVec;
@@ -52,8 +123,9 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
     // Map of lists of vertices of all simplices to index of simplex in comp
     std::map<std::vector<int> , int> simplex_to_index;
     
-    CellComplex comp(DIM, true, false);
+    CellComplex del_comp(DIM, true, true);
     
+    // Add all vertices to cell complex
     for(int i = 0; i < NV; i++) {
         
         DVec pos = vert_pos.segment<DIM>(DIM*i);
@@ -66,7 +138,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
         
         std::vector<int> facets;
         std::vector<int> coeffs;
-        comp.add_cell(i, 0, facets, coeffs);
+        del_comp.add_cell(i, 0, facets, coeffs);
         
         simplex_to_index.emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
     }
@@ -88,6 +160,8 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
     
     // Iterate through each corner and add all higher-dimensional faces of corner simplices
     for(int d = 1; d <= DIM; d++) {
+        
+        int label = 0;
         
         for(auto it = t.finite_full_cells_begin(); it != t.finite_full_cells_end(); it++) {
             
@@ -121,7 +195,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
                     continue;
                 }
                                 
-                simplex_to_index[simplex] = comp.ncells;
+                simplex_to_index[simplex] = del_comp.ncells;
                 
                 // Find facets
                 std::vector<int> facets;
@@ -130,9 +204,10 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
                     std::vector<int> facet(simplex);
                     facet.erase(facet.begin()+j);
                     facets.push_back(simplex_to_index[facet]);
+                    coeffs.push_back(-2*(j%2)+1);
                 }
-                comp.add_cell(comp.ncells, d, facets, coeffs);
-                    
+                del_comp.add_cell(label, d, facets, coeffs);
+                label++;
                 
             } while(std::prev_permutation(mask.begin(), mask.end()));
 
@@ -140,107 +215,92 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
         
     }
     
+    del_comp.construct_cofacets();
+    del_comp.make_compressed(); 
     
-    comp.construct_cofacets();
-    comp.make_compressed(); 
-
-    return comp;
+    return del_comp;
     
 }
 
 
-template <int DIM> double calc_radius_squared(std::vector<int> &vertices, RXVec vert_pos, std::vector<double> &weights) {
-    
+
+template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vector<double> &weights, CellComplex &comp, double alpha0 = -1.0) {
+        
     typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
-    
-    if(vertices.size() == 1) {
-        return 0.0;
-    } else if(vertices.size() == DIM + 1) {
-        
-        XMat A = XMat::Zero(DIM+1, DIM+1);
-        
-        for(std::size_t i = 0; i < DIM+1; i++) {
-            A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
-        }
-        
-        A.block<DIM+1,1>(0, DIM) = XVec::Ones(DIM+1);        
-        
-        XVec b = XVec::Zero(DIM+1);
-        for(std::size_t i = 0; i < DIM+1; i++) {
-            int vi = vertices[i];
-            b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
-        }
-                
-        XVec x = A.partialPivLu().solve(b);
-    
-        return x(DIM) + x.segment<DIM>(0).squaredNorm();
-        
-    } else {
-        
-        XMat A = XMat::Zero(DIM+vertices.size(), DIM+vertices.size());
-        
-        for(std::size_t i = 0; i < vertices.size(); i++) {
-            A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
-        }
-        
-        A.block(0, DIM, vertices.size(), 1) = XVec::Ones(vertices.size());
-        
-        DVec v0 = vert_pos.segment<DIM>(DIM*vertices[0]);
-        for(std::size_t i = 1; i < vertices.size(); i++) {
-            A.block<DIM,1>(vertices.size(), DIM+i) = v0 - vert_pos.segment<DIM>(DIM*vertices[i]);
-        }
-        
-        A.block<DIM, DIM>(vertices.size(), 0) = DMat::Identity();
-        
-        
-        XVec b = XVec::Zero(DIM+vertices.size());
-        for(std::size_t i = 0; i < vertices.size(); i++) {
-            int vi = vertices[i];
-            b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
-        }
-        
-        b.segment<DIM>(vertices.size()) = v0;
-        
-        XVec x = A.partialPivLu().solve(b);
-    
-        return x(DIM) + x.segment<DIM>(0).squaredNorm();
-        
-        
-    }
-    
-    
-    
-    
-}
-
-template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vector<double> &weights, CellComplex &comp) {
     
     std::vector<double> alpha_vals(comp.ncells);
-    
-    double min_alpha = 1e10;
-    
-    for(int i = 0; i < comp.ncells; i++) {
-        std::unordered_set<int> star = get_star(i, true, comp, 0);
-        std::vector<int> vertices;
-        vertices.reserve(star.size());
-        for(auto j: star) {
-            vertices.push_back(comp.get_label(j));
+        
+    for(int c = comp.ncells-1; c >= 0; c--) {
+        
+        // Skip vertices
+        if(comp.get_dim(c) == 0) {
+            alpha_vals[c] = alpha0;
+            continue;
         }
         
-        if(comp.get_dim(i) != 0) {
-            alpha_vals[i] = calc_radius_squared<DIM>(vertices, vert_pos, weights);
+        std::unordered_set<int> verts = get_star(c, true, comp, 0);
+        
+        double alpha;
+        DVec a;
+        std::vector<int> tmp(verts.begin(), verts.end());
+        std::tie(alpha, a) = calc_circumsphere<DIM>(tmp, vert_pos, weights);
+        
+        alpha_vals[c] = alpha;
+        
+        // Skip highest dimension triangles
+        if(comp.get_dim(c) == DIM) {
+            continue;
+        }
+        
+        // For a Delaunay triangulation, only simplices of dimension DIM must have empty circumspheres
+        // Some simplices between dimension 0 and DIM don't appear in the alpha shape filtration at the value of their particular alpha
+        // This is because for a particular value of alpha, each simplex follows one of two rules:
+        // 1. has an empty circumsphere or
+        // 2. is the face of another simplex that is part of the alpha complex (see 1)
+        // We must detect simplices that don't obey #1 and change their value of alpha to that of their youngest coface
+        
+        // Find cofaces of dimension DIM
+        auto cofaces = get_star(c, false, comp, DIM);
+        
+        bool conflict = false;
+        // For each coface get the list of its vertices and check if any fall inside the circumsphere of c
+        for(auto cf: cofaces) {
             
-            if(alpha_vals[i] < min_alpha) {
-                min_alpha = alpha_vals[i];
+            std::unordered_set<int> coface_verts = get_star(cf, true, comp, 0);
+            
+            for(auto vi: coface_verts) {
+
+                // If inside the circumsphere, mark as conflict and continue
+                DVec x = vert_pos.segment<DIM>(DIM*vi);
+                if(!verts.count(vi) && calc_power_distance(alpha, a, x, weights[vi]) < 0.0) {
+                    conflict = true;
+                    break;
+                }
+            }
+            
+            if(conflict) {
+                break;
+            }
+            
+        }
+        
+        
+        if(!conflict) {
+            continue;
+        }
+        
+        // If this simplex poses a conflict, then set it's value of alpha to it's youngest cofacet
+        auto cofacets = comp.get_cofacets(c);
+        double conflict_alpha = 1e10;
+        for(auto cf: cofacets) { 
+            if(alpha_vals[cf] < conflict_alpha) {
+                conflict_alpha = alpha_vals[cf];
             }
         }
-    }
-    
-    for(int i = 0; i < comp.ncells; i++) {
-        if(comp.get_dim(i) == 0) {
-            alpha_vals[i] = min_alpha;
-        }
+        
+        alpha_vals[c] = conflict_alpha;
+        
+        
     }
     
     return alpha_vals;

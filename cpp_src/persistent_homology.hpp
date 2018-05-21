@@ -375,11 +375,12 @@ std::vector<std::vector<double> > calc_persistence_landscape(std::vector<double>
             lambdakt[j] = fmax(0.0, fmin(t[i]-b, d-t[i]));
                         
         }
+                
+        std::nth_element(lambdakt.begin(), lambdakt.begin()+std::min(K, (int)birth.size()), lambdakt.end(), std::greater<double>());
+        std::sort(lambdakt.begin(), lambdakt.begin()+std::min(K, (int)birth.size()), std::greater<double>());
+
         
-        std::nth_element(lambdakt.begin(), lambdakt.begin()+K, lambdakt.end(), std::greater<double>());
-        std::sort(lambdakt.begin(), lambdakt.begin()+K, std::greater<double>());
-        
-        for(int k = 0; k < K; k++) {
+        for(int k = 0; k < std::min(K, (int)birth.size()); k++) {
             
             landscape[k][i] = lambdakt[k];
             
@@ -399,10 +400,10 @@ std::vector<std::vector<double> > calc_persistence_landscape(std::vector<std::pa
     
     for(std::size_t j = 0; j < pairs.size(); j++) {
             
-            birth[j] = filt.get_time(pairs[j].first);
-            death[j] = filt.get_time(pairs[j].second);
-            
-        }
+        birth[j] = filt.get_time(pairs[j].first);
+        death[j] = filt.get_time(pairs[j].second);
+
+    }
     
     return calc_persistence_landscape(birth, death, t, K);
     
