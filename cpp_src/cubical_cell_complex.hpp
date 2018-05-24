@@ -406,7 +406,7 @@ double calc_elongation(std::unordered_set<int> &pixels, std::vector<int> &shape)
     Eigen::SelfAdjointEigenSolver<XMat > eigensolver(I);
     XVec evals = eigensolver.eigenvalues();
     
-    return sqrt(evals(1) / evals(0));
+    return sqrt(evals(0) / evals(1));
     
     
 }
