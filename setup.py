@@ -39,6 +39,7 @@ library_dirs = []
 define_macros = []
 # This option ensures that all linked shared libraries actually exist
 extra_link_args = ["-Wl,--no-undefined"]
+extra_compile_args = ["-g0"]
 
 if use_alpha_cell_complex:
     libraries.append("CGAL")
@@ -78,6 +79,7 @@ ext_modules = [
         libraries=libraries,
         define_macros=define_macros,
         extra_link_args=extra_link_args,
+        extra_compile_args=extra_compile_args,
         language='c++'
     ),
 ]

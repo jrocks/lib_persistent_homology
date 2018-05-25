@@ -102,6 +102,8 @@ PYBIND11_MODULE(chomology, m) {
 #ifdef ALPHA
     
     init_alpha_templates<2>(m);
+    init_alpha_templates<3>(m);
+    init_alpha_templates<4>(m);
 
 #endif
     
