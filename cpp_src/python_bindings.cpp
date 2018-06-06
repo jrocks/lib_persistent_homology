@@ -3,6 +3,7 @@
 #include "filtration.hpp"
 #include "morse.hpp"
 #include "persistent_homology.hpp"
+#include "persistence_landscape.hpp"
 #include "util_algs.hpp"
 
 #ifdef GRAPH
@@ -208,10 +209,14 @@ PYBIND11_MODULE(chomology, m) {
     m.def("extract_persistence_feature", &extract_persistence_feature, 
          py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
     
-    m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<double>&, std::vector<double>&, std::vector<double>&, int)) &calc_persistence_landscape);
-    m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<std::pair<int, int> >&, std::vector<double>&, int, StarFiltration&)) &calc_persistence_landscape);
+    // m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<double>&, std::vector<double>&, std::vector<double>&, int)) &calc_persistence_landscape);
+    // m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<std::pair<int, int> >&, std::vector<double>&, int, StarFiltration&)) &calc_persistence_landscape);
     
-    
+    m.def("calc_landscape", &calc_landscape, py::return_value_policy::take_ownership);
+    m.def("calc_landscape_norm", (double (*)(CRXMat, CRXVec))&calc_landscape_norm);
+    m.def("calc_landscape_dist", (double (*)(CRXMat, CRXMat, CRXVec))&calc_landscape_dist);
+    m.def("calc_landscape_norm", (double (*)(CRXVec, CRXVec, CRXVec))&calc_landscape_norm);
+    m.def("calc_landscape_dist", (double (*)(CRXVec, CRXVec, CRXVec, CRXVec, CRXVec))&calc_landscape_dist);
     
     m.def("find_distances", &find_distances);
     m.def("get_neighborhood", &get_neighborhood);
