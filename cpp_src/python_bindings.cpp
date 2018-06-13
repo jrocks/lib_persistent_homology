@@ -215,6 +215,7 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("find_distances", &find_distances);
     m.def("get_neighborhood", &get_neighborhood);
+    m.def("find_thresholded_component", &find_thresholded_component);
      
 };
 

@@ -92,32 +92,45 @@ std::tuple<std::vector<int>, std::vector<XVec > > get_neighborhood(int p, double
     
 }
 
-// def get_neighborhood(p, dist, NP, pos, rad2, DIM, L):
+std::unordered_set<int> find_thresholded_component(int start, double threshold, StarFiltration &filt, CellComplex &comp) {
     
-//     posi = pos[DIM*p:DIM*p+DIM]
+    std::unordered_set<int> component;
     
-//     neigh_NP = 0
-//     neighborhood = []
-//     neigh_pos = []
-//     neigh_rad2 = []
-//     for i in range(NP):
-//         posj = pos[DIM*i:DIM*i+DIM]
+    std::unordered_set<int> seen;
+    seen.insert(start);
+    
+    std::queue<int> Q;
+    Q.push(start);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
         
-//         bvec = posj - posi
+        if(comp.get_dim(a) == 0) {
+            component.insert(a);
+        }
         
-//         for d in range(DIM):
-//             if np.abs(bvec[d]) > L[d,d]/2:
-//                 bvec -= np.sign(bvec[d])*L[:, d]
+        std::unordered_set<int> cofaces = get_star(a, false, comp, -1);
+        for(auto c: cofaces) {
+            if(!seen.count(c) && filt.get_time(c) < threshold) {
+                Q.push(c);
+                seen.insert(c);
+                
+            }
+        }
         
-// #         bvec -= np.rint(bvec / L) * L
+        std::unordered_set<int> faces = get_star(a, true, comp, -1);
+        for(auto c: faces) {
+            if(!seen.count(c) && filt.get_time(c) < threshold) {
+                Q.push(c);
+                seen.insert(c);
+            }
+        }
+    }
         
-//         if la.norm(bvec) < dist:
-//             neigh_NP += 1
-//             neighborhood.append(i)
-//             neigh_pos.extend(posi+bvec)
-//             neigh_rad2.append(rad2[i])
-            
-//     return (neigh_NP, neighborhood, np.array(neigh_pos), neigh_rad2)
+    return component;
+    
+}
 
 
 #endif // UTILALGS_HPP
