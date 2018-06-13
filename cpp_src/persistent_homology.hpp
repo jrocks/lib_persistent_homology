@@ -354,60 +354,6 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
 }
 
 
-std::vector<std::vector<double> > calc_persistence_landscape(std::vector<double> &birth, std::vector<double> &death, std::vector<double> &t, int K) {
-    
-    // py::print(pairs);
-    
-    std::vector<std::vector<double> > landscape(K, std::vector<double>(t.size(), 0.0));
-    
-    for(std::size_t i = 0; i < t.size(); i++) {
-        
-        std::vector<double> lambdakt(birth.size());
-        
-        for(std::size_t j = 0; j < birth.size(); j++) {
-            
-            double t1 = birth[j];
-            double t2 = death[j];
-            
-            double b = fmin(t1, t2);
-            double d = fmax(t1, t2);
-    
-            lambdakt[j] = fmax(0.0, fmin(t[i]-b, d-t[i]));
-                        
-        }
-                
-        std::nth_element(lambdakt.begin(), lambdakt.begin()+std::min(K, (int)birth.size()), lambdakt.end(), std::greater<double>());
-        std::sort(lambdakt.begin(), lambdakt.begin()+std::min(K, (int)birth.size()), std::greater<double>());
-
-        
-        for(int k = 0; k < std::min(K, (int)birth.size()); k++) {
-            
-            landscape[k][i] = lambdakt[k];
-            
-        }
-        
-    }
-    
-    return landscape;
-    
-}
-
-
-std::vector<std::vector<double> > calc_persistence_landscape(std::vector<std::pair<int, int> > &pairs, std::vector<double> &t, int K, StarFiltration &filt) {
-        
-    std::vector<double> birth(pairs.size());
-    std::vector<double> death(pairs.size());
-    
-    for(std::size_t j = 0; j < pairs.size(); j++) {
-            
-        birth[j] = filt.get_time(pairs[j].first);
-        death[j] = filt.get_time(pairs[j].second);
-
-    }
-    
-    return calc_persistence_landscape(birth, death, t, K);
-    
-}
 
 
 
