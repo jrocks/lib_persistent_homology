@@ -19,9 +19,104 @@ typedef Eigen::Ref<XiMat > RXiMat;
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+XMat find_pairwise_euclid_distances(std::vector<int> &particles, int DIM, RXVec pos, RXMat box_mat) {
+    
+    XMat dist_mat = XMat::Zero(particles.size(), particles.size());
+        
+    for(std::size_t i = 0; i < particles.size(); i++) {
+        
+        int pi = particles[i];
+        
+        XVec posi = pos.segment(DIM*pi, DIM);
+        
+        for(std::size_t j = i+1; j < particles.size(); j++) {
+            
+            int pj = particles[j];
+            
+            XVec posj = pos.segment(DIM*pj, DIM);
+            
+            XVec bvec = posj - posi;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            dist_mat(i, j) = (box_mat*bvec).norm();
+            dist_mat(j, i) = dist_mat(i, j);
+        
+        }
+                
+    }
+        
+    return dist_mat;
+    
+}
 
+XiMat find_pairwise_tri_distances(std::vector<int> &particles, CellComplex &comp) {
+    
+    int NV = 0;
+    for(int i = 0; i < comp.ncells; i++) {
+        if(comp.get_dim(i) == 0) {
+            NV++;
+        }
+    }
+    
+    XiMat full_dist_mat = XiMat::Constant(NV, NV, -1);
+    
+    
+    for(std::size_t i = 0; i < particles.size(); i++) {
+        
+        int pi = particles[i];
+        
+        std::queue<int> Q;
+        Q.push(pi);
+        
+        full_dist_mat(pi, pi) = 0;
+        
+        while(!Q.empty()) {
+            int a = Q.front();
+            Q.pop();
+            
+            auto corange = comp.get_cofacet_range(a);
+            for(auto coit = corange.first; coit != corange.second; coit++) {
+                
+                auto range = comp.get_facet_range(*coit);
+                for(auto it = range.first; it != range.second; it++) {
+                    
+                    int pj = *it;
+     
+                    if(full_dist_mat(pi, pj) == -1) {
+                        Q.push(pj);
+                        
+                        full_dist_mat(pi, pj) = full_dist_mat(pi, a) + 1;
+                        full_dist_mat(pj, pi) = full_dist_mat(pi, pj);
+                    }
+                    
+                }
 
-std::vector<int> find_distances(int start, CellComplex &comp, int max_dist=-1) {
+            }
+            
+        }
+        
+    }
+    
+    
+    XiMat dist_mat = XiMat::Constant(particles.size(), particles.size(), -1);
+    
+    for(std::size_t i = 0; i < particles.size(); i++) {
+        for(std::size_t j = 0; j < particles.size(); j++) {
+            dist_mat(i, j) = full_dist_mat(particles[i], particles[j]);
+        }
+    }
+    
+        
+    return dist_mat;
+    
+}
+
+std::vector<int> find_all_tri_distances(int start, CellComplex &comp, int max_dist=-1) {
     
     
     std::vector<int> dist(comp.ncells, -1);
@@ -67,170 +162,44 @@ std::vector<int> find_distances(int start, CellComplex &comp, int max_dist=-1) {
     
 }
 
-// RXiMat find_pairwise_distances(CellComplex &comp, int target_dim=-1, int max_cutoff=-1) {
-    
-//     int ncells = 0;
-    
-//     if(target_dim == -1) {
-//         ncells = comp.ncells;
-//     } else {
-//         for(int i = 0; i < comp.ncells; i++) {
-//             if(comp.get_dim(i) == target_dim) {
-//                 ncells++;
-//             }
-//         }
-//     }
-    
-//     py::print(ncells, py::arg("flush")=true);
-    
-    
-//     // Map of all cells to all other cells with dist < max_cutoff
-//     std::unordered_map<int, std::unordered_map<int, int> > dist_map;
-//     for(int i = 0; i < comp.ncells; i++) {
-//         dist_map[i][i] = 0;
-//     }
-    
-//     int count = 0;
-    
-//     for(int i = 0; i < comp.ncells; i++) {
-//         if(target_dim != -1 && comp.get_dim(i) != target_dim) {
-//             continue;
-//         }
-        
-//         if(count % 100 == 0) {
-//             py::print(i, count, "/", ncells, py::arg("flush")=true);
-//         }
-        
-//         count++;
-        
-//         std::vector<int> dist(comp.ncells, -1);
-//         dist[i] = 0;
-        
-//         std::unordered_set<int> seen;
-//         seen.insert(i);
-        
-//         std::queue<int> Q;
-//         Q.push(i);
-        
-//         while(!Q.empty()) {
-//             int a = Q.front();
-//             Q.pop();
 
-//             std::unordered_set<int> cofaces = get_star(a, false, comp, -1);
-//             for(auto c: cofaces) {
-//                 if(!seen.count(c)) {
-//                     seen.insert(c);
-//                     dist[c] = dist[a] + 1;
-                    
-//                     if(max_cutoff == -1 || dist[c] < max_cutoff) {
-//                         Q.push(c);
-//                     }
-                    
-//                 }
-//             }
-
-//             std::unordered_set<int> faces = get_star(a, true, comp, -1);
-//             for(auto c: faces) {
-//                 if(!seen.count(c)) {
-//                     seen.insert(c);
-//                     dist[c] = dist[a] + 1;
-                    
-//                     if(max_cutoff == -1 || dist[c] < max_cutoff) {
-//                         Q.push(c);
-//                     }
-                    
-//                 }
-//             }
-//         }
-                
-        
-        
-        
-// //         std::queue<int> Q;
-// //         Q.push(i);
-        
-// //         while(!Q.empty()) {
-// //             int a = Q.front();
-// //             Q.pop();
-
-// //             std::unordered_set<int> cofaces = get_star(a, false, comp, -1);
-// //             for(auto c: cofaces) {
-// //                 // If already seen, then skip
-// //                 if(dist_map[i].count(c)) {
-// //                     continue;
-// //                 }
-                
-// //                 // Otherwise update distance
-// //                 int new_dist = dist_map[i][a] + 1;
-// //                 dist_map[i][c] = new_dist;
-// //                 dist_map[c][i] = new_dist;
-                
-// //                 // If within cutoff distance, then add to queue
-// //                 if(max_cutoff == -1 || new_dist < max_cutoff) {
-// //                     Q.push(c);
-// //                 }
-
-// //             }
-
-// //             std::unordered_set<int> faces = get_star(a, true, comp, -1);
-// //             for(auto c: faces) {
-// //                 // If already seen, then skip
-// //                 if(dist_map[i].count(c)) {
-// //                     continue;
-// //                 }
-                
-// //                 // Otherwise update distance
-// //                 int new_dist = dist_map[i][a] + 1;
-// //                 dist_map[i][c] = new_dist;
-// //                 dist_map[c][i] = new_dist;
-                
-// //                 // If within cutoff distance, then add to queue
-// //                 if(max_cutoff == -1 || new_dist < max_cutoff) {
-// //                     Q.push(c);
-// //                 }
-// //             }
-// //         }
-        
-// //         py::print("seen", seen.size());
-        
-        
-// //         if(target_dim == -1) {
-// //             for(int j = 0; j < comp.ncells; j++) {
-// //                 dist_mat(i, j) = dist[j];
-// //             }
-// //         } else {
-// //             for(int j = 0; j < comp.ncells; j++) {
-// //                 if(comp.get_dim(j) == target_dim) {
-// //                     dist_mat(comp.get_label(i), comp.get_label(j)) = dist[j];
-// //                 }
-// //             }
-// //         }
-  
-//     }
+std::unordered_map<int, int> find_search_zone_distances(int start, std::unordered_set<int> &search_zone, CellComplex &comp) {
     
-//     XiMat dist_mat = XiMat::Constant(ncells, ncells, -1);
     
-// //     if(target_dim == -1) {
-// //         for(auto pairi: dist_map) {
-// //             for(auto pairj: pairi.second) {
-// //                 dist_mat(pairi.first, pairj.first) = pairj.second;
-// //             }
-// //         }
-// //     } else {
-// //         for(auto pairi: dist_map) {
-// //             for(auto pairj: pairi.second) {
-// //                 dist_mat(comp.get_label(pairi.first), comp.get_label(pairj.first)) = pairj.second;
-// //             }
-// //         }
-        
-// //     }
-        
-//     return dist_mat;
+    std::unordered_map<int, int> dist;
+    dist[start] = 0;
     
-// }
+    std::queue<int> Q;
+    Q.push(start);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+        
+        std::unordered_set<int> cofaces = get_star(a, false, comp, -1);
+        for(auto c: cofaces) {
+            if(search_zone.count(c) && !dist.count(c)) {
+                dist[c] = dist[a] + 1;
+                Q.push(c);
+            }
+        }
+        
+        std::unordered_set<int> faces = get_star(a, true, comp, -1);
+        for(auto c: faces) {
+            if(search_zone.count(c) && !dist.count(c)) {
+                dist[c] = dist[a] + 1;
+                Q.push(c);
+            }
+        }
+    }
+        
+    return dist;
+    
+}
 
 
-std::tuple<std::vector<int>, std::vector<XVec > > get_neighborhood(int p, double dist, int DIM, RXVec pos, RXMat L) {
+
+std::tuple<std::vector<int>, std::vector<XVec > > get_neighborhood(int p, double dist, int DIM, RXVec pos, RXMat box_mat) {
     
     XVec posi = pos.segment(DIM*p, DIM);
     
@@ -243,15 +212,12 @@ std::tuple<std::vector<int>, std::vector<XVec > > get_neighborhood(int p, double
         XVec bvec = posj - posi;
         
         for(int d = 0; d < DIM; d++) {
-            if(std::fabs(bvec[d]) > L(d, d) / 2.0) {
-                
-                bvec -= ((bvec[d] > 0) - (bvec[d] < 0)) * L.col(d);
-                            
+            if(std::fabs(bvec(d)) > 0.5) {
+                bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));          
             }
-            
         }
-        
-        if(bvec.norm() < dist) {
+                
+        if((box_mat * bvec).norm() < dist) {
             neighborhood.push_back(i);
             neigh_pos.push_back(posi+bvec);
         }

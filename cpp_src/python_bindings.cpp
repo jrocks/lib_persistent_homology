@@ -43,17 +43,15 @@ template <int DIM> void init_graph_templates(py::module &m) {
 
 #ifdef ALPHA
 template <int DIM> void init_alpha_templates(py::module &m) {
-        
-    m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          (CellComplex (*) (int, RXVec, std::vector<double>&, bool)) &construct_alpha_complex<DIM>,
-         py::arg("NV"), py::arg("vert_pos"), py::arg("weights"), py::arg("periodic")=false);
     
-    m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          (CellComplex (*) (int, RXVec, std::vector<double>&, RXVec, bool)) &construct_alpha_complex<DIM>,
-         py::arg("NV"), py::arg("vert_pos"), py::arg("weights"), py::arg("L"), py::arg("periodic")=false);
-        
-    m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
-         py::arg("vert_pos"), py::arg("weights"), py::arg("comp"), py::arg("alpha0")=-1.0);
+//     typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    // typedef Eigen::Ref<DMat > RDMat;
+    
+    m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>,
+         py::arg("NV"), py::arg("vert_pos"), py::arg("weights"), py::arg("box_mat"), py::arg("periodic")=false);
+    
+     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
+         py::arg("vert_pos"), py::arg("weights"), py::arg("comp"), py::arg("box_mat"), py::arg("periodic")=false, py::arg("alpha0")=-1.0);
 }
 #endif
 
@@ -111,10 +109,13 @@ PYBIND11_MODULE(chomology, m) {
     
     init_alpha_templates<2>(m);
     init_alpha_templates<3>(m);
-    init_alpha_templates<4>(m);
+    // init_alpha_templates<4>(m);
     
-    m.def("calc_gap_distribution", &calc_gap_distribution,
-          py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1);
+    m.def("calc_radial_gap_distribution", &calc_radial_gap_distribution,
+          py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
+    
+    m.def("calc_angular_gap_distribution", &calc_angular_gap_distribution,
+          py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
 
 #endif
     
@@ -228,12 +229,14 @@ PYBIND11_MODULE(chomology, m) {
     m.def("calc_landscape_norm", (double (*)(CRXVec, CRXVec, CRXVec))&calc_landscape_norm);
     m.def("calc_landscape_dist", (double (*)(CRXVec, CRXVec, CRXVec, CRXVec, CRXVec))&calc_landscape_dist);
     
-    m.def("find_distances", &find_distances,
+    m.def("find_all_tri_distances", &find_all_tri_distances,
          py::arg("start"), py::arg("comp"), py::arg("max_dist")=-1);
     // m.def("find_pairwise_distances", &find_pairwise_distances,
     //       py::arg("comp"), py::arg("target_dim")=-1, py::arg("max_cutoff")=-1);
     m.def("get_neighborhood", &get_neighborhood);
     m.def("find_thresholded_component", &find_thresholded_component);
+    m.def("find_pairwise_euclid_distances", &find_pairwise_euclid_distances);
+    m.def("find_pairwise_tri_distances", &find_pairwise_tri_distances);
      
 };
 

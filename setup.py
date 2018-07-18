@@ -27,7 +27,7 @@ class get_pybind_include(object):
 
 use_alpha_cell_complex = True
 use_graph_cell_complex = True
-use_optimal_cycles = True
+use_optimal_cycles = False
     
 include_dirs=[
     # Path to pybind11 headers
