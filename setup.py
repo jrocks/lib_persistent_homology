@@ -28,7 +28,10 @@ class get_pybind_include(object):
 use_alpha_cell_complex = True
 use_graph_cell_complex = True
 use_optimal_cycles = False
-    
+
+print(get_pybind_include())
+print(get_pybind_include(user=True))    
+
 include_dirs=[
     # Path to pybind11 headers
     get_pybind_include(),
@@ -38,7 +41,8 @@ libraries = ["m"]
 library_dirs = []
 define_macros = []
 # This option ensures that all linked shared libraries actually exist
-extra_link_args = ["-Wl,--no-undefined"]
+# extra_link_args = ["-Wl,--no-undefined"]
+extra_link_args = []
 extra_compile_args = ["-g0"]
 
 if use_alpha_cell_complex:
