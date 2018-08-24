@@ -108,7 +108,7 @@ XiMat find_pairwise_tri_distances(std::vector<int> &particles, CellComplex &comp
     for(std::size_t i = 0; i < particles.size(); i++) {
         for(std::size_t j = 0; j < particles.size(); j++) {
             dist_mat(i, j) = full_dist_mat(particles[i], particles[j]);
-            dist_mat(j, i) = dist_mat(j, i)
+            dist_mat(j, i) = dist_mat(j, i);
         }
     }
     
