@@ -75,6 +75,9 @@ XiMat find_pairwise_tri_distances(std::vector<int> &particles, CellComplex &comp
         
         full_dist_mat(pi, pi) = 0;
         
+        std::unordered_set<int> seen;
+        seen.insert(pi);
+        
         while(!Q.empty()) {
             int a = Q.front();
             Q.pop();
@@ -87,8 +90,12 @@ XiMat find_pairwise_tri_distances(std::vector<int> &particles, CellComplex &comp
                     
                     int pj = *it;
      
-                    if(full_dist_mat(pi, pj) == -1) {
+                    if(!seen.count(pj)) {
+                        seen.insert(pj);
                         Q.push(pj);
+                    }
+                    
+                    if(full_dist_mat(pi, pj) == -1) {
                         
                         full_dist_mat(pi, pj) = full_dist_mat(pi, a) + 1;
                         full_dist_mat(pj, pi) = full_dist_mat(pi, pj);
