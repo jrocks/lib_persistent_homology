@@ -344,9 +344,9 @@ StarFiltration construct_star_filtration(std::vector<double> &time, std::vector<
         int filt_cell = *std::min_element(star.begin(), star.end(), star_cmp);
         filt.add_to_subcomplex(i, filt_cell);
                         
-        // If ascend filtration sort from high to low
-        // If upper filtration sort from low to high
-        if(ascend) {
+        // If ascend filtration and regular lower star, sort from high to low
+        // If ascend filtration and upper costar, sort from low to high
+        if((ascend && !co)  || (!ascend && co)) {
             std::sort(lex_val[i].begin(), lex_val[i].end(), std::greater<int>()); 
         } else {
             std::sort(lex_val[i].begin(), lex_val[i].end(), std::less<int>()); 
@@ -362,12 +362,17 @@ StarFiltration construct_star_filtration(std::vector<double> &time, std::vector<
         if(ascend) {
             // Upper costar filtration
             // Compare upper costar subcomplex value (smallest goes first) 
-            if(co && lex_val[lhs].back() != lex_val[rhs].back()) {
-                return lex_val[lhs].back() < lex_val[rhs].back();
-            // Lower star filtration
-            // Compare lower star subcomplex value (smallest goes first) 
-            } else if(!co && lex_val[lhs].front() != lex_val[rhs].front()) {
+            
+            if(lex_val[lhs].front() != lex_val[rhs].front()) {
                 return lex_val[lhs].front() < lex_val[rhs].front();
+            
+            
+            // if(co && lex_val[lhs].back() != lex_val[rhs].back()) {
+            //     return lex_val[lhs].back() < lex_val[rhs].back();
+            // // Lower star filtration
+            // // Compare lower star subcomplex value (smallest goes first) 
+            // } else if(!co && lex_val[lhs].front() != lex_val[rhs].front()) {
+            //     return lex_val[lhs].front() < lex_val[rhs].front();
             // Compare dimensions (smallest goes first)
             } else if(comp.get_dim(lhs) != comp.get_dim(rhs)) {
                 return comp.get_dim(lhs) < comp.get_dim(rhs);
@@ -383,12 +388,17 @@ StarFiltration construct_star_filtration(std::vector<double> &time, std::vector<
         } else {
             // Lower costar filtration
             // Compare lower costar subcomplex value (largest goes first) 
-            if(co && lex_val[lhs].back() != lex_val[rhs].back()) {
-                return lex_val[lhs].back() > lex_val[rhs].back();
-            // Upper star filtration
-            // Compare upper star subcomplex value (largest goes first) 
-            } else if(!co && lex_val[lhs].front() != lex_val[rhs].front()) {
+            
+            if(lex_val[lhs].front() != lex_val[rhs].front()) {
                 return lex_val[lhs].front() > lex_val[rhs].front();
+            
+            
+            // if(co && lex_val[lhs].back() != lex_val[rhs].back()) {
+            //     return lex_val[lhs].back() > lex_val[rhs].back();
+            // // Upper star filtration
+            // // Compare upper star subcomplex value (largest goes first) 
+            // } else if(!co && lex_val[lhs].front() != lex_val[rhs].front()) {
+            //     return lex_val[lhs].front() > lex_val[rhs].front();
             // Compare dimensions (smallest goes first)
             } else if(comp.get_dim(lhs) != comp.get_dim(rhs)) {
                 return comp.get_dim(lhs) < comp.get_dim(rhs);
