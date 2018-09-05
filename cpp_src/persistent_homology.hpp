@@ -245,6 +245,41 @@ std::unordered_map<int, std::vector<int> > calc_birth_cycles(Filtration &filt, C
     return cycles;
 }
 
+std::unordered_map<int, std::vector<int> > calc_homologous_birth_cycles(Filtration &filt, CellComplex &comp, int dim=-1) {
+    
+    auto bound_mat = calc_boundary_mat(filt, comp);
+    
+    std::vector<std::vector<int> > columns = std::get<0>(bound_mat);
+    std::vector<int> col_to_cell = std::get<2>(bound_mat);
+    
+    reduce_smith_normal_form(columns, false);
+    
+    // py::print(g);
+    
+    std::unordered_map<int, std::vector<int> > cycles;
+    
+    for(std::size_t j = 0; j < columns.size(); j++) {
+        if(!columns[j].size()) {
+            continue;
+        }
+        
+        int i = columns[j].back();
+
+        int ci = col_to_cell[i];
+        
+        if(dim != -1 && comp.get_dim(ci) != dim) {
+            continue;
+        }
+        
+        cycles[ci];
+        for(auto Ai: columns[j]) {
+            cycles[ci].push_back(col_to_cell[Ai]);
+        }
+    }
+    
+    return cycles;
+}
+
 
 std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
         

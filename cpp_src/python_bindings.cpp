@@ -116,6 +116,10 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("calc_angular_gap_distribution", &calc_angular_gap_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
+    
+    
+    m.def("calc_radial_cycle_distribution", &calc_radial_cycle_distribution,
+          py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("vertex_types"), py::arg("max_dist")=-1, py::arg("verbose")=false);
 
 #endif
     
@@ -125,6 +129,11 @@ PYBIND11_MODULE(chomology, m) {
           py::arg("filt"), py::arg("comp"), py::arg("weights"), py::arg("dim")=-1, py::arg("verbose")=false,
          py::call_guard<py::scoped_ostream_redirect,
                      py::scoped_estream_redirect>());
+    
+//     m.def("calc_optimal_homologous_cycles", &calc_optimal_homologous_cycles, 
+//           py::arg("filt"), py::arg("comp"), py::arg("weights"), py::arg("dim")=-1, py::arg("verbose")=false,
+//          py::call_guard<py::scoped_ostream_redirect,
+//                      py::scoped_estream_redirect>());
 #endif
         
     py::class_<Filtration>(m, "Filtration")
@@ -216,6 +225,7 @@ PYBIND11_MODULE(chomology, m) {
     
     
     m.def("calc_birth_cycles", &calc_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
+    m.def("calc_homologous_birth_cycles", &calc_homologous_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
     
     m.def("extract_persistence_feature", &extract_persistence_feature, 
          py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);

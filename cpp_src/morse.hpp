@@ -20,6 +20,8 @@ namespace py = pybind11;
 #include "filtration.hpp"
     
 
+// # define ALL -1
+// get_faces
 std::unordered_set<int> get_lower_star(int alpha, bool co, StarFiltration &filt, CellComplex &comp, int target_dim) {
         
     int star_index = filt.get_filt_cell(alpha);

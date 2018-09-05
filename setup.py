@@ -52,9 +52,10 @@ if use_alpha_cell_complex:
     
 if use_graph_cell_complex:
     define_macros.append(("GRAPH", None))
-    
+        
 if use_optimal_cycles:
-    CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
+#     CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
+    CPLEX_path = "/home/rocks/ibm/ILOG/CPLEX_Studio128"
     
     include_dirs.append(CPLEX_path+"/concert/include")
     include_dirs.append(CPLEX_path+"/cplex/include") 

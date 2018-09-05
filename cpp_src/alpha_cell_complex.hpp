@@ -461,6 +461,7 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
 std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > > 
     calc_radial_gap_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
     
+    // particle->(gaps[dist]->count, overlaps[dist]->count)
     std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > > gap_distribution;
     
     int index = 0;
@@ -602,6 +603,90 @@ std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
     }
     
     return gap_distribution;
+    
+    
+}
+
+
+
+
+std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string, std::string >, int> > >
+    calc_radial_cycle_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, std::vector<std::string> &vertex_types, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    
+    
+    // particle->dist->(vertex_types, edge_types)->count
+    std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string, std::string >, int> > > cycle_distribution;
+    
+    int index = 0;
+    for(auto c: cell_list) {
+        
+        if(verbose && index % 500 == 0) {
+            py::print(index, "/", cell_list.size(), py::arg("flush")=true);
+        }
+        
+        index++;
+        
+        
+        auto dists = find_all_tri_distances(c, comp, max_dist);
+        
+        for(int i = 0; i < comp.ncells; i++) {
+            if(dists[i] <= 0) {
+                continue;
+            }
+            
+            
+            auto verts = get_star(i, true, comp, 0);
+            auto edges = get_star(i, true, comp, 1);
+            
+            std::vector<std::string> vtypes_list;
+            for(auto v: verts) {
+                if(v == c) {
+                    vtypes_list.push_back("t");
+                } else {
+                    vtypes_list.push_back(vertex_types[v]);
+                }
+            }
+            
+            std::sort(vtypes_list.begin(), vtypes_list.end(), std::greater<std::string>());
+            std::string vtypes = std::accumulate(vtypes_list.begin(), vtypes_list.end(), std::string(""));
+            
+            std::vector<std::string> etypes_list;
+            for(auto e: edges) {
+                
+                double alpha = alpha_vals[e];
+                if(alpha > 0.0) {
+                    continue;
+                }
+                 
+                std::vector<std::string> elabel_list;
+                auto everts = comp.get_facets(e);
+                for(auto ev: everts) {
+                    
+                    if(ev == c) {
+                        elabel_list.push_back("t");
+                    } else {
+                        elabel_list.push_back(vertex_types[ev]);
+                    }
+                }
+                
+                std::sort(elabel_list.begin(), elabel_list.end(), std::greater<std::string>());
+                std::string elabel = std::accumulate(elabel_list.begin(), elabel_list.end(), std::string(""));
+
+                etypes_list.push_back(elabel);
+                
+            }
+            
+            std::sort(etypes_list.begin(), etypes_list.end(), std::greater<std::string>());
+            std::string etypes = std::accumulate(etypes_list.begin(), etypes_list.end(), std::string(""));
+            
+            
+            cycle_distribution[c][dists[i]][std::forward_as_tuple(vtypes, etypes)]++;
+            
+        }
+                
+    }
+    
+    return cycle_distribution;
     
     
 }

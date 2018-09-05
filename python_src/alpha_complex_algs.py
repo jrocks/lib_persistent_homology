@@ -193,7 +193,6 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
     (NP, pos, rad2, DIM, box_mat) = config
     
     r2norm = np.min(rad2)
-    
         
     if only_neighbor:
 
@@ -229,7 +228,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
 
     
 
-#     weights = np.ones(neigh_comp.ncells, float)
+#     weights = np.ones(comp.ncells, float)
 #     if weighted:
 #         for c in range(neigh_comp.ncells):
 #             if neigh_comp.get_dim(c) == 1:
@@ -242,9 +241,20 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
 
 #                 weights[c] = la.norm(bvec)
     
-#     cycles = {}
-#     for dim in [1,2]:
-#          cycles[dim] = chomology.calc_optimal_cycles(filt, neigh_comp, weights, dim=dim, verbose=False)
+    cycles = {}
+    for dim in [1, 2]:
+#         cycles[dim] = chomology.calc_optimal_cycles(filt, comp, weights, dim=dim, verbose=False)
+        
+#         print(cycles[dim])
+
+#         cycles[dim] = chomology.calc_optimal_homologous_cycles(filt, comp, weights, dim=dim, verbose=False)
+        
+#         print(cycles[dim])
+        
+        
+        cycles[dim] = chomology.calc_homologous_birth_cycles(filt, comp, dim=dim)
+        
+#         print(cycles[dim])
     
     dists = chomology.find_all_tri_distances(local_p, comp, max_tri_dist)
 
@@ -252,15 +262,54 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
     for n, (i, j) in enumerate(pairs):
         if j is None:
             s_list.append([(i, j), comp.get_dim(i), 
-                           filt.get_time(i) / r2norm, np.inf, np.inf, None])
+                           filt.get_time(i) / r2norm, np.inf, np.inf, None, None, None, None, None])
         else:
             
             if dists[j] > max_tri_dist:
                 continue
             
+            verts = list(chomology.get_star(j, True, comp, 0))
+            
+            
+            
+            type_map = {v: 't' if v == local_p else 's' if neigh_rad2[v] == r2norm else 'l' for v in verts}
+                        
+            dpart_types = ''.join(sorted(type_map.values(), reverse=True))
+            
+            dedge_types = []
+            
+
+            for e in chomology.get_star(j, True, comp, 1):
+
+                if filt.get_time(e) / r2norm < 0.0:
+                    continue
+
+                verts = comp.get_facets(e)
+                label = [type_map[v] for v in comp.get_facets(e)]
+
+                dedge_types.append(''.join(sorted(label, reverse=True)))
+        
+        
+            dedge_gaps = ''.join(sorted(dedge_types, reverse=True))
+        
+            if comp.get_dim(i) in cycles:
+                
+                bcycle = set(cycles[comp.get_dim(i)][i])
+                dcycle = set(comp.get_facets(j))
+                
+                bsize = len(bcycle)
+                
+                bdcycle_equal = (bcycle == dcycle)
+                
+                
+            else:
+                bsize = None
+                bdcycle_equal = None
+                
             s_list.append([(i, j), comp.get_dim(i), 
                            filt.get_time(i) / r2norm, filt.get_time(j) / r2norm, 
-                           np.abs(filt.get_time(i)-filt.get_time(j)) / r2norm, dists[j]])
+                           np.abs(filt.get_time(i)-filt.get_time(j)) / r2norm, dists[j],
+                           dpart_types, dedge_gaps, bsize, bdcycle_equal])
             
             
             
@@ -306,10 +355,87 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
 #     print("filling dataframe", end-start)
     
     
-    columns = ['pair', 'dim', 'birth', 'death', 'persistence', 'ddist']
+    columns = ['pair', 'dim', 'birth', 'death', 'persistence', 'ddist', 'dpart_types', 'dedge_gaps', 'bsize', 'bdcycle_equal']
     
     df = pd.DataFrame(s_list, columns=columns)   
     
     return df
 
 
+
+
+
+def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_neigh_dist=None, verbose=False):
+    
+    (NP, pos, rad2, DIM, box_mat) = config
+    
+    r2norm = np.min(rad2)
+    
+    if only_neighbor:
+        
+        cycle_dist = {}
+        
+        for p in particles:
+        
+            (neigh_NP, neighborhood, neigh_pos, neigh_rad2) = get_neighborhood(p, config, max_neigh_dist)
+
+            if DIM == 2:
+                neigh_comp = chomology.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = chomology.calc_alpha_vals_2D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+            elif DIM == 3:
+                neigh_comp = chomology.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = chomology.calc_alpha_vals_3D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+                
+            local_p = np.argwhere(neighborhood == p)[0][0]
+                      
+            vtypes = np.where(neigh_rad2 == r2norm, 's', 'l')
+
+            part_cycle_dist = chomology.calc_radial_cycle_distribution([local_p], alpha_vals, vtypes, neigh_comp, max_dist=max_tri_dist)
+                
+                
+            cycle_dist[p] = part_cycle_dist[local_p]
+                                    
+    else:
+                
+        if DIM == 2:
+            comp = chomology.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = chomology.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+        elif DIM == 3:
+            comp = chomology.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = chomology.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+        
+   
+        vtypes = np.where(rad2 == r2norm, 's', 'l')
+    
+        cycle_dist = chomology.calc_radial_cycle_distribution(particles, alpha_vals, vtypes, comp, max_dist=max_tri_dist, verbose=verbose)
+        
+        
+        
+    print(cycle_dist)
+    col_set = set()
+    
+
+    for p in cycle_dist:
+        for r in cycle_dist[p]:
+            for cycle_type in cycle_dist[p][r]:
+                col_set.add((r, len(cycle_type[0]), cycle_type[0], len(cycle_type[1])//2, cycle_type[1]))
+
+    col_index = {x:i for i, x in enumerate(sorted(col_set))}
+    
+    s_list = []
+
+    for p in cycle_dist:
+
+        s = [0]*len(col_index)
+
+        for r in cycle_dist[p]:
+            for cycle_type in cycle_dist[p][r]:
+                s[col_index[(r, len(cycle_type[0]), cycle_type[0], len(cycle_type[1])//2, cycle_type[1])]] =  cycle_dist[p][r][cycle_type]
+
+        s_list.append([p]+s)
+                      
+    columns = ['particle'] + sorted(col_set)
+        
+    df = pd.DataFrame(s_list, columns=columns)   
+    
+    return df
