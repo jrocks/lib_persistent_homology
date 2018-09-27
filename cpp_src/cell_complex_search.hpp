@@ -124,6 +124,34 @@ XiMat find_pairwise_tri_distances(std::vector<int> &particles, CellComplex &comp
     
 }
 
+
+std::vector<double> find_all_euclid_distances(int start, int NP, int DIM, RXVec pos, RXMat box_mat) {
+    
+    
+    std::vector<double> dist(NP);
+    
+    XVec posi = pos.segment(DIM*start, DIM);
+        
+    for(int pj = 0; pj < NP; pj++) {
+                        
+        XVec posj = pos.segment(DIM*pj, DIM);
+
+        XVec bvec = posj - posi;
+
+        for(int d = 0; d < DIM; d++) {
+            if(std::fabs(bvec(d)) > 0.5) {
+                bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+            }
+        }
+
+        dist[pj] = (box_mat*bvec).norm();        
+                
+    }
+        
+    return dist;
+    
+}
+
 std::vector<int> find_all_tri_distances(int start, CellComplex &comp, int max_dist=-1) {
     
     
@@ -167,6 +195,53 @@ std::vector<int> find_all_tri_distances(int start, CellComplex &comp, int max_di
     }
         
     return dist;
+    
+}
+
+std::vector<std::vector<int> > find_nearest_neighbors(int start, int max_dist, int target_dim, CellComplex &comp) {
+    
+    std::vector<std::vector<int> > neighbors(max_dist+1);
+    neighbors[0].push_back(start);
+    
+    std::unordered_map<int, int> dist;
+    dist[start] = 0;
+    
+    
+    std::queue<int> Q;
+    Q.push(start);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+        
+        auto range = comp.get_facet_range(a);
+        
+        for(auto it = range.first; it!= range.second; it++) {
+            int b = *it;
+            
+            auto corange = comp.get_cofacet_range(b);
+            for(auto coit = corange.first; coit!= corange.second; coit++) {
+                int c = *coit;
+                
+                if(!dist.count(c)) {
+                    dist[c] = dist[a] + 1;
+                    
+                    neighbors[dist[c]].push_back(c);
+                    
+                    if(dist[c] < max_dist) {
+                        Q.push(c);
+                    }
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    return neighbors;
+    
+    
     
 }
 

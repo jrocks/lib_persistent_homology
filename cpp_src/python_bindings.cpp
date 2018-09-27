@@ -52,6 +52,14 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
      m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
          py::arg("vert_pos"), py::arg("weights"), py::arg("comp"), py::arg("box_mat"), py::arg("periodic")=false, py::arg("alpha0")=-1.0);
+    
+    
+    m.def((std::string("calc_shear_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_shear_strains<DIM>,
+         py::arg("disp"), py::arg("vert_pos"), py::arg("comp"), py::arg("box_mat"));
+    
+    
+    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>,
+         py::arg("NP"), py::arg("disp"), py::arg("vert_pos"), py::arg("comp"), py::arg("box_mat"));
 }
 #endif
 
@@ -243,10 +251,13 @@ PYBIND11_MODULE(chomology, m) {
          py::arg("start"), py::arg("comp"), py::arg("max_dist")=-1);
     // m.def("find_pairwise_distances", &find_pairwise_distances,
     //       py::arg("comp"), py::arg("target_dim")=-1, py::arg("max_cutoff")=-1);
+    m.def("find_all_euclid_distances", &find_all_euclid_distances);
     m.def("get_neighborhood", &get_neighborhood);
     m.def("find_thresholded_component", &find_thresholded_component);
     m.def("find_pairwise_euclid_distances", &find_pairwise_euclid_distances);
     m.def("find_pairwise_tri_distances", &find_pairwise_tri_distances);
+    
+    m.def("find_nearest_neighbors", &find_nearest_neighbors);
      
 };
 

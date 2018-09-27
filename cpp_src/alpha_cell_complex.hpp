@@ -692,6 +692,152 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
 }
 
 
+template <int DIM> std::vector<double> calc_shear_strains(RXVec disp, RXVec vert_pos, CellComplex &comp,
+                                                             Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
+    
+    typedef Eigen::Matrix<double, DIM, 1> DVec;
+    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    
+    std::vector<double> eps_na(comp.ncells, 0.0);
+    
+    for(int c = 0; c < comp.ncells; c++) {
+        int d = comp.get_dim(c);
+        
+        if(d != DIM) {
+            continue;
+        }
+        
+        auto vset = get_star(c, true, comp, 0);
+        
+        std::vector<int> verts(vset.begin(), vset.end());
+        
+        
+        int vi = verts[0];
+        
+        DVec O = vert_pos.segment<DIM>(DIM*vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+        
+        
+        for(int m = 0; m < DIM; m++) {  
+
+            int vj = verts[1+m];
+            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            X += bvec * bvec.transpose();
+            Y += du * bvec.transpose();
+
+        }
+        
+        DMat eps = Y * X.inverse();
+        
+        eps = 0.5 * (eps + eps.transpose());
+        
+        eps -= DMat::Identity() * 1.0/DIM * eps.trace();
+        
+        
+        eps_na[c] = eps.norm();
+        
+    }
+    
+    return eps_na;
+    
+    
+    
+    
+}
+
+
+
+template <int DIM> std::vector<double> calc_voronoi_D2min(int NP, RXVec disp, RXVec vert_pos, CellComplex &comp,
+                                                             Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
+    
+    typedef Eigen::Matrix<double, DIM, 1> DVec;
+    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    
+    std::vector<double> D2min(NP, 0.0);    
+    
+    for(int vi = 0; vi < NP; vi++) {
+        
+        // get edges
+        auto eset = get_star(vi, false, comp, 1);
+        
+        std::unordered_set<int> verts;
+        
+        for(auto e: eset) {
+            auto vset = comp.get_facets(e);
+            verts.insert(vset.begin(), vset.end());
+        }
+        
+        verts.erase(vi);
+                
+        DVec O = vert_pos.segment<DIM>(DIM*vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+        
+        
+        for(auto vj: verts) {  
+
+            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            X += du * bvec.transpose();
+            Y += bvec * bvec.transpose();
+
+        }
+        
+        DMat eps = X * Y.inverse(); 
+        
+        
+        for(auto vj: verts) {  
+
+            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            D2min[vi] += (du - eps*bvec).squaredNorm();
+
+        }
+        
+    }
+    
+    return D2min;
+    
+    
+}
+
+
     
     
 #endif //ALPHACOMPLEX_HPP

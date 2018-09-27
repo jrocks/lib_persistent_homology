@@ -188,6 +188,15 @@ def get_gap_dist(particles, config, max_tri_dist, use_angular=False, only_neighb
 
 
     
+    
+    
+    
+    
+    
+    
+        
+    
+    
 def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, max_neigh_dist=None, weighted=False):
     
     (NP, pos, rad2, DIM, box_mat) = config
@@ -262,7 +271,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
     for n, (i, j) in enumerate(pairs):
         if j is None:
             s_list.append([(i, j), comp.get_dim(i), 
-                           filt.get_time(i) / r2norm, np.inf, np.inf, None, None, None, None, None])
+                           filt.get_time(i) / r2norm, np.inf, np.inf, None, None, None, None])
         else:
             
             if dists[j] > max_tri_dist:
@@ -291,6 +300,9 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
         
         
             dedge_gaps = ''.join(sorted(dedge_types, reverse=True))
+            
+            
+            cycle_type = (len(dpart_types), dpart_types, len(dedge_gaps)//2, dedge_gaps)
         
             if comp.get_dim(i) in cycles:
                 
@@ -309,7 +321,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
             s_list.append([(i, j), comp.get_dim(i), 
                            filt.get_time(i) / r2norm, filt.get_time(j) / r2norm, 
                            np.abs(filt.get_time(i)-filt.get_time(j)) / r2norm, dists[j],
-                           dpart_types, dedge_gaps, bsize, bdcycle_equal])
+                           cycle_type, bsize, bdcycle_equal])
             
             
             
@@ -355,7 +367,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
 #     print("filling dataframe", end-start)
     
     
-    columns = ['pair', 'dim', 'birth', 'death', 'persistence', 'ddist', 'dpart_types', 'dedge_gaps', 'bsize', 'bdcycle_equal']
+    columns = ['pair', 'dim', 'birth', 'death', 'persistence', 'ddist', 'cycle_type', 'bsize', 'bdcycle_equal']
     
     df = pd.DataFrame(s_list, columns=columns)   
     
