@@ -430,6 +430,10 @@ def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_nei
     for p in cycle_dist:
         for r in cycle_dist[p]:
             for cycle_type in cycle_dist[p][r]:
+                
+                if len(cycle_type[0]) != 3:
+                    continue
+                
                 col_set.add((r, len(cycle_type[0]), cycle_type[0], len(cycle_type[1])//2, cycle_type[1]))
 
     col_index = {x:i for i, x in enumerate(sorted(col_set))}
@@ -442,6 +446,10 @@ def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_nei
 
         for r in cycle_dist[p]:
             for cycle_type in cycle_dist[p][r]:
+                
+                if len(cycle_type[0]) != 3:
+                    continue
+                
                 s[col_index[(r, len(cycle_type[0]), cycle_type[0], len(cycle_type[1])//2, cycle_type[1])]] =  cycle_dist[p][r][cycle_type]
 
         s_list.append([p]+s)

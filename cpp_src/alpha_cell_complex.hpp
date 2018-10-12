@@ -692,13 +692,15 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
 }
 
 
-template <int DIM> std::vector<double> calc_shear_strains(RXVec disp, RXVec vert_pos, CellComplex &comp,
+template <int DIM> std::tuple<std::vector<double>, std::vector<double> > 
+            calc_strains(RXVec disp, RXVec vert_pos, CellComplex &comp,
                                                              Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
     
     typedef Eigen::Matrix<double, DIM, 1> DVec;
     typedef Eigen::Matrix<double, DIM, DIM> DMat;
     
-    std::vector<double> eps_na(comp.ncells, 0.0);
+    std::vector<double> eps_shear(comp.ncells, 0.0);
+    std::vector<double> eps_comp(comp.ncells, 0.0);
     
     for(int c = 0; c < comp.ncells; c++) {
         int d = comp.get_dim(c);
@@ -745,14 +747,13 @@ template <int DIM> std::vector<double> calc_shear_strains(RXVec disp, RXVec vert
         
         eps = 0.5 * (eps + eps.transpose());
         
-        eps -= DMat::Identity() * 1.0/DIM * eps.trace();
-        
-        
-        eps_na[c] = eps.norm();
+        eps_comp[c] = eps.trace();
+                
+        eps_shear[c] = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
         
     }
     
-    return eps_na;
+    return std::forward_as_tuple(eps_comp, eps_shear);
     
     
     

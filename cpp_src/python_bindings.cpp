@@ -44,8 +44,6 @@ template <int DIM> void init_graph_templates(py::module &m) {
 #ifdef ALPHA
 template <int DIM> void init_alpha_templates(py::module &m) {
     
-//     typedef Eigen::Matrix<double, DIM, DIM> DMat;
-    // typedef Eigen::Ref<DMat > RDMat;
     
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>,
          py::arg("NV"), py::arg("vert_pos"), py::arg("weights"), py::arg("box_mat"), py::arg("periodic")=false);
@@ -54,7 +52,7 @@ template <int DIM> void init_alpha_templates(py::module &m) {
          py::arg("vert_pos"), py::arg("weights"), py::arg("comp"), py::arg("box_mat"), py::arg("periodic")=false, py::arg("alpha0")=-1.0);
     
     
-    m.def((std::string("calc_shear_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_shear_strains<DIM>,
+    m.def((std::string("calc_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_strains<DIM>,
          py::arg("disp"), py::arg("vert_pos"), py::arg("comp"), py::arg("box_mat"));
     
     
