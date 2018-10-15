@@ -5,23 +5,11 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-typedef Eigen::VectorXd XVec;
-typedef Eigen::MatrixXd XMat;
-typedef Eigen::Ref<XVec > RXVec;
-typedef Eigen::Map<XVec > XVecMap;
-
-
 // d-dimensional triangulations
 #include <CGAL/Epick_d.h>
 // #include <CGAL/Delaunay_triangulation.h>
 #include <CGAL/Regular_triangulation.h>
     
-// 3-dimensional triangulations
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Periodic_3_regular_triangulation_3.h>
-#include <CGAL/Periodic_3_regular_triangulation_traits_3.h>
-#include <CGAL/Triangulation_vertex_base_with_info_3.h>
-
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -29,6 +17,7 @@ typedef Eigen::Map<XVec > XVecMap;
 #include <algorithm>
 #include <utility>
     
+#include "eigen_macros.hpp"  
 #include "cell_complex.hpp"
 #include "cell_complex_search.hpp"
     
@@ -39,13 +28,8 @@ namespace py = pybind11;
 
 template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, std::vector<double> &weights, 
                                                        Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, bool periodic=false) {
-     
-    
-     // Map of lists of vertices of all simplices to index of simplex in comp
-    
         
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    
+    DEIGEN(DIM);
     
     // d-dimensional Kernel used to define Euclidean space (R^d)
     typedef CGAL::Epick_d< CGAL::Dimension_tag<DIM> > Kernel;
@@ -69,6 +53,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
     Regular_triangulation t(DIM);
 
     
+    // Map of lists of vertices of all simplices to index of simplex in comp
     std::map<std::vector<int> , int> simplex_to_index;
 
     CellComplex del_comp(DIM, true, true);
@@ -249,8 +234,7 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
                                                                                         Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, bool periodic=false) {
     
     
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    DEIGEN(DIM);
     
     // Find vertex positions relative to first vertex
     XMat X = XMat::Zero(DIM, vertices.size());
@@ -353,8 +337,7 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
                                                        Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, 
                                                        bool periodic=false, double alpha0 = -1.0) {
         
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    DEIGEN(DIM);
     
     DMat box_mat_inv = box_mat.inverse();
     
@@ -696,8 +679,7 @@ template <int DIM> std::tuple<std::vector<double>, std::vector<double> >
             calc_strains(RXVec disp, RXVec vert_pos, CellComplex &comp,
                                                              Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
     
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    DEIGEN(DIM);
     
     std::vector<double> eps_shear(comp.ncells, 0.0);
     std::vector<double> eps_comp(comp.ncells, 0.0);
@@ -765,8 +747,7 @@ template <int DIM> std::tuple<std::vector<double>, std::vector<double> >
 template <int DIM> std::vector<double> calc_voronoi_D2min(int NP, RXVec disp, RXVec vert_pos, CellComplex &comp,
                                                              Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
     
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
+    DEIGEN(DIM);
     
     std::vector<double> D2min(NP, 0.0);    
     
