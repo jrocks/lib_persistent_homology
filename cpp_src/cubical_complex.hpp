@@ -1,23 +1,16 @@
 #ifndef CUBICALCOMPLEX_HPP
 #define CUBICALCOMPLEX_HPP
  
-#include <Eigen/Core>
-#include <Eigen/Dense>
-
-typedef Eigen::VectorXd XVec;
-typedef Eigen::MatrixXd XMat;
+#include "eigen_macros.hpp"
+#include "cell_complex.hpp"
+#include "filtration.hpp"
 
 #include <map>
 #include <algorithm>
 #include <vector>   
 #include "math.h"
     
-#include "cell_complex.hpp"
-#include "filtration.hpp"
-    
-    
 
-    
 
 CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bool dual) {
     

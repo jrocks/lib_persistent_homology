@@ -281,112 +281,112 @@ std::unordered_map<int, std::vector<int> > calc_homologous_birth_cycles(Filtrati
 }
 
 
-std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
+// std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
         
-    bool co = (comp.get_dim(i) != 0);
+//     bool co = (comp.get_dim(i) != 0);
     
-    if(target_dim == -1) {
-        target_dim = co ? comp.dim : 0;
-    }
+//     if(target_dim == -1) {
+//         target_dim = co ? comp.dim : 0;
+//     }
     
-    std::unordered_set<int> seen;
-    std::queue<int> Q;
-    if(!co) {
-        seen.insert(i);
-        Q.push(i);
-    } else {
-        seen.insert(j);
-        Q.push(j);
-    }
+//     std::unordered_set<int> seen;
+//     std::queue<int> Q;
+//     if(!co) {
+//         seen.insert(i);
+//         Q.push(i);
+//     } else {
+//         seen.insert(j);
+//         Q.push(j);
+//     }
   
-    int orderi = filt.get_total_order(i);
-    int orderj = filt.get_total_order(j);
+//     int orderi = filt.get_total_order(i);
+//     int orderj = filt.get_total_order(j);
          
-    while(!Q.empty()) {
-        int a = Q.front();
-        Q.pop();
+//     while(!Q.empty()) {
+//         int a = Q.front();
+//         Q.pop();
         
-        // py::print("a", a);
+//         // py::print("a", a);
         
-        for(auto b: get_star(a, co, comp, -1)) {
+//         for(auto b: get_star(a, co, comp, -1)) {
             
-            // py::print("b", b);
+//             // py::print("b", b);
             
-            if((!co && filt.get_total_order(b) >= orderj)
-              || (co && filt.get_total_order(b) <= orderi)) {
-                continue;
-            }
+//             if((!co && filt.get_total_order(b) >= orderj)
+//               || (co && filt.get_total_order(b) <= orderi)) {
+//                 continue;
+//             }
 
-            for(auto c: get_star(b, !co, comp, -1)) {
-                // py::print("c", c);
+//             for(auto c: get_star(b, !co, comp, -1)) {
+//                 // py::print("c", c);
                 
-                if((!co && filt.get_total_order(c) <= orderi)
-                  || (co && filt.get_total_order(c) >= orderj)) {
-                    continue;
-                }
+//                 if((!co && filt.get_total_order(c) <= orderi)
+//                   || (co && filt.get_total_order(c) >= orderj)) {
+//                     continue;
+//                 }
                 
-                if(!seen.count(c) && c != a) {
-                    Q.push(c);
-                    seen.insert(c);
-                }
+//                 if(!seen.count(c) && c != a) {
+//                     Q.push(c);
+//                     seen.insert(c);
+//                 }
                 
-            }
-        }
-    }
+//             }
+//         }
+//     }
     
-    if(complement) {
+//     if(complement) {
         
-        std::unordered_set<int> comp_seen;
-        if(!co) {
-            seen.insert(j);
-            Q.push(j);
-        } else {
-            seen.insert(i);
-            Q.push(i);
-        }
+//         std::unordered_set<int> comp_seen;
+//         if(!co) {
+//             seen.insert(j);
+//             Q.push(j);
+//         } else {
+//             seen.insert(i);
+//             Q.push(i);
+//         }
         
-        while(!Q.empty()) {
-            int a = Q.front();
-            Q.pop();
+//         while(!Q.empty()) {
+//             int a = Q.front();
+//             Q.pop();
 
-            // py::print("a", a);
+//             // py::print("a", a);
 
-            for(auto b: get_star(a, !co, comp, -1)) {
+//             for(auto b: get_star(a, !co, comp, -1)) {
 
-                // py::print("b", b);
+//                 // py::print("b", b);
 
-                for(auto c: get_star(b, co, comp, -1)) {
-                    // py::print("c", c);
+//                 for(auto c: get_star(b, co, comp, -1)) {
+//                     // py::print("c", c);
                     
-                    if((!co && filt.get_total_order(c) >= orderj)
-                      || (co && filt.get_total_order(c) <= orderi)) {
-                        continue;
-                    }
+//                     if((!co && filt.get_total_order(c) >= orderj)
+//                       || (co && filt.get_total_order(c) <= orderi)) {
+//                         continue;
+//                     }
                     
-                    if(!seen.count(c) && !comp_seen.count(c) && c != a) {
-                        Q.push(c);
-                        comp_seen.insert(c);
-                    }
+//                     if(!seen.count(c) && !comp_seen.count(c) && c != a) {
+//                         Q.push(c);
+//                         comp_seen.insert(c);
+//                     }
 
-                }
-            }
-        }
+//                 }
+//             }
+//         }
         
-        seen = comp_seen;
+//         seen = comp_seen;
         
-    }
+//     }
     
     
-    std::unordered_set<int> feature;
-    for(auto s: seen) {
-        if(comp.get_dim(s) == target_dim) {
-            feature.insert(s);
-        }
-    }
+//     std::unordered_set<int> feature;
+//     for(auto s: seen) {
+//         if(comp.get_dim(s) == target_dim) {
+//             feature.insert(s);
+//         }
+//     }
     
-    return feature;
+//     return feature;
     
-}
+// }
 
 
 

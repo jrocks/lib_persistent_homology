@@ -26,7 +26,6 @@ class get_pybind_include(object):
     
 
 use_alpha_cell_complex = True
-use_graph_cell_complex = True
 use_optimal_cycles = False
 
 print(get_pybind_include())
@@ -50,9 +49,7 @@ if use_alpha_cell_complex:
     libraries.append("gmp")
     define_macros.append(("ALPHA", None))
     
-if use_graph_cell_complex:
-    define_macros.append(("GRAPH", None))
-        
+
 if use_optimal_cycles:
 #     CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
     CPLEX_path = "/home/rocks/ibm/ILOG/CPLEX_Studio128"
