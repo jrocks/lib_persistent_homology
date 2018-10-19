@@ -6,7 +6,7 @@
 #include "corner_complex.hpp"
 #include "cubical_complex.hpp"
 #include "morse_complex.hpp"
-#include "morse_smale_complex.hpp"
+#include "extended_complex.hpp"
 
 
 #include "search.hpp"
@@ -210,6 +210,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("find_connections", &find_connections);
     
     // Morse feature extraction
+    
     m.def("convert_morse_to_original", &convert_morse_to_original,
          py::arg("s"), py::arg("V"), py::arg("morse_comp"), py::arg("comp"), py::arg("co")=true);
     
@@ -234,7 +235,11 @@ PYBIND11_MODULE(chomology, m) {
     //           py::arg("comp"), py::arg("filt"), py::arg("complement")=false, py::arg("target_dim")=-1);
     
     
+    // Extemded complex
     
+    m.def("extend_complex", &extend_complex);
+    m.def("extend_filtration", &extend_filtration);
+    m.def("extend_discrete_gradient", &extend_discrete_gradient);
     
     // Cell complex searching
     
