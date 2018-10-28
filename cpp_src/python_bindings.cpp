@@ -2,7 +2,7 @@
 #include "filtration.hpp"
 
 #include "cell_complex.hpp"
-#include "network_complex.hpp"
+#include "graph_complex.hpp"
 #include "corner_complex.hpp"
 #include "cubical_complex.hpp"
 #include "morse_complex.hpp"
@@ -43,10 +43,10 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         
 }
 
-template <int DIM> void init_network_templates(py::module &m) {
+template <int DIM> void init_graph_templates(py::module &m) {
     
     m.def((std::string("calc_edge_extensions_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_edge_extensions<DIM>, 
-         py::arg("disp"), py::arg("net"), py::arg("embed"), py::arg("is_strain") = false);
+         py::arg("disp"), py::arg("graph"), py::arg("embed"), py::arg("is_strain") = false);
         
 }
 
@@ -142,25 +142,30 @@ PYBIND11_MODULE(chomology, m) {
          py::arg("comp"), py::arg("func"), py::arg("ascend")=true);
     m.def("construct_induced_filtration", &construct_induced_filtration,
          py::arg("comp"), py::arg("func"), py::arg("func_order"),py::arg("filt_dim"), py::arg("ascend")=true);
+    m.def("reduce_filtration", &reduce_filtration);
     //     m.def("perform_watershed_transform", &perform_watershed_transform, 
     //           py::arg("time"), py::arg("comp"), py::arg("ascend")=true, py::arg("co")=false);
     //     
-    //     m.def("reduce_filtration", &reduce_filtration);
+        
     
-    // Network complex
+    // Embedding
+    init_embedding_templates<1>(m);
+    init_embedding_templates<2>(m);
     
-    init_network_templates<1>(m);
-    init_network_templates<2>(m);
+    // Graph complex
     
-    py::class_<Network>(m, "Network")
+    init_graph_templates<1>(m);
+    init_graph_templates<2>(m);
+    
+    py::class_<Graph>(m, "Graph")
         .def(py::init<int, int, std::vector<int>&, std::vector<int>&>())
-        .def_readonly("NV", &Network::NV)
-        .def_readonly("NE", &Network::NE)
-        .def_readonly("edgei", &Network::edgei)
-        .def_readonly("edgej", &Network::edgej)
-        .def_readonly("neighbors", &Network::neighbors);
+        .def_readonly("NV", &Graph::NV)
+        .def_readonly("NE", &Graph::NE)
+        .def_readonly("edgei", &Graph::edgei)
+        .def_readonly("edgej", &Graph::edgej)
+        .def_readonly("neighbors", &Graph::neighbors);
     
-    m.def("construct_network_complex", &construct_network_complex);
+    m.def("construct_graph_complex", &construct_graph_complex);
 
     // Corner complex
     
@@ -207,12 +212,15 @@ PYBIND11_MODULE(chomology, m) {
           py::arg("comp"), py::arg("co")=true, py::arg("oriented")=false);
     m.def("construct_morse_complex", &construct_morse_complex, py::arg("V"), 
           py::arg("comp"),  py::arg("oriented")=false);
+    m.def("construct_morse_filtration", &construct_morse_filtration);
     m.def("find_connections", &find_connections);
     
     // Morse feature extraction
     
-    m.def("convert_morse_to_original", &convert_morse_to_original,
-         py::arg("s"), py::arg("V"), py::arg("morse_comp"), py::arg("comp"), py::arg("co")=true);
+    m.def("find_morse_feature", &find_morse_feature,
+         py::arg("s"), py::arg("V"), py::arg("comp"), py::arg("co")=false);
+    m.def("find_morse_features", &find_morse_features,
+         py::arg("cells"), py::arg("V"), py::arg("comp"), py::arg("co")=false);
     
     m.def("find_morse_basins", &find_morse_basins);
     m.def("find_morse_skeleton", &find_morse_skeleton,
@@ -235,11 +243,14 @@ PYBIND11_MODULE(chomology, m) {
     //           py::arg("comp"), py::arg("filt"), py::arg("complement")=false, py::arg("target_dim")=-1);
     
     
-    // Extemded complex
+    // Extended complex
     
     m.def("extend_complex", &extend_complex);
     m.def("extend_filtration", &extend_filtration);
     m.def("extend_discrete_gradient", &extend_discrete_gradient);
+    m.def("find_morse_smale_basins", &find_morse_smale_basins);
+    m.def("find_morse_smale_skeleton", &find_morse_smale_skeleton,
+         py::arg("pairs"), py::arg("V"), py::arg("morse_comp"), py::arg("ext_comp"), py::arg("skeleton_dim")=1);
     
     // Cell complex searching
     
@@ -257,6 +268,7 @@ PYBIND11_MODULE(chomology, m) {
     
     // Persistent homology
     
+    m.def("calc_persistence", &calc_persistence);
         
     m.def("calc_extended_persistence", (std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
                                         std::vector<std::pair<int, int> >, 
@@ -275,7 +287,9 @@ PYBIND11_MODULE(chomology, m) {
     
     m.def("calc_birth_cycles", &calc_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
     m.def("calc_homologous_birth_cycles", &calc_homologous_birth_cycles, py::arg("filt"), py::arg("comp"), py::arg("dim")=-1);
-    
+        
+    m.def("extract_persistence_feature", &extract_persistence_feature, 
+         py::arg("i"), py::arg("j"), py::arg("comp"), py::arg("filt"), py::arg("target_dim")=-1, py::arg("complement")=false);
     
     
 #ifdef OPTIMAL
@@ -293,15 +307,21 @@ PYBIND11_MODULE(chomology, m) {
     //                      py::scoped_estream_redirect>());
 #endif
         
-    
-    
     // Persistence simplification
 
-    m.def("simplify_morse_complex", &simplify_morse_complex, 
+    // need to type these
+    m.def("simplify_morse_complex", 
+          (void (*)(double, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) &simplify_morse_complex, 
           py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("insert_order"), py::arg("leq") = true, py::arg("verbose") = false);
+          py::arg("filt"), py::arg("leq") = true, py::arg("verbose") = false);
+    m.def("simplify_morse_complex", 
+          (void (*)(std::unordered_set<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) 
+          &simplify_morse_complex, 
+          py::arg("preserve_pairs"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+          py::arg("filt"), py::arg("finagle")=false, py::arg("verbose") = false);
     m.def("find_cancel_threshold", &find_cancel_threshold);
     m.def("find_join_threshold", &find_join_threshold);
+    m.def("find_join_feature", &find_join_feature);
     
     
     

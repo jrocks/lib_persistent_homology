@@ -52,7 +52,7 @@ public:
     }
     
     // Get value of digitized filtration function on cell alpha
-    double get_digi_func(int alpha) {
+    int get_digi_func(int alpha) {
         return digi_func[alpha];
     }
     
@@ -138,24 +138,24 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
     std::vector<int> induced_digi_func(comp.ncells);
     std::vector<int> order(comp.ncells);
     
-    auto lstar_cmp = [&digi_func, ascend](const int &lhs, const int &rhs) {
+    auto lstar_cmp = [&digi_func, &comp, ascend](const int &lhs, const int &rhs) {
         
         if(ascend) {
             // Sort from high to low
-            return digi_func[lhs] > digi_func[rhs]; 
+            return digi_func[comp.get_label(lhs)] > digi_func[comp.get_label(rhs)]; 
         } else {
             // Sort from low to high
-            return digi_func[lhs] < digi_func[rhs]; 
+            return digi_func[comp.get_label(lhs)] < digi_func[comp.get_label(rhs)]; 
         }
     };
     
-    auto ucostar_cmp = [&digi_func, ascend](const int &lhs, const int &rhs) {
+    auto ucostar_cmp = [&digi_func, &comp, ascend](const int &lhs, const int &rhs) {
         if(ascend) {
             // Sort from low to high
-            return digi_func[lhs] < digi_func[rhs]; 
+            return digi_func[comp.get_label(lhs)] < digi_func[comp.get_label(rhs)]; 
         } else {
             // Sort from high to low
-            return digi_func[lhs] > digi_func[rhs]; 
+            return digi_func[comp.get_label(lhs)] > digi_func[comp.get_label(rhs)]; 
         }
     };
     
@@ -180,12 +180,12 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
                          
         // Convert to integer function values
         for(auto a: lex_cells) {
-            lex_val[c].push_back(digi_func[a]);
+            lex_val[c].push_back(digi_func[comp.get_label(a)]);
         }
-        
+                
         // Record function value of cell
-        induced_func[c] = func[lex_cells[0]];
-        induced_digi_func[c] = digi_func[lex_cells[0]];
+        induced_func[c] = func[comp.get_label(lex_cells[0])];
+        induced_digi_func[c] = digi_func[comp.get_label(lex_cells[0])];
     }
     
     
@@ -242,6 +242,32 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
     
 
 }
+
+
+
+Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, CellComplex &red_comp) {
+    
+    
+    std::vector<double> func(red_comp.ncells);  
+    std::vector<int> digi_func(red_comp.ncells);
+    std::vector<int> order(red_comp.ncells);
+    
+    for(int c = 0; c < full_comp.ncells; c++) {
+        
+        if(full_comp.get_dim(c) <= red_comp.dim && full_comp.get_label(c) != -1) {
+            func[full_comp.get_label(c)] = full_filt.get_func(c);
+            digi_func[full_comp.get_label(c)] = full_filt.get_digi_func(c);
+            order[full_comp.get_label(c)] = full_filt.get_order(c);
+        }
+        
+    }
+    
+    int filt_dim = full_filt.filt_dim >= red_comp.dim ? red_comp.dim : full_filt.filt_dim;
+    
+    return Filtration(red_comp, func, digi_func, order, full_filt.ascend, filt_dim);
+    
+}
+
 
 
 

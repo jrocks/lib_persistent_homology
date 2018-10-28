@@ -7,6 +7,7 @@
 #include "morse_complex.hpp"
 
 #include <vector>
+#include <set>
 #include <unordered_set>
 #include <unordered_map>
 #include <queue>
@@ -22,18 +23,16 @@
 namespace py = pybind11;
     
 
-    
-
-
-
-std::pair<int, int> find_cancel_pair(int s, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp) {
+// Find cancellable close pair
+// If strict is set to true then simply
+std::pair<int, int> find_cancel_pair(int s, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp, bool strict = true) {
     
     if(comp.get_dim(s) == 0) {
         return std::make_pair(-1, -1);
     }
 
     bool single_Vpath = false;
-    int close_alpha = 0;
+    int close_alpha = -1;
     int close_alpha_time = 0;
     std::vector<std::tuple<int, int, int> > morse_boundary = find_morse_boundary(s, V, comp, false, comp.oriented);
     for(auto trip: morse_boundary) {
@@ -62,7 +61,7 @@ std::pair<int, int> find_cancel_pair(int s, RXiVec V, RXiVec coV, Filtration &fi
         int c, k;
         std::tie(c, k, std::ignore) = trip;
 
-
+        // If beta is the earliest boundary so far, then record time and cell
         if(k % 2 != 0 && (close_beta == -1 || filt.get_order(c) < close_beta_time)) {
             close_beta = c;
             close_beta_time = filt.get_order(c);
@@ -73,14 +72,16 @@ std::pair<int, int> find_cancel_pair(int s, RXiVec V, RXiVec coV, Filtration &fi
         
     }
         
-    if(s == close_beta) {
-        return std::make_pair(close_alpha, close_beta);   
+    if(s == close_beta || !strict) {
+        return std::make_pair(close_alpha, s);   
     } else {
         return std::make_pair(-1, -1);
     }
     
     
 }
+
+
 
 void cancel_close_pair(std::pair<int, int> &pair, RXiVec V, RXiVec coV, CellComplex &comp) {
 
@@ -108,6 +109,123 @@ void cancel_close_pair(std::pair<int, int> &pair, RXiVec V, RXiVec coV, CellComp
     
     
 }
+
+
+
+std::tuple<double, std::pair<int, int>> find_join_feature(std::vector<int> &cells, RXiVec V, RXiVec coV, 
+                           Filtration &filt, CellComplex &comp, bool verbose) {
+    
+    
+    XiVec V_tmp = V;
+    XiVec coV_tmp = coV;
+
+    std::vector<int> unpaired_crit_cells;
+    for(int s = 0; s < V.size(); s++) {
+        if(V(s) == s) {
+            unpaired_crit_cells.push_back(s);
+        }
+    }
+    
+
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue<std::pair<double, std::pair<int, int> >, 
+        std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+    double threshold = 0.0;
+    std::pair<int, int> threshold_pair(-1, -1);
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Unpaired Critical Cells:", unpaired_crit_cells.size(), py::arg("flush")=true);
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+                
+        // First check how many basins the vertices are divided into
+        std::unordered_set<int> morse_cells;
+        unsigned int total_morse_cells = 0;
+        for(auto s: cells) {
+            
+            // py::print("cell", s);
+            
+            // Check if vertex is critical
+            if(V_tmp(s) == s) {
+                morse_cells.insert(s);
+                total_morse_cells++;
+                continue;
+            }
+                    
+            // If not, then start from adjacent edge and flow to critical vertex
+            std::vector<std::tuple<int, int, int> > traversal = traverse_flow(V_tmp(s), V_tmp, comp, false, false);
+            
+            // py::print("V_path", traversal);
+            
+            for(auto trip: traversal) {
+                int b, c;
+                std::tie(std::ignore, b, c) = trip;
+                if(b == c) {
+                    // py::print("morse_cell", c);
+                    morse_cells.insert(c);
+                    total_morse_cells++;
+                }
+            }
+        }
+        
+        // If cells have overlapping sets of corresponding morse cells
+        if(morse_cells.size() < total_morse_cells) {
+            return std::make_tuple(threshold, threshold_pair);
+        }
+
+                
+        // Otherwise pass through all unpaired critical cells and find cancellable pairs
+        std::vector<int> remove;
+        for(auto s: unpaired_crit_cells) {
+                        
+            auto cpair = find_cancel_pair(s, V_tmp, coV_tmp, filt, comp);
+            if(cpair.first != -1) {
+            
+                // py::print(filt.get_func(cpair.second)-filt.get_func(cpair.first), cpair);
+                
+                cancel_pairs.emplace(std::abs(filt.get_func(cpair.second)-filt.get_func(cpair.first)), cpair);
+                
+                remove.push_back(cpair.first);
+                remove.push_back(cpair.second);
+                
+            }   
+        }
+                
+        for(auto s: remove) {
+            unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+        }        
+                
+        // Cancel critical pair with lowest persistence
+        
+        if(cancel_pairs.empty()) {
+            break;
+        }
+        
+        auto top = cancel_pairs.top();
+        cancel_pairs.pop();
+        threshold_pair = top.second;
+                
+        if(top.first > threshold) {
+            threshold = top.first;
+        }
+        
+                
+        cancel_close_pair(threshold_pair, V_tmp, coV_tmp, comp);
+                
+    } 
+    
+    return std::make_tuple(-1.0 , threshold_pair);
+    
+}
+
 
 double find_join_threshold(std::vector<int> &verts, RXiVec V, RXiVec coV, 
                            Filtration &filt, CellComplex &comp, bool verbose) {
@@ -144,11 +262,13 @@ double find_join_threshold(std::vector<int> &verts, RXiVec V, RXiVec coV,
                 
         // First check how many basins the vertices are divided into
         std::unordered_set<int> basins;
+        unsigned int total_morse_cells = 0;
         for(auto s: verts) {
             
             // Check if vertex is critical
             if(V_tmp(s) == s) {
                 basins.insert(s);
+                total_morse_cells++;
                 continue;
             }
                     
@@ -159,12 +279,13 @@ double find_join_threshold(std::vector<int> &verts, RXiVec V, RXiVec coV,
                 std::tie(std::ignore, b, c) = trip;
                 if(b == c) {
                     basins.insert(c);
+                    total_morse_cells++;
                 }
             }
         }
         
         
-        if(basins.size() == 1) {
+        if(basins.size() < total_morse_cells) {
             return threshold;
         }
 
@@ -301,6 +422,112 @@ double find_cancel_threshold(std::pair<int, int> pair, RXiVec V, RXiVec coV,
     return -1.0;
     
 }
+
+
+void simplify_morse_complex(std::unordered_set<int>& preserve, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp, bool finagle=false, bool verbose=false) {
+    
+    // Find all critical cells and add to list of unpaired critical cells
+    std::unordered_set<int> crit_cells;
+    for(int s = 0; s < V.size(); s++) {
+        if(V(s) == s) {
+            crit_cells.insert(s);
+        }
+    }
+    
+    // Comparison operator which compares (threshold, critical pair) tuples
+    // Always returns the pair with smallest persistence threshold (priority queues are backwards)
+    // Break ties arbitrarily using cell indices
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    // Only cancel persistence pairs
+    bool strict = true;
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Critical Cells:", crit_cells.size(), py::arg("flush")=true);
+        }
+        
+        // Pass through all unpaired critical cells and find cancellable pairs
+        std::priority_queue<std::pair<double, std::pair<int, int> >, 
+            std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+        
+        for(auto s: crit_cells) {
+            
+            auto cpair = find_cancel_pair(s, V, coV, filt, comp, strict);   
+                        
+            // If either of the cells are to be preserved, then skip
+            if(cpair.first == -1 || preserve.count(cpair.first) || preserve.count(cpair.second)) {
+                continue;
+                
+            } 
+            
+            // Add new cancellable pair
+            cancel_pairs.emplace(std::abs(filt.get_func(cpair.second)-filt.get_func(cpair.first)), cpair);
+                
+        }
+        
+ 
+        // Cancel critical pairs with persistence below threshold
+        
+        if(verbose) {
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+        // Cancel all pairs
+        int n_cancel = 0;
+        while(!cancel_pairs.empty()) {
+            
+            auto top = cancel_pairs.top();
+            cancel_pairs.pop();
+            auto cpair = top.second;
+            cancel_close_pair(cpair, V, coV, comp);
+               
+            
+            crit_cells.erase(cpair.first);
+            crit_cells.erase(cpair.second);
+            
+            n_cancel++;
+            
+            
+            // If not strict, only cancel a single pair
+            if(!strict) {
+                break;
+            }
+            
+            
+        }
+        
+        if(verbose) {
+            py::print("Cancelled Pairs:", n_cancel, py::arg("flush")=true);
+            py::print("Remaining Critical Cells:", crit_cells.size(), py::arg("flush")=true);
+        }
+        
+        if(n_cancel == 0) {
+            // No pairs were cancelled and the algorithm strictly cancels persitence pairs, then finish
+            // Or if nothing was cancelled and was not strict
+            if(!finagle || !strict) {
+                return;
+                
+            // Otherwise cancel a single pair of cells that doesn't correspond to a persistence pair
+            } else {
+                
+                strict = false;
+                
+            }
+            
+        // If was cancelled, make sure next step is strict
+        } else {
+            strict = true;
+        }
+        
+    } 
+        
+}
+
 
 void simplify_morse_complex(double threshold, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp, bool leq=true, bool verbose=false) {
     

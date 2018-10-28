@@ -1,5 +1,5 @@
-#ifndef NETWORKCOMPLEX_HPP
-#define NETWORKCOMPLEX_HPP
+#ifndef GRAPHCOMPLEX_HPP
+#define GRAPHCOMPLEX_HPP
     
 #include "eigen_macros.hpp"
 #include "cell_complex.hpp"
@@ -17,7 +17,7 @@ namespace py = pybind11;
 
 
     
-class Network {
+class Graph {
     
 public:
 
@@ -33,7 +33,7 @@ public:
     bool has_list;
     std::vector<std::unordered_set<int> > neighbors; 
     
-    Network(int NV, int NE, std::vector<int> &edgei, std::vector<int> &edgej) :
+    Graph(int NV, int NE, std::vector<int> &edgei, std::vector<int> &edgej) :
          NV(NV), NE(NE), edgei(edgei), edgej(edgej) {
              has_list = false;
          };
@@ -60,22 +60,22 @@ public:
 };
 
     
-CellComplex construct_network_complex(Network &net, bool oriented) {
+CellComplex construct_graph_complex(Graph &graph, bool oriented) {
         
     CellComplex comp(1, true, oriented);
        
     // Vertices are guarenteed to have matching cell number and label
-    for(int i = 0; i < net.NV; i++) {
+    for(int i = 0; i < graph.NV; i++) {
         std::vector<int> facets;
         std::vector<int> coeffs;
         comp.add_cell(i, 0, facets, coeffs);
     }
 
 
-    for(int i = 0; i < net.NE; i++) {
+    for(int i = 0; i < graph.NE; i++) {
         std::vector<int> facets;
-        facets.push_back(net.edgei[i]);
-        facets.push_back(net.edgej[i]);
+        facets.push_back(graph.edgei[i]);
+        facets.push_back(graph.edgej[i]);
 
         std::vector<int> coeffs;
         if(oriented) {
@@ -96,14 +96,14 @@ CellComplex construct_network_complex(Network &net, bool oriented) {
 
 
 
-template <int DIM> std::vector<double> calc_edge_extensions(RXVec disp, Network &net, Embedding<DIM> &embed, bool is_strain=false) {
+template <int DIM> std::vector<double> calc_edge_extensions(RXVec disp, Graph &graph, Embedding<DIM> &embed, bool is_strain=false) {
         
     std::vector<double> ext;
     
-    for(int i = 0; i < net.NE; i++) {
+    for(int i = 0; i < graph.NE; i++) {
 
-        int vi = net.edgei[i];
-        int vj = net.edgej[i];
+        int vi = graph.edgei[i];
+        int vj = graph.edgej[i];
         
         DVec posi = embed.get_vpos(vi);
         DVec posj = embed.get_vpos(vj);
@@ -145,4 +145,4 @@ template <int DIM> std::vector<double> calc_edge_extensions(RXVec disp, Network 
 
 
     
-#endif // NETWORKCOMPLEX_HPP
+#endif // GRAPHCOMPLEX_HPP

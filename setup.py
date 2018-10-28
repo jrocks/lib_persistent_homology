@@ -25,7 +25,7 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
     
 
-use_alpha_cell_complex = True
+use_alpha_cell_complex = False
 use_optimal_cycles = False
 
 print(get_pybind_include())
@@ -146,10 +146,10 @@ setup(
     author='Jason W. Rocks',
     author_email='rocks@sas.upenn.edu',
     url='https://bitbucket.org/jrocks/lib_persistent_homology',
-    description='Persistent Homology Utilities and Algorithms',
+    description='Persistent Homology Algorithms and Utilities',
     long_description='',
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.2'],
+    install_requires=['pybind11>=3.4'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )

@@ -117,6 +117,41 @@ std::vector<std::vector<int> > reduce_smith_normal_form(std::vector<std::vector<
     
 }
 
+
+std::vector<std::pair<int, int> > calc_persistence(Filtration &filt, CellComplex &comp) {
+    
+    // Get boundary matrices for ascending and descending filtrations
+    auto bound_mat = calc_boundary_mat(filt, comp);
+
+    // Initialize columns and column maps with ascending filtration
+    std::vector<std::vector<int> > columns = std::get<0>(bound_mat);
+    std::vector<int> col_to_cell = std::get<2>(bound_mat);
+
+        
+    reduce_smith_normal_form(columns);
+    
+    // py::print(columns);    
+    
+    std::vector<std::pair<int, int> > pairs; 
+    for(std::size_t j = 0; j < columns.size(); j++) {
+        if(columns[j].empty()) {
+            continue;
+        }
+        
+        int i = columns[j].back();
+        int ci = col_to_cell[i];
+        int cj = col_to_cell[j];
+        
+        pairs.emplace_back(ci, cj);
+        
+    }
+    
+    return pairs;
+    
+    
+}
+
+
 // // Note: This algorithm does not work for a discrete Morse complex
 // // Maxima and minima must both be the same type of cell for this to work (e.g. standard cell complex or Morse-Smale complex)
 std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
@@ -168,7 +203,7 @@ std::tuple<std::tuple<std::vector<std::pair<int, int> >,
     std::vector<std::pair<int, int> > ext_pairs;
     std::unordered_map<int, std::vector<int> > cycles;
     for(std::size_t j = 0; j < columns.size(); j++) {
-        if(!columns[j].size()) {
+        if(columns[j].empty()) {
             continue;
         }
         
@@ -281,7 +316,62 @@ std::unordered_map<int, std::vector<int> > calc_homologous_birth_cycles(Filtrati
 }
 
 
-// std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
+std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
+    
+    if(target_dim == -1) {
+        target_dim = comp.get_dim(i);
+    }
+    
+    std::unordered_set<int> seen;
+    seen.insert(j);
+    
+    std::queue<int> Q;
+    Q.push(j);
+    
+    int orderi = filt.get_order(i);
+    int orderj = filt.get_order(j);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+                
+        for(auto b: comp.get_faces(a)) {
+            
+            // py::print("b", b);
+            
+            if(filt.get_order(b) >= orderj) {
+                continue;
+            }
+            
+            for(auto c: comp.get_cofaces(b)) {
+                
+                if(filt.get_order(c) <= orderi) {
+                    continue;
+                }
+                
+                if(!seen.count(c) && c != a) {
+                    Q.push(c);
+                    seen.insert(c);
+                }
+                
+            }
+        }
+    }
+    
+    
+    std::unordered_set<int> feature;
+    for(auto s: seen) {
+        if(comp.get_dim(s) == target_dim) {
+            feature.insert(s);
+        }
+    }
+    
+    return feature;
+    
+    
+// if i is vertex, then start from j and use faces
+// if i is not vertex, then 
+    
         
 //     bool co = (comp.get_dim(i) != 0);
     
@@ -386,7 +476,7 @@ std::unordered_map<int, std::vector<int> > calc_homologous_birth_cycles(Filtrati
     
 //     return feature;
     
-// }
+}
 
 
 

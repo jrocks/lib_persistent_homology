@@ -23,7 +23,8 @@ namespace py = pybind11;
 // alpha will be in both
 std::tuple<std::unordered_set<int>, std::unordered_set<int> > get_star_decomp(int alpha, Filtration &filt, CellComplex &comp, int target_dim=-1) {
     
-    std::unordered_set<int> star = comp.get_cofaces(alpha, target_dim);
+    std::unordered_set<int> faces = comp.get_faces(alpha, target_dim);
+    std::unordered_set<int> cofaces = comp.get_cofaces(alpha, target_dim);
     
     int digi_func = filt.get_digi_func(alpha);
     int alpha_dim = comp.get_dim(alpha);
@@ -31,7 +32,18 @@ std::tuple<std::unordered_set<int>, std::unordered_set<int> > get_star_decomp(in
     std::unordered_set<int> lstar;
     std::unordered_set<int> ucostar;
     
-    for(auto beta: star) {
+    for(auto beta: faces) {
+        if(filt.get_digi_func(beta) == digi_func) {
+            if(comp.get_dim(beta) >= alpha_dim) {
+                lstar.insert(beta);
+            } 
+            if (comp.get_dim(beta) <= alpha_dim) {
+                ucostar.insert(beta);
+            }
+        }   
+    }
+    
+    for(auto beta: cofaces) {
         if(filt.get_digi_func(beta) == digi_func) {
             if(comp.get_dim(beta) >= alpha_dim) {
                 lstar.insert(beta);
@@ -83,7 +95,7 @@ std::tuple<XiVec, XiVec>  construct_discrete_gradient(Filtration &filt, CellComp
         std::unordered_set<int> lstar;
         std::unordered_set<int> ucostar;
         std::tie(lstar, ucostar) = get_star_decomp(c, filt, comp);
-        
+                
         // First process upper costar portion of cells
         if(filt.filt_dim > 0 && ucostar.size() > 1) {
             // map of each cell to unpaired cofacets in ucostar
@@ -98,7 +110,7 @@ std::tuple<XiVec, XiVec>  construct_discrete_gradient(Filtration &filt, CellComp
                 }
 
             }
-            
+                        
             // Cells with zero unpaired cofacets
             std::priority_queue<int, std::vector<int>, decltype(ucostar_cmp)> PQone(ucostar_cmp);
             // Cells with exactly one unpaired cofacet
@@ -354,10 +366,11 @@ std::vector<std::tuple<int, int, int> > traverse_flow(int s, RXiVec V,
     while(!Q.empty()) {
         int a = Q.front();
         Q.pop();
-        
+                
         auto range = co ? comp.get_cofacet_range(a) : comp.get_facet_range(a);
         for(auto it = range.first; it != range.second; it++) {
             int b = *it;
+                        
             if(V[b] != -1 && V[b] != a) {
                 int c = V[b];
                 traversal.emplace_back(a, b, c);
@@ -485,6 +498,24 @@ CellComplex construct_morse_complex(RXiVec V, CellComplex &comp, bool oriented=f
 }
 
 
+Filtration construct_morse_filtration(Filtration &filt, CellComplex &morse_comp) {
+    
+    
+    std::vector<double> func(morse_comp.ncells);  
+    std::vector<int> digi_func(morse_comp.ncells);
+    std::vector<int> order(morse_comp.ncells);
+    
+    for(int c = 0; c < morse_comp.ncells; c++) {
+        func[c] = filt.get_func(morse_comp.get_label(c));
+        digi_func[c] = filt.get_digi_func(morse_comp.get_label(c));
+        order[c] = filt.get_order(morse_comp.get_label(c));
+    }
+    
+    return Filtration(morse_comp, func, digi_func, order, true);
+    
+}
+
+
 std::vector<std::tuple<int, int, int> > find_connections(int s, int t, RXiVec V,  RXiVec coV, CellComplex &comp) {
     
     std::unordered_set<int> active;
@@ -513,21 +544,18 @@ std::vector<std::tuple<int, int, int> > find_connections(int s, int t, RXiVec V,
 
 // Convert cell alpha in morse complex to representation in original cell complex
 // co determines V or coV
-std::unordered_set<int> convert_morse_to_original(int s, RXiVec V, 
-                                                  CellComplex &morse_comp, CellComplex &comp, bool co=false) {
+std::unordered_set<int> find_morse_feature(int s, RXiVec V, CellComplex &comp, bool co=false) {
     
     
     std::unordered_set<int> feature;
-    
-    // Convert cell s to same cell in original complex
-    int alpha = morse_comp.get_label(s);
-    feature.insert(alpha);
+    feature.insert(s);
     
     // Find rest of cells in original complex that are represented by cell s
-    std::vector<std::tuple<int, int, int> > traversal = traverse_flow(alpha, V, comp, co, false);
+    std::vector<std::tuple<int, int, int> > traversal = traverse_flow(s, V, comp, co, false);
     for(auto trip: traversal) {
         int b, c;
         std::tie(std::ignore, b, c) = trip;
+                
         if(b != c) {
             feature.insert(c);
         }
@@ -537,27 +565,41 @@ std::unordered_set<int> convert_morse_to_original(int s, RXiVec V,
     
 }
 
-// Returns map of vertices in morse complex to collections of vertices comprising basins in original complex
-std::unordered_map<int, std::unordered_set<int> > find_morse_basins(RXiVec V, CellComplex &morse_comp, CellComplex &comp) {
+std::unordered_map<int, std::unordered_set<int> > find_morse_features(std::vector<int> &cells, RXiVec V, 
+                                                  CellComplex &comp, bool co=false) {
     
-    std::unordered_map<int, std::unordered_set<int> > basins;
     
-    for(int c = 0; c < morse_comp.ncells; c++) {
+    std::unordered_map<int, std::unordered_set<int> > features;
+    
+    for(auto c: cells) {
         
-        if(morse_comp.get_dim(c) != 0) {
-            continue;
-        }
+        auto feature = find_morse_feature(c, V, comp, co);
         
-        auto feature = convert_morse_to_original(c, V, morse_comp, comp);
-        
-        
-        basins.emplace(std::piecewise_construct, std::forward_as_tuple(c), 
+        features.emplace(std::piecewise_construct, std::forward_as_tuple(c), 
                            std::forward_as_tuple(feature.begin(), feature.end()));
         
     }
     
-    return basins;
     
+    return features;
+    
+}
+
+// Returns map of vertices in morse complex to collections of vertices comprising basins in original complex
+std::unordered_map<int, std::unordered_set<int> > find_morse_basins(RXiVec coV, CellComplex &morse_comp, CellComplex &comp) {
+    
+    std::vector<int> cells;
+    
+    for(int c = 0; c < morse_comp.ncells; c++) {
+        
+        if(morse_comp.get_dim(c) == 0) {
+            cells.push_back(morse_comp.get_label(c));
+        }
+        
+    }
+    
+    return find_morse_features(cells, coV, comp, true);
+        
 }
 
 
@@ -574,7 +616,7 @@ std::unordered_set<int> find_morse_skeleton(RXiVec V, CellComplex &morse_comp, C
             continue;
         }
         
-        auto feature = convert_morse_to_original(c, V, morse_comp, comp);
+        auto feature = find_morse_feature(morse_comp.get_label(c), V, comp);
         
         
         skeleton.insert(feature.begin(), feature.end());

@@ -110,14 +110,14 @@ Filtration extend_filtration(Filtration &filt_asc, Filtration &filt_desc, CellCo
     for(int c = 1; c < 1 + N; c++) {
         func[c] = filt_asc.get_func(ext_comp.get_label(c));
         digi_func[c] = filt_asc.get_digi_func(ext_comp.get_label(c));
-        order[c] = filt_asc.get_digi_func(ext_comp.get_label(c));
+        order[c] = filt_asc.get_order(ext_comp.get_label(c));
     }
     
     // Process descending filtration
     for(int c = 1 + N; c < ext_comp.ncells; c++) {
         func[c] = filt_desc.get_func(ext_comp.get_label(c));
         digi_func[c] = filt_desc.get_digi_func(ext_comp.get_label(c))+N;
-        order[c] = filt_desc.get_digi_func(ext_comp.get_label(c))+N;
+        order[c] = filt_desc.get_order(ext_comp.get_label(c))+N;
     }
     
     return Filtration(ext_comp, func, digi_func, order, true);
@@ -151,18 +151,102 @@ std::tuple<XiVec, XiVec> extend_discrete_gradient(RXiVec V_asc, RXiVec V_desc, C
     
     // Process ascending gradient
     for(int c = 1; c < 1 + N; c++) {
-        V[c] = orig_map[V_asc[ext_comp.get_label(c)]];
-        coV[V[c]] = c;
+        int b = V_asc[ext_comp.get_label(c)];
+        if(b != -1) {
+            V[c] = orig_map[b];
+            coV[V[c]] = c;
+        }
     }
     
     // Process descending filtration
     for(int c = 1 + N; c < ext_comp.ncells; c++) {
-        V[c] = ext_map[V_desc[ext_comp.get_label(c)]];
-        coV[V[c]] = c;
+        int b = V_desc[ext_comp.get_label(c)];
+        if(b != -1) {
+            V[c] = ext_map[V_desc[ext_comp.get_label(c)]];
+            coV[V[c]] = c;
+        }
     }
     
     return std::make_tuple(V, coV);
     
+}
+
+std::tuple<std::unordered_map<int, std::unordered_set<int> >,
+    std::unordered_map<int, std::unordered_set<int> > > find_morse_smale_basins(RXiVec coV, CellComplex &morse_comp, CellComplex &ext_comp) {
+    
+    
+    std::vector<int> verts;
+    std::vector<int> edges;
+    
+    int N = (ext_comp.ncells - 1) / 2;
+    
+    for(int c = 0; c < morse_comp.ncells; c++) {
+        
+        if(morse_comp.get_dim(c) == 0 && morse_comp.get_label(c) != 0) {
+            verts.push_back(morse_comp.get_label(c));
+        } else if(morse_comp.get_dim(c) == 1 && morse_comp.get_label(c) - 1 > N) {
+            edges.push_back(morse_comp.get_label(c));
+        }
+        
+    }
+    
+    auto basins = find_morse_features(verts, coV, ext_comp, true);
+    auto peaks = find_morse_features(edges, coV, ext_comp, true);
+    
+    return std::make_tuple(basins, peaks);
+    
+    
+}
+
+// Finds the morse skeleton of dimension skeleton_dim comprised of cells in the original complex
+std::tuple<std::unordered_set<int>, std::unordered_set<int> > 
+    find_morse_smale_skeleton(std::vector<std::pair<int,int> > &pairs, RXiVec V, CellComplex &morse_comp, 
+                                                  CellComplex &ext_comp, int skeleton_dim=1) {
+        
+    
+    std::vector<int> mskel_asc;
+    std::vector<int> mskel_desc;
+    
+    int N = (ext_comp.ncells - 1) / 2;
+    
+    for(auto pair: pairs) {
+        int i = pair.first;
+        int j = pair.second;
+        
+        if(morse_comp.get_dim(j) == skeleton_dim 
+           && morse_comp.get_label(i) < 1+N && morse_comp.get_label(j) < 1+N) {
+            
+            mskel_asc.push_back(morse_comp.get_label(j));
+            // mskel_desc.push_back(morse_comp.get_label(j)+N);
+            
+        } else if(morse_comp.get_dim(j) == skeleton_dim+1 
+                  && morse_comp.get_label(i) >= 1+N && morse_comp.get_label(j) >= 1+N) {
+            
+            
+            mskel_desc.push_back(morse_comp.get_label(j));
+            // mskel_asc.push_back(morse_comp.get_label(j)-N);
+            
+        }
+    }
+    
+    
+    auto features_asc = find_morse_features(mskel_asc, V, ext_comp);
+    auto features_desc = find_morse_features(mskel_desc, V, ext_comp);
+    
+    std::unordered_set<int> skel_asc;
+    std::unordered_set<int> skel_desc; 
+    
+    
+    for(auto kv: features_asc) {
+        skel_asc.insert(kv.second.begin(), kv.second.end());
+    }
+    
+    for(auto kv: features_desc) {
+        skel_desc.insert(kv.second.begin(), kv.second.end());
+    }
+    
+    
+    return std::make_tuple(skel_asc, skel_desc);
 }
 
 

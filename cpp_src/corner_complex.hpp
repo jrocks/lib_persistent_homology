@@ -4,7 +4,7 @@
 #include "eigen_macros.hpp"
 #include "cell_complex.hpp"
 #include "embedding.hpp"
-#include "network_complex.hpp"
+#include "graph_complex.hpp"
 
 #include <pybind11/pybind11.h>    
 namespace py = pybind11;
@@ -18,15 +18,15 @@ namespace py = pybind11;
 
 
 
-template <int DIM> std::vector<std::vector<int> > find_corners(Network &net, Embedding<DIM> &embed) {
+template <int DIM> std::vector<std::vector<int> > find_corners(Graph &graph, Embedding<DIM> &embed) {
     
     
-    net.construct_neighbor_list();
+    graph.construct_neighbor_list();
         
     std::vector<std::vector<int> > corners;
         
     // Iterate over each vertex
-    for(int vi = 0; vi < net.NV; vi++) {
+    for(int vi = 0; vi < graph.NV; vi++) {
                 
         // Get all vertices
         std::vector<int> verts;
@@ -39,7 +39,7 @@ template <int DIM> std::vector<std::vector<int> > find_corners(Network &net, Emb
         // Center vertex positions
         DVec O = embed.get_vpos(vi);
             
-        for(auto vj: net.neighbors[vi]) {
+        for(auto vj: graph.neighbors[vi]) {
             verts.push_back(vj);
             
             DVec bvec = embed.get_vpos(vj); - O;
@@ -202,15 +202,15 @@ template <int DIM> std::vector<double> calc_corner_strains(std::vector< std::vec
 
 
 
-template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Network &net) {
+template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Graph &graph) {
      
     CellComplex comp(DIM, true, false);
           
     // Map of vertices to lists of vertices of all simplices of all corners at that vertex to index of simplex in comp
-    std::vector<std::map<std::vector<int> , int> > vertices_to_index(net.NV);
+    std::vector<std::map<std::vector<int> , int> > vertices_to_index(graph.NV);
     
     // First process vertices
-    for(int i = 0; i < net.NV; i++) {
+    for(int i = 0; i < graph.NV; i++) {
 
         std::vector<int> facets;
         std::vector<int> coeffs;
@@ -221,9 +221,9 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
     }
     
     // Next process edges
-    for(int i = 0; i < net.NE; i++) {
-        int vi = net.edgei[i];
-        int vj = net.edgej[i];
+    for(int i = 0; i < graph.NE; i++) {
+        int vi = graph.edgei[i];
+        int vj = graph.edgej[i];
         
         std::vector<int> facets;
         facets.push_back(vi);
@@ -231,11 +231,11 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
 
         std::vector<int> coeffs;
         
-        comp.add_cell(net.NV + i, 1, facets, coeffs);
+        comp.add_cell(graph.NV + i, 1, facets, coeffs);
         
         std::sort(facets.begin(), facets.end());
-        vertices_to_index[vi][facets] = net.NV + i;
-        vertices_to_index[vj][facets] = net.NV + i;
+        vertices_to_index[vi][facets] = graph.NV + i;
+        vertices_to_index[vj][facets] = graph.NV + i;
         
         vertices_to_index[vi].emplace(std::piecewise_construct, std::forward_as_tuple(1, vj), std::forward_as_tuple(vj));
         vertices_to_index[vj].emplace(std::piecewise_construct, std::forward_as_tuple(1, vi), std::forward_as_tuple(vi));
@@ -269,7 +269,7 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
                 // Sorted list of vertices of cell
                 std::sort(simplex.begin(), simplex.end());
                 
-                // If simplex already exists in net complex, then skip                
+                // If simplex already exists in graph complex, then skip                
                 if(vertices_to_index[vi].count(simplex)) {
                     continue;
                 }
@@ -285,7 +285,7 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
                     facets.push_back(vertices_to_index[vi][facet]);
                 }
                 
-                // Label new cells -1 to indicate they don't correspond to anything in original net complex
+                // Label new cells -1 to indicate they don't correspond to anything in original graph complex
                 // Or if cell corresponds to corner, label it with corner index
                 if(d == DIM) {
                     comp.add_cell(i, d, facets, coeffs);
