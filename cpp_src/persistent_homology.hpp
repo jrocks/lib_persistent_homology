@@ -323,10 +323,10 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
     }
     
     std::unordered_set<int> seen;
-    seen.insert(j);
+    seen.insert(i);
     
     std::queue<int> Q;
-    Q.push(j);
+    Q.push(i);
     
     int orderi = filt.get_order(i);
     int orderj = filt.get_order(j);
@@ -335,7 +335,7 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
         int a = Q.front();
         Q.pop();
                 
-        for(auto b: comp.get_faces(a)) {
+        for(auto b: comp.get_cofaces(a)) {
             
             // py::print("b", b);
             
@@ -343,7 +343,7 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
                 continue;
             }
             
-            for(auto c: comp.get_cofaces(b)) {
+            for(auto c: comp.get_faces(b)) {
                 
                 if(filt.get_order(c) <= orderi) {
                     continue;
@@ -359,6 +359,49 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
     }
     
     
+    
+    if(complement) {
+        
+        std::unordered_set<int> comp_seen;
+        seen.insert(j);
+    
+        std::queue<int> Q;
+        Q.push(j);
+        
+        
+        while(!Q.empty()) {
+            int a = Q.front();
+            Q.pop();
+
+            for(auto b: comp.get_faces(a)) {
+
+                // py::print("b", b);
+
+                if(filt.get_order(b) <= orderi) {
+                    continue;
+                }
+
+                for(auto c: comp.get_cofaces(b)) {
+
+                    if(filt.get_order(c) >= orderj) {
+                        continue;
+                    }
+
+                    if(!seen.count(c) && !comp_seen.count(c) && c != a) {
+                        Q.push(c);
+                        comp_seen.insert(c);
+                    }
+
+                }
+            }
+        }
+        
+        seen = comp_seen;
+        
+    }
+    
+    
+    
     std::unordered_set<int> feature;
     for(auto s: seen) {
         if(comp.get_dim(s) == target_dim) {
@@ -369,7 +412,7 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
     return feature;
     
     
-// if i is vertex, then start from j and use faces
+// if i is vertex, then start from i and use cofaces
 // if i is not vertex, then 
     
         
