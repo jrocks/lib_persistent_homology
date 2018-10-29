@@ -151,6 +151,7 @@ PYBIND11_MODULE(chomology, m) {
     // Embedding
     init_embedding_templates<1>(m);
     init_embedding_templates<2>(m);
+    init_embedding_templates<3>(m);
     
     // Graph complex
     
