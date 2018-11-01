@@ -231,6 +231,60 @@ std::vector<int> calc_comp_point_dists(int p, CellComplex &comp, int max_dist=-1
     
 }
 
+// Calculate discrete distance between pair of cells
+int calc_cell_pair_dist(int ci, int cj, CellComplex &comp) {
+    
+    
+    
+    std::vector<int> dist(comp.ncells, -1);
+    
+    dist[ci] = 0;
+    
+    std::unordered_set<int> seen;
+    seen.insert(ci);
+    
+    std::queue<int> Q;
+    Q.push(ci);
+    
+    while(!Q.empty()) {
+        int a = Q.front();
+        Q.pop();
+        
+        std::unordered_set<int> cofaces = comp.get_cofaces(a);
+        for(auto c: cofaces) {
+            if(!seen.count(c)) {
+                seen.insert(c);
+                dist[c] = dist[a] + 1;
+
+                if(c == cj) {
+                    return dist[c];
+                }
+
+                Q.push(c);
+            }
+        }
+        
+        std::unordered_set<int> faces = comp.get_faces(a);
+        for(auto c: faces) {
+            if(!seen.count(c)) {
+                seen.insert(c);
+                dist[c] = dist[a] + 1;
+                                    
+                if(c == cj) {
+                    return dist[c];
+                }
+
+                Q.push(c);
+            }
+        }
+    }
+        
+    return dist[cj];
+    
+    
+    
+}
+
 // Discrete distance from vertex within cell complex
 // Limits to cells in search zone
 std::unordered_map<int, int> calc_comp_point_dists_search_zone(int p, std::unordered_set<int> &search_zone, CellComplex &comp) {

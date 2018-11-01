@@ -263,6 +263,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("calc_comp_point_dists", &calc_comp_point_dists,
          py::arg("p"), py::arg("comp"), py::arg("max_dist")=-1);
     m.def("find_nearest_neighbors", &find_nearest_neighbors);
+    m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
     //     m.def("find_thresholded_component", &find_thresholded_component);
     
 

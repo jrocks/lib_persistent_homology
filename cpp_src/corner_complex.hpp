@@ -42,16 +42,16 @@ template <int DIM> std::vector<std::vector<int> > find_corners(Graph &graph, Emb
         for(auto vj: graph.neighbors[vi]) {
             verts.push_back(vj);
             
-            DVec bvec = embed.get_vpos(vj); - O;
+            DVec bvec = embed.get_vpos(vj) - O;
             
             for(int d = 0; d < DIM; d++) {
                 if(std::fabs(bvec(d)) > 0.5) {
                     bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
                 }
             }
-            
+
             bvec =  embed.box_mat * bvec;
-                                      
+                                  
             positions[vj] = bvec.normalized();
         }
                         
@@ -201,7 +201,8 @@ template <int DIM> std::vector<double> calc_corner_strains(std::vector< std::vec
 }
 
 
-
+// Creates cell complex from network with d-dimensional simplices at each "corner"
+// Homotopically equivalent to orginal network
 template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<int> > &corners, Graph &graph) {
      
     CellComplex comp(DIM, true, false);
@@ -244,9 +245,10 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
     
     std::vector<int> corner_to_cell;
     
-    // Iterate through each corner and add all higher-dimensional faces of corner simplices
+    // Iterate through each dimension up to corner dimension
     for(int d = 1; d <= DIM; d++) {
         
+        // Iterate through each corner
         for(std::size_t i = 0; i < corners.size(); i++) {
             
             int vi = corners[i][0];
