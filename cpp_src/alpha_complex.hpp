@@ -499,15 +499,15 @@ template <int DIM> std::tuple<std::vector<double>, std::vector<double> >
 template <int DIM> std::vector<double> calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
     
     
-    std::vector<double> D2min; 
-    
+    std::vector<double> D2min(disp.size() / DIM); 
+        
     for(int vi = 0; vi < comp.ncells; vi++) {        
         if(comp.get_dim(vi) != 0) {
             continue;
         }
                 
         // get edges
-        auto eset = comp.get_cofaces(vi, 1);
+        auto eset = comp.get_cofacets(vi);
         
         std::unordered_set<int> verts;
         
