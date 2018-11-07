@@ -25,7 +25,7 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
     
 
-use_alpha_cell_complex = False
+use_alpha_cell_complex = True
 use_optimal_cycles = False
 
 print(get_pybind_include())

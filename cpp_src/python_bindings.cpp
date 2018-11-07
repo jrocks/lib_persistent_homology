@@ -179,6 +179,7 @@ PYBIND11_MODULE(chomology, m) {
     m.def("construct_masked_cubical_complex", &construct_masked_cubical_complex);
     m.def("get_boundary_pixels", &get_boundary_pixels);
     m.def("calc_elongation", &calc_elongation);
+    m.def("construct_hypercube_complex", &construct_hypercube_complex, py::arg("dim"), py::arg("verbose")=false);
     
 #ifdef ALPHA
     

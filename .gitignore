@@ -12,3 +12,4 @@ tmp
 *.png
 *.gif
 *.lp
+.nfs*
