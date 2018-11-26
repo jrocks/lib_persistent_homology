@@ -34,9 +34,10 @@ template <int DIM> void init_embedding_templates(py::module &m) {
     
     py::class_<Embedding<DIM> >(m, (std::string("Embedding")+std::to_string(DIM)+std::string("D")).c_str())
         .def_readonly("dim", &Embedding<DIM>::dim)
+        .def_readonly("NV", &Embedding<DIM>::NV)
         .def_readonly("box_mat", &Embedding<DIM>::box_mat)
         .def_readonly("periodic", &Embedding<DIM>::periodic)
-        .def(py::init<RXVec, RDMat, bool>())
+        .def(py::init<int, RXVec, RDMat, bool>())
         .def("get_vpos", &Embedding<DIM>::get_vpos)
         .def("get_pos", &Embedding<DIM>::get_pos);
 
@@ -68,7 +69,7 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>,
-         py::arg("NV"), py::arg("embed"), py::arg("weights"), py::arg("oriented")=false);
+         py::arg("embed"), py::arg("weights"), py::arg("oriented")=false);
     
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
          py::arg("comp"), py::arg("embed"), py::arg("weights"), py::arg("alpha0")=-1.0);
@@ -82,13 +83,13 @@ template <int DIM> void init_alpha_templates(py::module &m) {
 
 template <int DIM> void init_search_templates(py::module &m) {
 
-    m.def((std::string("calc_euclid_pair_dists")+std::to_string(DIM)+std::string("D")).c_str(), 
+    m.def((std::string("calc_euclid_pair_dists_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &calc_euclid_pair_dists<DIM>);
     
-    m.def((std::string("calc_euclid_point_dists")+std::to_string(DIM)+std::string("D")).c_str(), 
+    m.def((std::string("calc_euclid_point_dists_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &calc_euclid_point_dists<DIM>);
     
-    m.def((std::string("get_point_neighborhood")+std::to_string(DIM)+std::string("D")).c_str(), 
+    m.def((std::string("get_point_neighborhood_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &get_point_neighborhood<DIM>);
 
 

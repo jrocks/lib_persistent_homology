@@ -24,7 +24,7 @@ namespace py = pybind11;
     
 
 
-template <int DIM> CellComplex construct_alpha_complex(int NV, Embedding<DIM> &embed, 
+template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed, 
                                                        std::vector<double> &weights, bool oriented=false) {
         
     
@@ -54,6 +54,8 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, Embedding<DIM> &e
     std::map<std::vector<int> , int> simplex_to_index;
 
     CellComplex alpha_comp(DIM, true, oriented);
+    
+    int NV = embed.NV;
 
     // Add all vertices to cell complex
     for(int i = 0; i < NV; i++) {

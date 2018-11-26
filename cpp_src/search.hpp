@@ -52,14 +52,14 @@ template <int DIM> XMat calc_euclid_pair_dists(std::vector<int> &verts, Embeddin
 
 
 // Euclidean distances from point
-template <int DIM> XVec calc_euclid_point_dists(int p, int NP, Embedding<DIM> &embed) {
+template <int DIM> XVec calc_euclid_point_dists(int p, Embedding<DIM> &embed) {
     
     
-    XVec dist = XVec::Zero(NP);
+    XVec dist = XVec::Zero(embed.NV);
     
     DVec posi = embed.get_vpos(p);
         
-    for(int pj = 0; pj < NP; pj++) {
+    for(int pj = 0; pj < embed.NV; pj++) {
                         
         XVec posj = embed.get_vpos(pj);
 
@@ -80,7 +80,7 @@ template <int DIM> XVec calc_euclid_point_dists(int p, int NP, Embedding<DIM> &e
 }
 
 // Find neighborhood of points within distance of another point
-template <int DIM> std::tuple<std::vector<int>, std::vector<DVec > > get_point_neighborhood(int p, double max_dist, int NP, Embedding<DIM> &embed) {
+template <int DIM> std::tuple<std::vector<int>, std::vector<DVec > > get_point_neighborhood(int p, double max_dist, Embedding<DIM> &embed) {
     
     
     XVec posi = embed.get_vpos(p);
@@ -88,7 +88,7 @@ template <int DIM> std::tuple<std::vector<int>, std::vector<DVec > > get_point_n
     std::vector<int> neighborhood;
     std::vector<DVec > neigh_pos;
     
-    for(int pj = 0; pj < NP; pj++) {
+    for(int pj = 0; pj < embed.NV; pj++) {
         XVec posj = embed.get_vpos(pj);
 
         XVec bvec = posj - posi;

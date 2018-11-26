@@ -13,17 +13,20 @@ public:
     const int dim;
     
 protected:
+    
     // vertex positions (undeformed and in unit box)
     XVec vert_pos;
     
 public:
+    // Number of vertices
+    int NV;
     // box matrix (multiply by pos to get actual embedded position)
     DMat box_mat;
     // boundary conditions
     bool periodic;
     
-    Embedding(RXVec vert_pos, RDMat box_mat, bool periodic) :
-        dim(DIM), vert_pos(vert_pos), box_mat(box_mat), periodic(periodic) {}
+    Embedding(int NV, RXVec vert_pos, RDMat box_mat, bool periodic) :
+        dim(DIM), vert_pos(vert_pos), NV(NV), box_mat(box_mat), periodic(periodic) {}
     
     // Get virtual position
     inline DVec get_vpos(int vi) {

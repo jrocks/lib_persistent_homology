@@ -35,7 +35,12 @@ def get_neighborhood(particle, config, max_neigh_dist):
     
     (NP, pos, rad2, DIM, box_mat) = config
         
-    (neighborhood, neigh_pos) = chomology.get_neighborhood(particle, max_neigh_dist, DIM, pos, box_mat)
+    if DIM == 2:
+        embed = chomology.Embedding2D(pos, box_mat, True)
+        (neighborhood, neigh_pos) = chomology.get_point_neighborhood_2D(particle, max_neigh_dist, DIM, embed)
+    elif DIM == 3:
+        embed = chomology.Embedding3D(pos, box_mat, True)
+        (neighborhood, neigh_pos) = chomology.get_point_neighborhood_3D(particle, max_neigh_dist, DIM, embed)
     
     neigh_pos = np.array(neigh_pos).flatten()
     
