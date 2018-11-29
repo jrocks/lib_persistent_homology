@@ -96,9 +96,9 @@ CellComplex construct_graph_complex(Graph &graph, bool oriented) {
 
 
 
-template <int DIM> std::vector<double> calc_edge_extensions(RXVec disp, Graph &graph, Embedding<DIM> &embed, bool is_strain=false) {
+template <int DIM> XVec calc_edge_extensions(RXVec disp, Graph &graph, Embedding<DIM> &embed, bool is_strain=false) {
         
-    std::vector<double> ext;
+    XVec ext = XVec::Zero(graph.NE);
     
     for(int i = 0; i < graph.NE; i++) {
 
@@ -133,7 +133,7 @@ template <int DIM> std::vector<double> calc_edge_extensions(RXVec disp, Graph &g
             eps /= l0;
         }
         
-        ext.push_back(eps);
+        ext(i) = eps;
             
         
     }

@@ -23,11 +23,11 @@ protected:
     
     
     // Filtration function of cells
-    std::vector<double> func;
+    XVec func;
     // Digitized (integer) representation of filtration function
-    std::vector<int> digi_func;
+    XiVec digi_func;
     // Total filtration orderering of cells
-    std::vector<int> order;
+    XiVec order;
     
 public:
         
@@ -38,7 +38,7 @@ public:
     // Filtration dimension (-1 if not defined)
     const int filt_dim;
     
-    Filtration(CellComplex &comp, std::vector<double> &func, std::vector<int> &digi_func, std::vector<int> &order, 
+    Filtration(CellComplex &comp, RXVec func, RXiVec digi_func, RXiVec order, 
                bool ascend = true, int filt_dim = -1) : 
        func(func), digi_func(digi_func), order(order),  ncells(comp.ncells), ascend(ascend), filt_dim(filt_dim) {}
     
@@ -48,17 +48,17 @@ public:
     
     // Get value of filtration function on cell alpha
     double get_func(int alpha) {
-        return func[alpha];
+        return func(alpha);
     }
     
     // Get value of digitized filtration function on cell alpha
     int get_digi_func(int alpha) {
-        return digi_func[alpha];
+        return digi_func(alpha);
     }
     
     // Get the total ordering of cell alpha
     int get_order(int alpha) {
-        return order[alpha];
+        return order(alpha);
     }
     
     std::vector<int> get_filtration() {
@@ -74,9 +74,9 @@ public:
 
 
 
-Filtration construct_filtration(CellComplex &comp, std::vector<double> &func, bool ascend = true) {
+Filtration construct_filtration(CellComplex &comp, RXVec func, bool ascend = true) {
     
-    std::vector<int> order(comp.ncells);
+    XiVec order = XiVec::Zero(comp.ncells);
     
     auto cmp = [&comp, &func, ascend] (const int &lhs, const int &rhs) {
         
@@ -100,12 +100,12 @@ Filtration construct_filtration(CellComplex &comp, std::vector<double> &func, bo
            
         
         // If functions are different values
-        if(func[lhs] !=  func[rhs]) {
+        if(func(lhs) !=  func(rhs)) {
             
             if(ascend) {
-                return func[lhs] < func[rhs];
+                return func(lhs) < func(rhs);
             } else {
-                return func[lhs] > func[rhs];
+                return func(lhs) > func(rhs);
             }
             
         // If funciton values are the same, then break tie arbitrarily
@@ -120,7 +120,7 @@ Filtration construct_filtration(CellComplex &comp, std::vector<double> &func, bo
     std::sort(cells.begin(), cells.end(), cmp);
     
     for(int i = 0; i < comp.ncells; i++) {
-        order[cells[i]] = i;
+        order(cells[i]) = i;
     }
     
     return Filtration(comp, func, order, order, ascend);
@@ -132,11 +132,11 @@ Filtration construct_filtration(CellComplex &comp, std::vector<double> &func, bo
 
 // Construct either lower star or upper costar filtration
 // Cells of dimension filt_dim induce ordering on cells of other dimensions
-Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &func, std::vector<double> &digi_func, int filt_dim, bool ascend=true) {
+Filtration construct_induced_filtration(CellComplex &comp,  RXVec func, RXiVec digi_func, int filt_dim, bool ascend=true) {
     
-    std::vector<double> induced_func(comp.ncells);  
-    std::vector<int> induced_digi_func(comp.ncells);
-    std::vector<int> order(comp.ncells);
+    XVec induced_func = XVec::Zero(comp.ncells);  
+    XiVec induced_digi_func = XiVec::Zero(comp.ncells);
+    XiVec order = XiVec::Zero(comp.ncells);
     
     auto lstar_cmp = [&digi_func, &comp, ascend](const int &lhs, const int &rhs) {
         
@@ -184,8 +184,8 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
         }
                 
         // Record function value of cell
-        induced_func[c] = func[comp.get_label(lex_cells[0])];
-        induced_digi_func[c] = digi_func[comp.get_label(lex_cells[0])];
+        induced_func(c) = func(comp.get_label(lex_cells[0]));
+        induced_digi_func(c) = digi_func[comp.get_label(lex_cells[0])];
     }
     
     
@@ -235,7 +235,7 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
     std::sort(cells.begin(), cells.end(), lex_cmp);
     
     for(int i = 0; i < comp.ncells; i++) {
-        order[cells[i]] = i;
+        order(cells[i]) = i;
     }
     
     return Filtration(comp, induced_func, induced_digi_func, order, ascend, filt_dim);
@@ -248,16 +248,15 @@ Filtration construct_induced_filtration(CellComplex &comp, std::vector<double> &
 Filtration reduce_filtration(Filtration &full_filt, CellComplex &full_comp, CellComplex &red_comp) {
     
     
-    std::vector<double> func(red_comp.ncells);  
-    std::vector<int> digi_func(red_comp.ncells);
-    std::vector<int> order(red_comp.ncells);
-    
+    XVec func = XVec::Zero(red_comp.ncells);  
+    XiVec digi_func = XiVec::Zero(red_comp.ncells);
+    XiVec order = XiVec::Zero(red_comp.ncells);
     for(int c = 0; c < full_comp.ncells; c++) {
         
         if(full_comp.get_dim(c) <= red_comp.dim && full_comp.get_label(c) != -1) {
-            func[full_comp.get_label(c)] = full_filt.get_func(c);
-            digi_func[full_comp.get_label(c)] = full_filt.get_digi_func(c);
-            order[full_comp.get_label(c)] = full_filt.get_order(c);
+            func(full_comp.get_label(c)) = full_filt.get_func(c);
+            digi_func(full_comp.get_label(c)) = full_filt.get_digi_func(c);
+            order(full_comp.get_label(c)) = full_filt.get_order(c);
         }
         
     }

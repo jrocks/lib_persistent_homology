@@ -183,7 +183,7 @@ XiMat calc_comp_pair_dists(std::vector<int> &verts, CellComplex &comp) {
     
 }
 
-// Discrete distances from vertex within cell complex
+// Discrete distances from cell within cell complex
 // Uses breadth-first search
 std::vector<int> calc_comp_point_dists(int p, CellComplex &comp, int max_dist=-1) {
     
@@ -232,9 +232,7 @@ std::vector<int> calc_comp_point_dists(int p, CellComplex &comp, int max_dist=-1
 }
 
 // Calculate discrete distance between pair of cells
-int calc_cell_pair_dist(int ci, int cj, CellComplex &comp) {
-    
-    
+int calc_cell_pair_dist(int ci, int cj, CellComplex &comp, int max_dist=-1) {
     
     std::vector<int> dist(comp.ncells, -1);
     
@@ -274,7 +272,9 @@ int calc_cell_pair_dist(int ci, int cj, CellComplex &comp) {
                     return dist[c];
                 }
 
-                Q.push(c);
+                if(max_dist == -1 || dist[c] < max_dist) {
+                    Q.push(c);
+                }
             }
         }
     }
@@ -339,6 +339,56 @@ std::vector<std::vector<int> > find_nearest_neighbors(int p, int max_dist, int t
     return neighbors;
     
     
+    
+}
+
+// Find vertices that are local extrema in the height function
+std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height, CellComplex &comp) {
+    
+    std::vector<int> minima;
+    std::vector<int> maxima;
+    
+    
+    for(int c = comp.dcell_begin[0]; c < comp.dcell_begin[0]+comp.ndcells[0]; c++) {
+            
+        bool largest = true;
+        bool smallest = true;
+        double h = height[comp.get_label(c)];
+    
+        auto range = comp.get_cofacet_range(c);
+
+        for(auto it = range.first; it != range.second && (largest || smallest); it++) {
+
+            auto facets = comp.get_facets(*it);
+            for(auto alpha: facets) {
+                if(alpha != c) {
+
+                    if(height[comp.get_label(alpha)] <= h) {
+                        smallest = false;
+                    }
+
+                    if(height[comp.get_label(alpha)] >= h) {
+                        largest = false;
+                    }
+                    
+                }
+            }
+
+        }
+        
+        if(largest && smallest) {
+            py::print("Vertex ", comp.get_label(c), "can't be both largest and smallest...");
+        }
+
+        if(largest) {
+            maxima.push_back(comp.get_label(c));
+        } else if(smallest) {
+            minima.push_back(comp.get_label(c));
+
+        }   
+    }
+    
+    return std::make_tuple(minima, maxima);
     
 }
 

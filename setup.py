@@ -74,7 +74,7 @@ if use_optimal_cycles:
     
 ext_modules = [
     Extension(
-        'chomology',
+        'phom',
         ['cpp_src/python_bindings.cpp'],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
@@ -141,7 +141,7 @@ class BuildExt(build_ext):
         build_ext.build_extensions(self)
 
 setup(
-    name='chomology',
+    name='phom',
     version=__version__,
     author='Jason W. Rocks',
     author_email='rocks@sas.upenn.edu',

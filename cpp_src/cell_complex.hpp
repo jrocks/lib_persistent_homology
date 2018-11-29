@@ -16,8 +16,11 @@ public:
       
     const int dim;  
     int ncells;
+    std::vector<int> ndcells;
+    std::vector<int> dcell_begin;
     const bool regular;
     const bool oriented;
+    
 
     
 protected:
@@ -33,14 +36,14 @@ protected:
 public:
     
     CellComplex(int dim, bool regular = true, bool oriented = false) :
-        dim(dim), ncells(0), regular(regular), oriented(oriented) {
+        dim(dim), ncells(0), ndcells(dim+1, 0), dcell_begin(dim+1, 0), regular(regular), oriented(oriented) {
         facet_ind.push_back(0);            
     }
     
     
     // Add a cell to the cell complex
     void add_cell(int label, int dim, std::vector<int> &cell_facets, std::vector<int> &cell_coeffs) {
-       
+        
         labels.push_back(label);
         dims.push_back(dim);
         facet_ind.push_back(facet_ind[ncells] + cell_facets.size());
@@ -50,6 +53,11 @@ public:
         }
         
         ncells++;
+        
+        ndcells[dim]++;
+        for(int d = dim+1; d <= this->dim+1; d++) {
+            dcell_begin[d]++;
+        }
         
     }
     
@@ -176,6 +184,11 @@ public:
         facet_ind.push_back(facet_ind[ncells] + delta_size);
         
         ncells++;
+        
+        ndcells[dim]++;
+        for(int d = dim+1; d <= this->dim+1; d++) {
+            dcell_begin[d]++;
+        }
         
     }
     

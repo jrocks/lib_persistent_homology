@@ -501,14 +501,14 @@ CellComplex construct_morse_complex(RXiVec V, CellComplex &comp, bool oriented=f
 Filtration construct_morse_filtration(Filtration &filt, CellComplex &morse_comp) {
     
     
-    std::vector<double> func(morse_comp.ncells);  
-    std::vector<int> digi_func(morse_comp.ncells);
-    std::vector<int> order(morse_comp.ncells);
+    XVec func =  XVec::Zero(morse_comp.ncells);  
+    XiVec digi_func = XiVec::Zero(morse_comp.ncells);
+    XiVec order = XiVec::Zero(morse_comp.ncells);
     
     for(int c = 0; c < morse_comp.ncells; c++) {
-        func[c] = filt.get_func(morse_comp.get_label(c));
-        digi_func[c] = filt.get_digi_func(morse_comp.get_label(c));
-        order[c] = filt.get_order(morse_comp.get_label(c));
+        func(c) = filt.get_func(morse_comp.get_label(c));
+        digi_func(c) = filt.get_digi_func(morse_comp.get_label(c));
+        order(c) = filt.get_order(morse_comp.get_label(c));
     }
     
     return Filtration(morse_comp, func, digi_func, order, true);

@@ -39,7 +39,8 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         .def_readonly("periodic", &Embedding<DIM>::periodic)
         .def(py::init<int, RXVec, RDMat, bool>())
         .def("get_vpos", &Embedding<DIM>::get_vpos)
-        .def("get_pos", &Embedding<DIM>::get_pos);
+        .def("get_pos", &Embedding<DIM>::get_pos)
+        .def("transform", &Embedding<DIM>::transform);
 
         
 }
@@ -97,13 +98,15 @@ template <int DIM> void init_search_templates(py::module &m) {
 }
 
 
-PYBIND11_MODULE(chomology, m) {
+PYBIND11_MODULE(phom, m) {
     
     // Cell complex
     
     py::class_<CellComplex>(m, "CellComplex")
         .def_readonly("dim", &CellComplex::dim)
         .def_readonly("ncells", &CellComplex::ncells)
+        .def_readonly("ndcells", &CellComplex::ndcells)
+        .def_readonly("dcell_begin", &CellComplex::dcell_begin)
         .def_readonly("regular", &CellComplex::regular)
         .def_readonly("oriented", &CellComplex::oriented)
         .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)
@@ -130,7 +133,7 @@ PYBIND11_MODULE(chomology, m) {
     py::class_<Filtration>(m, "Filtration")
         .def_readonly("ncells", &Filtration::ncells)
         .def_readonly("ascend", &Filtration::ascend)
-        .def(py::init<CellComplex&, std::vector<double>&, std::vector<int>&, std::vector<int>&, bool, int>(),
+        .def(py::init<CellComplex&, RXVec, RXiVec, RXiVec, bool, int>(),
              py::arg("comp"), py::arg("func"), py::arg("digi_func"), 
              py::arg("order"), py::arg("ascend")=true, py::arg("filt_dim")=-1)
         .def("get_func", &Filtration::get_func)
@@ -266,6 +269,7 @@ PYBIND11_MODULE(chomology, m) {
          py::arg("p"), py::arg("comp"), py::arg("max_dist")=-1);
     m.def("find_nearest_neighbors", &find_nearest_neighbors);
     m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
+    m.def("find_local_extrema", &find_local_extrema);
     //     m.def("find_thresholded_component", &find_thresholded_component);
     
 

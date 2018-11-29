@@ -38,6 +38,12 @@ public:
         return box_mat * vert_pos.segment<DIM>(DIM*vi);
     };
     
+    void transform(RDMat trans, RDVec offset) {
+        for(int vi = 0; vi < NV; vi++) {
+            vert_pos.segment<DIM>(DIM*vi) = trans * vert_pos.segment<DIM>(DIM*vi) + offset;
+        }
+    }
+    
 };
 
     

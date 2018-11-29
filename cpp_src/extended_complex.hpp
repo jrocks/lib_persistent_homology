@@ -97,27 +97,27 @@ Filtration extend_filtration(Filtration &filt_asc, Filtration &filt_desc, CellCo
     // Number of original cells
     int N = (ext_comp.ncells-1)/2;
     
-    std::vector<double> func(ext_comp.ncells);  
-    std::vector<int> digi_func(ext_comp.ncells);
-    std::vector<int> order(ext_comp.ncells);
+    XVec func = XVec::Zero(ext_comp.ncells);  
+    XiVec digi_func = XiVec::Zero(ext_comp.ncells);
+    XiVec order = XiVec::Zero(ext_comp.ncells);
     
     // First add dummy vertex
-    func[0] = 0.0; // This value doesn't matter because this component is born first and never dies
-    digi_func[0] = -1; // digi_func typically starts at zero, so dummy vertex doesn't have same value as any other vertex
-    order[0] = -1; // same with order
+    func(0) = 0.0; // This value doesn't matter because this component is born first and never dies
+    digi_func(0) = -1; // digi_func typically starts at zero, so dummy vertex doesn't have same value as any other vertex
+    order(0) = -1; // same with order
     
     // Process ascending filtration
     for(int c = 1; c < 1 + N; c++) {
-        func[c] = filt_asc.get_func(ext_comp.get_label(c));
-        digi_func[c] = filt_asc.get_digi_func(ext_comp.get_label(c));
-        order[c] = filt_asc.get_order(ext_comp.get_label(c));
+        func(c) = filt_asc.get_func(ext_comp.get_label(c));
+        digi_func(c) = filt_asc.get_digi_func(ext_comp.get_label(c));
+        order(c) = filt_asc.get_order(ext_comp.get_label(c));
     }
     
     // Process descending filtration
     for(int c = 1 + N; c < ext_comp.ncells; c++) {
-        func[c] = filt_desc.get_func(ext_comp.get_label(c));
-        digi_func[c] = filt_desc.get_digi_func(ext_comp.get_label(c))+N;
-        order[c] = filt_desc.get_order(ext_comp.get_label(c))+N;
+        func(c) = filt_desc.get_func(ext_comp.get_label(c));
+        digi_func(c) = filt_desc.get_digi_func(ext_comp.get_label(c))+N;
+        order(c) = filt_desc.get_order(ext_comp.get_label(c))+N;
     }
     
     return Filtration(ext_comp, func, digi_func, order, true);

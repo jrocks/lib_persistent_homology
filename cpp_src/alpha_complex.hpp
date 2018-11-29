@@ -312,13 +312,13 @@ template <int DIM> std::tuple<double, DVec > calc_circumsphere(std::vector<int> 
     
 }
 
-template <int DIM> std::vector<double> calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed, 
+template <int DIM> XVec calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed, 
                                                        std::vector<double> &weights, double alpha0 = -1.0) {
         
     
     DMat box_mat_inv = embed.box_mat.inverse();
     
-    std::vector<double> alpha_vals(comp.ncells);
+    XVec alpha_vals = XVec::Zero(comp.ncells);
         
     for(int c = comp.ncells-1; c >= 0; c--) {
         
@@ -335,7 +335,7 @@ template <int DIM> std::vector<double> calc_alpha_vals(CellComplex &comp, Embedd
         std::vector<int> tmp(verts.begin(), verts.end());
         std::tie(alpha, a) = calc_circumsphere<DIM>(tmp, embed, weights);
         
-        alpha_vals[c] = alpha;
+        alpha_vals(c) = alpha;
         
         // Skip highest dimension triangles
         if(comp.get_dim(c) == DIM) {
@@ -403,12 +403,12 @@ template <int DIM> std::vector<double> calc_alpha_vals(CellComplex &comp, Embedd
         auto cofacets = comp.get_cofacets(c);
         double conflict_alpha = 1e10;
         for(auto cf: cofacets) { 
-            if(alpha_vals[cf] < conflict_alpha) {
-                conflict_alpha = alpha_vals[cf];
+            if(alpha_vals(cf) < conflict_alpha) {
+                conflict_alpha = alpha_vals(cf);
             }
         }
         
-        alpha_vals[c] = conflict_alpha;
+        alpha_vals(c) = conflict_alpha;
         
         
     }
@@ -432,19 +432,14 @@ template <int DIM> Filtration construct_alpha_filtration(CellComplex &comp, Embe
 //Deformations
 //////////////////////////////////////////////////////////////////////////
 
-template <int DIM> std::tuple<std::vector<double>, std::vector<double> > 
+template <int DIM> std::tuple<XVec, XVec > 
             calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
     
     
-    std::vector<double> eps_shear(comp.ncells, 0.0);
-    std::vector<double> eps_comp(comp.ncells, 0.0);
+    XVec eps_shear = XVec::Zero(comp.ndcells[DIM]);
+    XVec eps_comp = XVec::Zero(comp.ndcells[DIM]);
     
-    for(int c = 0; c < comp.ncells; c++) {
-        int d = comp.get_dim(c);
-        
-        if(d != DIM) {
-            continue;
-        }
+    for(int c = comp.dcell_begin[DIM]; c < comp.ncells; c++) {
         
         auto vset = comp.get_faces(c, 0);
         
@@ -484,9 +479,9 @@ template <int DIM> std::tuple<std::vector<double>, std::vector<double> >
         
         eps = 0.5 * (eps + eps.transpose());
         
-        eps_comp[c] = eps.trace();
+        eps_comp(comp.get_label(c)) = eps.trace();
                 
-        eps_shear[c] = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
+        eps_shear(comp.get_label(c)) = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
         
     }
     
@@ -498,15 +493,12 @@ template <int DIM> std::tuple<std::vector<double>, std::vector<double> >
 }
 
 
-template <int DIM> std::vector<double> calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
+template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
     
-    
-    std::vector<double> D2min(disp.size() / DIM); 
         
-    for(int vi = 0; vi < comp.ncells; vi++) {        
-        if(comp.get_dim(vi) != 0) {
-            continue;
-        }
+    XVec D2min = XVec::Zero(embed.NV);
+        
+    for(int vi = 0; vi < comp.ndcells[0]; vi++) {        
                 
         // get edges
         auto eset = comp.get_cofacets(vi);
@@ -563,7 +555,7 @@ template <int DIM> std::vector<double> calc_voronoi_D2min(RXVec disp, CellComple
 
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
-            D2min[vi] += (du - eps*bvec).squaredNorm();
+            D2min(vi) += (du - eps*bvec).squaredNorm();
 
         }
         
