@@ -615,6 +615,53 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
     
 }
 
+
+std::unordered_map<int, std::map<int, std::map<int, int> >  >
+    calc_radial_tri_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    
+    // particle->dist->triangle_type->count
+    std::unordered_map<int, std::map<int, std::map<int, int> > > tri_distribution;
+    
+    int index = 0;
+    for(auto c: cell_list) {
+        
+        if(verbose && index % 500 == 0) {
+            py::print(index, "/", cell_list.size(), py::arg("flush")=true);
+        }
+        
+        index++;
+        
+        std::map<int, std::map<int, int> > tris;
+        
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
+        
+        for(int i = comp.dcell_begin[comp.dim]; i < comp.dcell_begin[comp.dim]+comp.ndcells[comp.dim]; i++) {
+            if(dists[i] <= 0) {
+                continue;
+            }
+            
+            auto edges = comp.get_faces(i, 1);
+            
+            int gap_count = 0;
+            
+            for(auto e: edges) {
+                if(alpha_vals[e] > 0.0) {
+                    gap_count++;
+                }
+            }
+            
+            tris[dists[i]][gap_count]++;
+        }
+        
+        tri_distribution[c] = tris;
+        
+    }
+    
+    return tri_distribution;
+    
+    
+}
+
 std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >, 
                                     std::map<int, std::map<int, int> >, 
                                     std::map<int, std::map<int, int> > > >
