@@ -196,6 +196,9 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_radial_gap_distribution", &calc_radial_gap_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
     
+    m.def("calc_radial_tri_distribution", &calc_radial_tri_distribution,
+          py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
+    
     m.def("calc_angular_gap_distribution", &calc_angular_gap_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
     
