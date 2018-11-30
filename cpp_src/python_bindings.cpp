@@ -40,7 +40,9 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         .def(py::init<int, RXVec, RDMat, bool>())
         .def("get_vpos", &Embedding<DIM>::get_vpos)
         .def("get_pos", &Embedding<DIM>::get_pos)
-        .def("transform", &Embedding<DIM>::transform);
+        .def("transform", &Embedding<DIM>::transform)
+        .def("get_vdiff", &Embedding<DIM>::get_vdiff)
+        .def("get_diff", &Embedding<DIM>::get_diff);
 
         
 }

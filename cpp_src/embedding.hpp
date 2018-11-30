@@ -44,6 +44,33 @@ public:
         }
     }
     
+    inline DVec get_vdiff(DVec &xi, DVec &xj) {
+        
+        DVec dx = xj - xi;
+        
+        if(periodic) {
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(dx(d)) > 0.5) {
+                    dx(d) -= ((dx(d) > 0) - (dx(d) < 0));
+                }
+            }
+            
+        }
+        
+        return dx;
+        
+    }
+    
+    
+    inline DVec get_diff(DVec &xi, DVec &xj) {
+        
+        DVec dx =  get_vdiff(xi, xj);
+        
+        return box_mat * dx;
+        
+    }
+    
 };
 
     
