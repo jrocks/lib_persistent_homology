@@ -44,6 +44,9 @@ public:
         }
     }
     
+    // Vector difference according to BCs
+    // Takes in virtual coords
+    // Return virtual coords
     inline DVec get_vdiff(DVec &xi, DVec &xj) {
         
         DVec dx = xj - xi;
@@ -62,7 +65,7 @@ public:
         
     }
     
-    
+    // Returns real coords
     inline DVec get_diff(DVec &xi, DVec &xj) {
         
         DVec dx =  get_vdiff(xi, xj);

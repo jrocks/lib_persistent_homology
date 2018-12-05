@@ -81,6 +81,9 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     
     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>);
+    
+    m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
+        py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
 }
 #endif
 

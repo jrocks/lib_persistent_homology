@@ -152,13 +152,15 @@ template <int DIM> std::vector<std::vector<int> > find_corners(Graph &graph, Emb
 }
 
 
-template <int DIM> std::vector<double> calc_corner_strains(std::vector< std::vector<int> > &corners, 
+template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &corners, 
                                                            RXVec disp, Embedding<DIM> &embed) {
 
     
-    std::vector<double> corner_strains;
+    XVec corner_strains= XVec::Zero(corners.size());
         
-    for(auto corner: corners) {
+    for(std::size_t i = 0; i < corners.size(); i++) {
+        
+        auto corner = corners[i];
         
         int vi = corner[0];
         
@@ -191,7 +193,7 @@ template <int DIM> std::vector<double> calc_corner_strains(std::vector< std::vec
 
         eps = 0.5 * (eps + eps.transpose());
 
-        corner_strains.push_back(eps.norm());
+        corner_strains[i] = eps.norm();
          
     }
     

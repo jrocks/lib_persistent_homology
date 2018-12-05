@@ -427,6 +427,183 @@ template <int DIM> Filtration construct_alpha_filtration(CellComplex &comp, Embe
     
 }
 
+//////////////////////////////////////////////////////////////////////////
+//Simplification
+//////////////////////////////////////////////////////////////////////////
+
+template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_vals, double threshold=0.0) {
+ 
+    std::vector<int> disjoint_set(comp.ncells);
+    std::iota(disjoint_set.begin(), disjoint_set.end(), 0);
+    
+        
+    CellComplex simp_comp(DIM, true, false);
+    
+    std::vector<int> full_to_reduced(comp.ncells, -1);
+    for(int c = 0; c < comp.dcell_begin[DIM]; c++) {
+        
+        // Find all edges
+        auto edges = comp.get_faces(c, 1);
+        
+        // Check if any edge has alpha value larger than threshold
+        bool prune = false;
+        for(auto ei: edges) {
+            if(alpha_vals[ei] > threshold) {
+                prune = true;
+                disjoint_set[c] = -1;
+                break;
+            }
+        }
+        
+        if(prune && comp.get_dim(c) == DIM - 1) {
+            // Join cofacets
+            std::vector<int> cofacets = comp.get_cofacets(c);
+            
+            std::sort(cofacets.begin(), cofacets.end());
+            for(std::size_t i = 1; i < cofacets.size(); i++) {
+                
+                int rooti = cofacets[i];
+                while(disjoint_set[rooti] != rooti) {
+                    rooti = disjoint_set[rooti];
+                }
+                
+                
+                int root0 = cofacets[0];
+                while(disjoint_set[root0] != root0) {
+                    root0 = disjoint_set[root0];
+                }
+                
+                if(root0 < rooti) {
+                    disjoint_set[rooti] = root0;
+                } else {
+                    disjoint_set[root0] = rooti;
+                }
+                
+                
+            }
+            
+//             if(c == 16372) {
+//                 py::print("heyo", cofacets);
+                
+//                 for(auto cf: cofacets) {
+//                     py::print(cf, disjoint_set[cf]);
+//                 }
+//             }
+            
+            
+        }
+        
+        if(prune) {
+            continue;
+        }
+        
+        // If not pruning, then add to cell complex
+        std::vector<int> facets;
+        auto frange = comp.get_facet_range(c);
+        for(auto it=frange.first; it!= frange.second; it++) {
+            facets.push_back(full_to_reduced[*it]);
+        }
+        
+        std::vector<int> coeffs;
+        auto crange = comp.get_coeff_range(c);
+        for(auto it=crange.first; it!= crange.second; it++) {
+            coeffs.push_back(*it);
+        }
+        
+        full_to_reduced[c] = simp_comp.ncells;
+        
+        simp_comp.add_cell(simp_comp.ndcells[comp.get_dim(c)], comp.get_dim(c), facets, coeffs);
+        
+    }
+           
+    std::map<int, std::set<int> > tris;
+    for(int c = comp.dcell_begin[DIM]; c < comp.dcell_begin[DIM]+comp.ndcells[DIM]; c++) {
+        
+        int root = c;
+        while(disjoint_set[root] != root) {
+            root = disjoint_set[root];
+        }
+        
+//         if(c == 24549 || c == 24554) {
+//             py::print(c, "root", root, disjoint_set[c]);
+//         }
+    
+        tris[root].insert(c);
+                
+    }
+    
+    for(auto pair: tris) {
+        
+        int c = pair.first;
+        
+//         std::unordered_set<int> facet_set;
+        std::unordered_map<int, int> facet_set;
+        for(auto alpha: pair.second) {
+            
+            // This might need to be implemented with symmetric difference addition
+            // However, this seems to result in removed edges being incorrectly added as facets
+            // Might be better to deal with coefficients
+            for(auto beta: comp.get_facets(alpha)) {
+                
+                if(facet_set.count(beta)) {
+                    facet_set[beta]++;
+                } else {
+                    facet_set[beta] = 1;
+                }
+                
+//                 if(disjoint_set[beta] != -1) {
+//                     facet_set.insert(beta);
+//                 }
+            }
+            
+        }
+        
+//         if(c == 24549 || c == 24554) {
+//             py::print(c, facet_set);
+//         }
+        
+        std::vector<int> facets;
+        for(auto pair: facet_set) {
+            
+            
+            if(pair.second % 2 == 0) {
+                continue;
+            }
+            
+            int alpha = pair.first;
+
+            
+            if(full_to_reduced[alpha] == -1) {
+//             if(alpha == 16372) {
+                py::print("help!", alpha, pair.second, alpha_vals[alpha], py::arg("flush")=true);
+                
+                for(auto beta: comp.get_cofacets(alpha)) {
+                    py::print("cofacet", beta, comp.get_facets(beta));
+                }
+            }
+            
+            facets.push_back(full_to_reduced[alpha]);
+        }
+        
+        // Coefficients are not treated here
+        std::vector<int> coeffs;
+        
+        
+        
+        full_to_reduced[c] = simp_comp.ncells;
+        
+        simp_comp.add_cell(simp_comp.ndcells[comp.get_dim(c)], comp.get_dim(c), facets, coeffs);
+        
+        
+    }
+    
+    simp_comp.construct_cofacets();
+    simp_comp.make_compressed();
+
+    return simp_comp;
+    
+    
+}
 
 //////////////////////////////////////////////////////////////////////////
 //Deformations
