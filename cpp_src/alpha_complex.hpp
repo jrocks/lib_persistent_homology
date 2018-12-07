@@ -798,7 +798,6 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
     // particle->(gaps[dist]->count, overlaps[dist]->count)
     std::map<int,std::string> class_map;
     for(int i = 0; i <comp.ndcells[0]; i++) {
-
         auto edges = comp.get_cofaces(i, 1);
 
         std::vector<int> gap_angles;
@@ -817,15 +816,12 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
               gap_angles.push_back(itheta);
              }
         }
-
         //now we need to map to the single representative of our equivalence class
         //currently only works in 2d
         //representative = member of equivalence class with smallest small angle, smallest second small angle, etc...
         auto x_reflect = [num_angles](int theta) {return num_angles - theta;};
         auto y_reflect = [num_angles](int theta) {return (theta < num_angles/2 )? num_angles/2-theta :3*num_angles/2 - theta ; };
-
-        std::vector< std::vector<int> > equiv_class;
-        equiv_class[0] = gap_angles;
+        std::vector< std::vector<int> > equiv_class(4, gap_angles);
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[1].begin(),x_reflect);
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[2].begin(),y_reflect);
         std::transform(equiv_class[1].begin(),equiv_class[1].end(),equiv_class[3].begin(),y_reflect);
