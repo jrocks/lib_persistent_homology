@@ -152,8 +152,9 @@ template <int DIM> std::vector<std::vector<int> > find_corners(Graph &graph, Emb
 }
 
 
+
 template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &corners, 
-                                                           RXVec disp, Embedding<DIM> &embed) {
+                                                           RXVec disp, Embedding<DIM> &embed, bool strain=false) {
 
     
     XVec corner_strains= XVec::Zero(corners.size());
@@ -173,15 +174,9 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
 
             int vj = corner[1+m];
             
-            DVec bvec = embed.get_vpos(vj) - O;  
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-                }
-            }
-        
-            bvec = embed.box_mat * bvec;
+            DVec posj = embed.get_vpos(vj);
             
+            DVec bvec = embed.get_diff(O, posj);
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
             X += bvec * bvec.transpose();
@@ -189,11 +184,44 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
 
         }
 
-        DMat eps = Y * X.inverse();
+        
+        DMat F = Y * X.inverse();
+        
+        DMat eps = 0.5 * (F + F.transpose());
+                    
+        double gamma = 0.0;
+        
+        if(strain) {
+            gamma = eps.norm();
+        } else {
+            for(int m = 0; m < DIM; m++) {  
 
-        eps = 0.5 * (eps + eps.transpose());
+                int vj = corner[1+m];
 
-        corner_strains[i] = eps.norm();
+                DVec posj = embed.get_vpos(vj);
+
+                DVec bvec = embed.get_diff(O, posj);
+
+                gamma += (eps*bvec).squaredNorm();
+
+            }
+
+            gamma = sqrt(gamma);
+        }
+        
+        if(X.determinant() < 1e-4) {
+            py::print(i, "det", X.determinant(), Y.determinant(), eps.norm());
+            
+            py::print("X", X);
+            py::print("Y", Y);
+            py::print("eps", eps);
+        }
+        
+        
+        
+        
+        corner_strains[i] = gamma;
+        
          
     }
     
@@ -201,6 +229,8 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
     
     
 }
+
+
 
 
 // Creates cell complex from network with d-dimensional simplices at each "corner"

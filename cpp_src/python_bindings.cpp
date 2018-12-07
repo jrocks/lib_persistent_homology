@@ -62,7 +62,7 @@ template <int DIM> void init_corner_templates(py::module &m) {
     m.def((std::string("find_corners_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &find_corners<DIM>);
     m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          &calc_corner_strains<DIM>);
+          &calc_corner_strains<DIM>, py::arg("corners"), py::arg("disp"), py::arg("embed"), py::arg("strain")=false);
     
         
 }
@@ -173,7 +173,8 @@ PYBIND11_MODULE(phom, m) {
         .def_readonly("NE", &Graph::NE)
         .def_readonly("edgei", &Graph::edgei)
         .def_readonly("edgej", &Graph::edgej)
-        .def_readonly("neighbors", &Graph::neighbors);
+        .def_readonly("neighbors", &Graph::neighbors)
+        .def("construct_neighbor_list", &Graph::construct_neighbor_list);
     
     m.def("construct_graph_complex", &construct_graph_complex);
 
@@ -181,6 +182,7 @@ PYBIND11_MODULE(phom, m) {
     
     init_corner_templates<1>(m);
     init_corner_templates<2>(m);
+    init_corner_templates<3>(m);
     
     // Cubical complex
     

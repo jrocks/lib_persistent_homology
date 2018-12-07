@@ -652,9 +652,9 @@ template <int DIM> std::tuple<XVec, XVec >
 
         }
 
-        DMat eps = Y * X.inverse();
+        DMat F = Y * X.inverse();
 
-        eps = 0.5 * (eps + eps.transpose());
+        DMat eps = 0.5 * (F + F.transpose());
 
         eps_comp(comp.get_label(c)) = eps.trace();
 
