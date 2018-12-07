@@ -117,6 +117,41 @@ std::vector<std::vector<int> > reduce_smith_normal_form(std::vector<std::vector<
     
 }
 
+
+std::vector<std::pair<int, int> > calc_persistence(Filtration &filt, CellComplex &comp) {
+    
+    // Get boundary matrices for ascending and descending filtrations
+    auto bound_mat = calc_boundary_mat(filt, comp);
+
+    // Initialize columns and column maps with ascending filtration
+    std::vector<std::vector<int> > columns = std::get<0>(bound_mat);
+    std::vector<int> col_to_cell = std::get<2>(bound_mat);
+
+        
+    reduce_smith_normal_form(columns);
+    
+    // py::print(columns);    
+    
+    std::vector<std::pair<int, int> > pairs; 
+    for(std::size_t j = 0; j < columns.size(); j++) {
+        if(columns[j].empty()) {
+            continue;
+        }
+        
+        int i = columns[j].back();
+        int ci = col_to_cell[i];
+        int cj = col_to_cell[j];
+        
+        pairs.emplace_back(ci, cj);
+        
+    }
+    
+    return pairs;
+    
+    
+}
+
+
 // // Note: This algorithm does not work for a discrete Morse complex
 // // Maxima and minima must both be the same type of cell for this to work (e.g. standard cell complex or Morse-Smale complex)
 std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
@@ -168,7 +203,7 @@ std::tuple<std::tuple<std::vector<std::pair<int, int> >,
     std::vector<std::pair<int, int> > ext_pairs;
     std::unordered_map<int, std::vector<int> > cycles;
     for(std::size_t j = 0; j < columns.size(); j++) {
-        if(!columns[j].size()) {
+        if(columns[j].empty()) {
             continue;
         }
         
@@ -282,46 +317,35 @@ std::unordered_map<int, std::vector<int> > calc_homologous_birth_cycles(Filtrati
 
 
 std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &comp, Filtration &filt, int target_dim=-1, bool complement=false) {
-        
-    bool co = (comp.get_dim(i) != 0);
     
     if(target_dim == -1) {
-        target_dim = co ? comp.dim : 0;
+        target_dim = comp.get_dim(i);
     }
     
     std::unordered_set<int> seen;
+    seen.insert(i);
+    
     std::queue<int> Q;
-    if(!co) {
-        seen.insert(i);
-        Q.push(i);
-    } else {
-        seen.insert(j);
-        Q.push(j);
-    }
-  
-    int orderi = filt.get_total_order(i);
-    int orderj = filt.get_total_order(j);
-         
+    Q.push(i);
+    
+    int orderi = filt.get_order(i);
+    int orderj = filt.get_order(j);
+    
     while(!Q.empty()) {
         int a = Q.front();
         Q.pop();
-        
-        // py::print("a", a);
-        
-        for(auto b: get_star(a, co, comp, -1)) {
+                
+        for(auto b: comp.get_cofaces(a)) {
             
             // py::print("b", b);
             
-            if((!co && filt.get_total_order(b) >= orderj)
-              || (co && filt.get_total_order(b) <= orderi)) {
+            if(filt.get_order(b) >= orderj) {
                 continue;
             }
-
-            for(auto c: get_star(b, !co, comp, -1)) {
-                // py::print("c", c);
+            
+            for(auto c: comp.get_faces(b)) {
                 
-                if((!co && filt.get_total_order(c) <= orderi)
-                  || (co && filt.get_total_order(c) >= orderj)) {
+                if(filt.get_order(c) <= orderi) {
                     continue;
                 }
                 
@@ -334,35 +358,35 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
         }
     }
     
+    
+    
     if(complement) {
         
         std::unordered_set<int> comp_seen;
-        if(!co) {
-            seen.insert(j);
-            Q.push(j);
-        } else {
-            seen.insert(i);
-            Q.push(i);
-        }
+        seen.insert(j);
+    
+        std::queue<int> Q;
+        Q.push(j);
+        
         
         while(!Q.empty()) {
             int a = Q.front();
             Q.pop();
 
-            // py::print("a", a);
-
-            for(auto b: get_star(a, !co, comp, -1)) {
+            for(auto b: comp.get_faces(a)) {
 
                 // py::print("b", b);
 
-                for(auto c: get_star(b, co, comp, -1)) {
-                    // py::print("c", c);
-                    
-                    if((!co && filt.get_total_order(c) >= orderj)
-                      || (co && filt.get_total_order(c) <= orderi)) {
+                if(filt.get_order(b) <= orderi) {
+                    continue;
+                }
+
+                for(auto c: comp.get_cofaces(b)) {
+
+                    if(filt.get_order(c) >= orderj) {
                         continue;
                     }
-                    
+
                     if(!seen.count(c) && !comp_seen.count(c) && c != a) {
                         Q.push(c);
                         comp_seen.insert(c);
@@ -377,6 +401,7 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
     }
     
     
+    
     std::unordered_set<int> feature;
     for(auto s: seen) {
         if(comp.get_dim(s) == target_dim) {
@@ -385,6 +410,114 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
     }
     
     return feature;
+    
+    
+// if i is vertex, then start from i and use cofaces
+// if i is not vertex, then 
+    
+        
+//     bool co = (comp.get_dim(i) != 0);
+    
+//     if(target_dim == -1) {
+//         target_dim = co ? comp.dim : 0;
+//     }
+    
+//     std::unordered_set<int> seen;
+//     std::queue<int> Q;
+//     if(!co) {
+//         seen.insert(i);
+//         Q.push(i);
+//     } else {
+//         seen.insert(j);
+//         Q.push(j);
+//     }
+  
+//     int orderi = filt.get_total_order(i);
+//     int orderj = filt.get_total_order(j);
+         
+//     while(!Q.empty()) {
+//         int a = Q.front();
+//         Q.pop();
+        
+//         // py::print("a", a);
+        
+//         for(auto b: get_star(a, co, comp, -1)) {
+            
+//             // py::print("b", b);
+            
+//             if((!co && filt.get_total_order(b) >= orderj)
+//               || (co && filt.get_total_order(b) <= orderi)) {
+//                 continue;
+//             }
+
+//             for(auto c: get_star(b, !co, comp, -1)) {
+//                 // py::print("c", c);
+                
+//                 if((!co && filt.get_total_order(c) <= orderi)
+//                   || (co && filt.get_total_order(c) >= orderj)) {
+//                     continue;
+//                 }
+                
+//                 if(!seen.count(c) && c != a) {
+//                     Q.push(c);
+//                     seen.insert(c);
+//                 }
+                
+//             }
+//         }
+//     }
+    
+//     if(complement) {
+        
+//         std::unordered_set<int> comp_seen;
+//         if(!co) {
+//             seen.insert(j);
+//             Q.push(j);
+//         } else {
+//             seen.insert(i);
+//             Q.push(i);
+//         }
+        
+//         while(!Q.empty()) {
+//             int a = Q.front();
+//             Q.pop();
+
+//             // py::print("a", a);
+
+//             for(auto b: get_star(a, !co, comp, -1)) {
+
+//                 // py::print("b", b);
+
+//                 for(auto c: get_star(b, co, comp, -1)) {
+//                     // py::print("c", c);
+                    
+//                     if((!co && filt.get_total_order(c) >= orderj)
+//                       || (co && filt.get_total_order(c) <= orderi)) {
+//                         continue;
+//                     }
+                    
+//                     if(!seen.count(c) && !comp_seen.count(c) && c != a) {
+//                         Q.push(c);
+//                         comp_seen.insert(c);
+//                     }
+
+//                 }
+//             }
+//         }
+        
+//         seen = comp_seen;
+        
+//     }
+    
+    
+//     std::unordered_set<int> feature;
+//     for(auto s: seen) {
+//         if(comp.get_dim(s) == target_dim) {
+//             feature.insert(s);
+//         }
+//     }
+    
+//     return feature;
     
 }
 

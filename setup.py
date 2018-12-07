@@ -26,7 +26,6 @@ class get_pybind_include(object):
     
 
 use_alpha_cell_complex = True
-use_graph_cell_complex = True
 use_optimal_cycles = False
 
 print(get_pybind_include())
@@ -50,9 +49,7 @@ if use_alpha_cell_complex:
     libraries.append("gmp")
     define_macros.append(("ALPHA", None))
     
-if use_graph_cell_complex:
-    define_macros.append(("GRAPH", None))
-        
+
 if use_optimal_cycles:
 #     CPLEX_path = "/opt/ibm/ILOG/CPLEX_Studio128"
     CPLEX_path = "/home/rocks/ibm/ILOG/CPLEX_Studio128"
@@ -77,7 +74,7 @@ if use_optimal_cycles:
     
 ext_modules = [
     Extension(
-        'chomology',
+        'phom',
         ['cpp_src/python_bindings.cpp'],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
@@ -144,15 +141,15 @@ class BuildExt(build_ext):
         build_ext.build_extensions(self)
 
 setup(
-    name='chomology',
+    name='phom',
     version=__version__,
     author='Jason W. Rocks',
     author_email='rocks@sas.upenn.edu',
     url='https://bitbucket.org/jrocks/lib_persistent_homology',
-    description='Persistent Homology Utilities and Algorithms',
+    description='Persistent Homology Algorithms and Utilities',
     long_description='',
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.2'],
+    install_requires=['pybind11>=3.4'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )

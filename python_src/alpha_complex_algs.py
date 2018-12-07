@@ -10,7 +10,7 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 
-import chomology
+import phom
 import homology
 import network_solver as ns
 
@@ -35,7 +35,12 @@ def get_neighborhood(particle, config, max_neigh_dist):
     
     (NP, pos, rad2, DIM, box_mat) = config
         
-    (neighborhood, neigh_pos) = chomology.get_neighborhood(particle, max_neigh_dist, DIM, pos, box_mat)
+    if DIM == 2:
+        embed = phom.Embedding2D(pos, box_mat, True)
+        (neighborhood, neigh_pos) = phom.get_point_neighborhood_2D(particle, max_neigh_dist, DIM, embed)
+    elif DIM == 3:
+        embed = phom.Embedding3D(pos, box_mat, True)
+        (neighborhood, neigh_pos) = phom.get_point_neighborhood_3D(particle, max_neigh_dist, DIM, embed)
     
     neigh_pos = np.array(neigh_pos).flatten()
     
@@ -84,18 +89,18 @@ def get_gap_dist(particles, config, max_tri_dist, use_angular=False, only_neighb
             (neigh_NP, neighborhood, neigh_pos, neigh_rad2) = get_neighborhood(p, config, max_neigh_dist)
 
             if DIM == 2:
-                neigh_comp = chomology.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-                alpha_vals = chomology.calc_alpha_vals_2D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+                neigh_comp = phom.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = phom.calc_alpha_vals_2D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
             elif DIM == 3:
-                neigh_comp = chomology.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-                alpha_vals = chomology.calc_alpha_vals_3D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+                neigh_comp = phom.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = phom.calc_alpha_vals_3D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
                 
             local_p = np.argwhere(neighborhood == p)[0][0]
                              
             if use_angular:
-                part_gap_dist = chomology.calc_angular_gap_distribution([local_p], alpha_vals, neigh_comp, max_dist=max_tri_dist)
+                part_gap_dist = phom.calc_angular_gap_distribution([local_p], alpha_vals, neigh_comp, max_dist=max_tri_dist)
             else:
-                part_gap_dist = chomology.calc_radial_gap_distribution([local_p], alpha_vals, neigh_comp, max_dist=max_tri_dist)
+                part_gap_dist = phom.calc_radial_gap_distribution([local_p], alpha_vals, neigh_comp, max_dist=max_tri_dist)
                 
                 
             gap_dist[p] = part_gap_dist[local_p]
@@ -103,16 +108,16 @@ def get_gap_dist(particles, config, max_tri_dist, use_angular=False, only_neighb
     else:
                 
         if DIM == 2:
-            comp = chomology.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
         elif DIM == 3:
-            comp = chomology.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
         
         if use_angular:
-            gap_dist = chomology.calc_angular_gap_distribution(particles, alpha_vals, comp, max_dist=max_tri_dist, verbose=verbose)
+            gap_dist = phom.calc_angular_gap_distribution(particles, alpha_vals, comp, max_dist=max_tri_dist, verbose=verbose)
         else:
-            gap_dist = chomology.calc_radial_gap_distribution(particles, alpha_vals, comp, max_dist=max_tri_dist, verbose=verbose)
+            gap_dist = phom.calc_radial_gap_distribution(particles, alpha_vals, comp, max_dist=max_tri_dist, verbose=verbose)
         
         
     col_set = set()
@@ -208,11 +213,11 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
         (neigh_NP, neighborhood, neigh_pos, neigh_rad2) = get_neighborhood(particle, config, max_neigh_dist)
 
         if DIM == 2:
-            comp = chomology.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-            alpha_vals = chomology.calc_alpha_vals_2D(neigh_pos, neigh_rad2, comp, box_mat, periodic=False, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+            alpha_vals = phom.calc_alpha_vals_2D(neigh_pos, neigh_rad2, comp, box_mat, periodic=False, alpha0=-r2norm)
         elif DIM == 3:
-            comp = chomology.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-            alpha_vals = chomology.calc_alpha_vals_3D(neigh_pos, neigh_rad2, comp, box_mat, periodic=False, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+            alpha_vals = phom.calc_alpha_vals_3D(neigh_pos, neigh_rad2, comp, box_mat, periodic=False, alpha0=-r2norm)
             
         local_p = np.argwhere(neighborhood == particle)[0][0]
         
@@ -220,16 +225,16 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
     else:
         
         if DIM == 2:
-            comp = chomology.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
         elif DIM == 3:
-            comp = chomology.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
             
         local_p = particle
     
     
-    filt = chomology.construct_filtration(alpha_vals, comp)
+    filt = phom.construct_filtration(alpha_vals, comp)
 
     pyfilt = homology.construct_filtration(comp, filt, label=False)
 
@@ -252,20 +257,20 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
     
     cycles = {}
     for dim in [1, 2]:
-#         cycles[dim] = chomology.calc_optimal_cycles(filt, comp, weights, dim=dim, verbose=False)
+#         cycles[dim] = phom.calc_optimal_cycles(filt, comp, weights, dim=dim, verbose=False)
         
 #         print(cycles[dim])
 
-#         cycles[dim] = chomology.calc_optimal_homologous_cycles(filt, comp, weights, dim=dim, verbose=False)
+#         cycles[dim] = phom.calc_optimal_homologous_cycles(filt, comp, weights, dim=dim, verbose=False)
         
 #         print(cycles[dim])
         
         
-        cycles[dim] = chomology.calc_homologous_birth_cycles(filt, comp, dim=dim)
+        cycles[dim] = phom.calc_homologous_birth_cycles(filt, comp, dim=dim)
         
 #         print(cycles[dim])
     
-    dists = chomology.find_all_tri_distances(local_p, comp, max_tri_dist)
+    dists = phom.find_all_tri_distances(local_p, comp, max_tri_dist)
 
     s_list = []
     for n, (i, j) in enumerate(pairs):
@@ -277,7 +282,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
             if dists[j] > max_tri_dist:
                 continue
             
-            verts = list(chomology.get_star(j, True, comp, 0))
+            verts = list(phom.get_star(j, True, comp, 0))
             
             
             
@@ -288,7 +293,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
             dedge_types = []
             
 
-            for e in chomology.get_star(j, True, comp, 1):
+            for e in phom.get_star(j, True, comp, 1):
 
                 if filt.get_time(e) / r2norm < 0.0:
                     continue
@@ -350,7 +355,7 @@ def get_persistence_diag(particle, config,  max_tri_dist, only_neighbor=False, m
 #             else:
         
         
-#                 feature = chomology.extract_persistence_feature(i, j, neigh_comp, filt, target_dim=0)
+#                 feature = phom.extract_persistence_feature(i, j, neigh_comp, filt, target_dim=0)
                             
 #                 min_dist = 1e6
 #                 for c in feature:
@@ -392,17 +397,17 @@ def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_nei
             (neigh_NP, neighborhood, neigh_pos, neigh_rad2) = get_neighborhood(p, config, max_neigh_dist)
 
             if DIM == 2:
-                neigh_comp = chomology.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-                alpha_vals = chomology.calc_alpha_vals_2D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+                neigh_comp = phom.construct_alpha_complex_2D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = phom.calc_alpha_vals_2D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
             elif DIM == 3:
-                neigh_comp = chomology.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
-                alpha_vals = chomology.calc_alpha_vals_3D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
+                neigh_comp = phom.construct_alpha_complex_3D(neigh_NP, neigh_pos, neigh_rad2, box_mat, periodic=False)
+                alpha_vals = phom.calc_alpha_vals_3D(neigh_pos, neigh_rad2, neigh_comp, box_mat, periodic=False, alpha0=-r2norm)
                 
             local_p = np.argwhere(neighborhood == p)[0][0]
                       
             vtypes = np.where(neigh_rad2 == r2norm, 's', 'l')
 
-            part_cycle_dist = chomology.calc_radial_cycle_distribution([local_p], alpha_vals, vtypes, neigh_comp, max_dist=max_tri_dist)
+            part_cycle_dist = phom.calc_radial_cycle_distribution([local_p], alpha_vals, vtypes, neigh_comp, max_dist=max_tri_dist)
                 
                 
             cycle_dist[p] = part_cycle_dist[local_p]
@@ -410,16 +415,16 @@ def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_nei
     else:
                 
         if DIM == 2:
-            comp = chomology.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_2D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_2D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
         elif DIM == 3:
-            comp = chomology.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
-            alpha_vals = chomology.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+            comp = phom.construct_alpha_complex_3D(NP, pos, rad2, box_mat, periodic=True)
+            alpha_vals = phom.calc_alpha_vals_3D(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
         
    
         vtypes = np.where(rad2 == r2norm, 's', 'l')
     
-        cycle_dist = chomology.calc_radial_cycle_distribution(particles, alpha_vals, vtypes, comp, max_dist=max_tri_dist, verbose=verbose)
+        cycle_dist = phom.calc_radial_cycle_distribution(particles, alpha_vals, vtypes, comp, max_dist=max_tri_dist, verbose=verbose)
         
         
         

@@ -1,23 +1,16 @@
 #ifndef CUBICALCOMPLEX_HPP
 #define CUBICALCOMPLEX_HPP
  
-#include <Eigen/Core>
-#include <Eigen/Dense>
-
-typedef Eigen::VectorXd XVec;
-typedef Eigen::MatrixXd XMat;
+#include "eigen_macros.hpp"
+#include "cell_complex.hpp"
+#include "filtration.hpp"
 
 #include <map>
 #include <algorithm>
 #include <vector>   
 #include "math.h"
     
-#include "cell_complex.hpp"
-#include "filtration.hpp"
-    
-    
 
-    
 
 CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bool dual) {
     
@@ -57,6 +50,8 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
     std::vector<int> multi_index(dim, 0);
     for(int k = 0; k <= dim; k++) {
         
+        py::print(k, py::arg("flush")=true);
+        
         for(int i = 0; i < size; i++) {
 
             // For dimension k cells, iterate through every combination of k coordinates
@@ -86,7 +81,6 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                 // List of vertices comprising cell
                 std::vector<int> verts;
                           
-                // this is not correct and i don't use the coords list
                 // Go through every subset of coordinates and add vertex
                 for(int p = 0; p < (int) pow(2, k); p++) {
                     
@@ -132,6 +126,7 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                 
                 std::vector<int> coeffs;
                 
+                py::print("facet", label, py::arg("flush")=true);
                 
                 
                 comp.add_cell(label, k, facets, coeffs);
@@ -163,7 +158,13 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
         
     }
     
+    py::print("cofacets", py::arg("flush")=true);
+    
     comp.construct_cofacets();
+    
+    
+    py::print("compressing", py::arg("flush")=true);
+    
     comp.make_compressed(); 
         
     return comp;
@@ -257,6 +258,139 @@ CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vecto
     
 }
 
+
+CellComplex construct_hypercube_complex(int dim, bool verbose=false) {
+    
+    CellComplex comp(dim);
+    
+   int ncells = 0;
+        
+    // Map of cell dimension to map of cell vertex list to cell index
+    std::vector<std::map<std::vector<int>, int> > verts_to_cell(dim+2, std::map<std::vector<int>, int>());
+    
+    for(int k = 0; k <= dim; k++) {
+        
+        if(verbose) {
+            py::print("dimension:", k, py::arg("flush")=true);
+        }
+        
+        // For dimension k cells, iterate through every combination of k planar coordinates
+        std::vector<bool> plane_mask(k, true);
+        plane_mask.resize(dim, false);
+        do { 
+        
+            std::vector<int> plane_coords;
+            std::vector<int> perp_coords;
+            for(int m = 0; m < dim; m++) {
+                if(plane_mask[m]) {
+                    plane_coords.push_back(m);
+                } else {
+                    perp_coords.push_back(m);
+                }
+            }
+
+
+            // Iterate through all 2^(dim-k) possible combinations of perpendicular offsets
+            for(int p1 = 0; p1 < (int) pow(2, dim-k); p1++) {
+
+                // Turn on coords of offset
+                std::vector<bool> coords(dim, false);
+                for(int q = 0; q < dim-k; q++) {
+                    // Check if qth bit is on
+                    coords[perp_coords[q]] = (p1 & (1 << q));
+                }
+                                
+                // Find all 2k facets in offset plane that comprise cell
+                std::vector<int> facets;
+                
+                // Choose one extra direction that each facet is perpendicular to
+                // Each facet is perpendicular to all the same directions as the cell (perp_coords)
+                // But also this additional direction
+                for(auto facet_perp_coord: plane_coords) {
+                    
+                    
+                    std::vector<int> facet_plane_coords = plane_coords;
+                    facet_plane_coords.erase(
+                        std::remove(facet_plane_coords.begin(), facet_plane_coords.end(), facet_perp_coord),
+                              facet_plane_coords.end());
+                    
+                    std::vector<int> facet_verts1;
+                    std::vector<int> facet_verts2;
+                    // Find all 2^(k-1) vertices in the offset plane that comprise cell 
+                    for(int p2 = 0; p2 < (int) pow(2, k-1); p2++) {
+                        
+                        // Check if qth bit is on
+                        for(int q = 0; q < k-1; q++) {
+                            coords[facet_plane_coords[q]] = (p2 & (1 << q));
+                        }
+                        
+                        //First turn perp direction off
+                        coords[facet_perp_coord] = false;
+                        
+                        int vlabel = std::accumulate(coords.rbegin(), coords.rend(), 0, 
+                                                 [](int x, int y) { return (x << 1) + y; });
+                        
+                        facet_verts1.push_back(vlabel);
+                        
+                        //Next turn perp direction on
+                        coords[facet_perp_coord] = true;
+                        
+                        vlabel = std::accumulate(coords.rbegin(), coords.rend(), 0, 
+                                                 [](int x, int y) { return (x << 1) + y; });
+                        
+                        facet_verts2.push_back(vlabel);
+      
+                    }
+                    
+                    facets.push_back(verts_to_cell[k][facet_verts1]);
+                    facets.push_back(verts_to_cell[k][facet_verts2]);
+                    
+                }
+                
+                
+                int label = verts_to_cell[k+1].size();
+                
+                std::vector<int> coeffs;
+
+
+                comp.add_cell(label, k, facets, coeffs);
+
+                
+                
+                // List of vertices comprising cell
+                std::vector<int> verts;
+                          
+                // Go through every subset of coordinates and add vertex
+                for(int p2 = 0; p2 < (int) pow(2, k); p2++) {
+                    
+                    // Check if qth bit is on
+                    for(int q = 0; q < k; q++) {
+                        coords[plane_coords[q]] = (p2 & (1 << q));
+                    }
+                    
+                    int vlabel = std::accumulate(coords.rbegin(), coords.rend(), 0, 
+                                                 [](int x, int y) { return (x << 1) + y; });
+                    
+                    
+                    verts.push_back(vlabel);
+                    
+                }
+                                
+                // Store list of cells
+                verts_to_cell[k+1][verts] = ncells;
+                ncells++;
+                
+            }
+            
+        } while(std::prev_permutation(plane_mask.begin(), plane_mask.end()));
+            
+    }
+    comp.construct_cofacets();
+    comp.make_compressed(); 
+        
+    return comp;
+    
+}
 
 
 // CellComplex construct_masked_cubical_complex(std::vector<bool> &mask, std::vector<int> &shape, bool oriented, bool dual) {

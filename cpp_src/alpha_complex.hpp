@@ -1,27 +1,12 @@
 #ifndef ALPHACOMPLEX_HPP
 #define ALPHACOMPLEX_HPP
     
-    
-#include <Eigen/Core>
-#include <Eigen/Dense>
-
-typedef Eigen::VectorXd XVec;
-typedef Eigen::MatrixXd XMat;
-typedef Eigen::Ref<XVec > RXVec;
-typedef Eigen::Map<XVec > XVecMap;
-
 
 // d-dimensional triangulations
 #include <CGAL/Epick_d.h>
 // #include <CGAL/Delaunay_triangulation.h>
 #include <CGAL/Regular_triangulation.h>
     
-// 3-dimensional triangulations
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Periodic_3_regular_triangulation_3.h>
-#include <CGAL/Periodic_3_regular_triangulation_traits_3.h>
-#include <CGAL/Triangulation_vertex_base_with_info_3.h>
-
 #include <vector>
 #include <map>
 #include <unordered_map>
@@ -29,69 +14,68 @@ typedef Eigen::Map<XVec > XVecMap;
 #include <algorithm>
 #include <utility>
     
+#include "eigen_macros.hpp"  
+#include "embedding.hpp"
 #include "cell_complex.hpp"
-#include "cell_complex_search.hpp"
+#include "filtration.hpp"
     
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
     
 
 
-template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, std::vector<double> &weights, 
-                                                       Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, bool periodic=false) {
-     
-    
-     // Map of lists of vertices of all simplices to index of simplex in comp
-    
+template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed, 
+                                                       std::vector<double> &weights, bool oriented=false) {
         
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    
     
     // d-dimensional Kernel used to define Euclidean space (R^d)
     typedef CGAL::Epick_d< CGAL::Dimension_tag<DIM> > Kernel;
 
     // Triangulation data structure 
-    // Explicitly defined in order to stick an integer label into each Triangulation_vertex
-    typedef CGAL::Triangulation_data_structure<typename Kernel::Dimension,
-                                            CGAL::Triangulation_vertex<CGAL::Regular_triangulation_traits_adapter<Kernel>, int>,
-                                            CGAL::Triangulation_full_cell<CGAL::Regular_triangulation_traits_adapter<Kernel> > >
-                                                Triangulation_data_structure;
+    // Template info is explicitly defined in order to stick an integer label into each Triangulation_vertex
+    typedef CGAL::Triangulation_data_structure<
+                typename Kernel::Dimension,
+                CGAL::Triangulation_vertex<CGAL::Regular_triangulation_traits_adapter<Kernel>, int>,
+                CGAL::Triangulation_full_cell<CGAL::Regular_triangulation_traits_adapter<Kernel> > >
+                    Triangulation_data_structure;
+    
     // Regular Delaunay triangulation
     typedef CGAL::Regular_triangulation<Kernel, Triangulation_data_structure> Regular_triangulation;
-
-
     // d-dimensional point
     typedef typename Kernel::Point_d Point;
     // d-dimensional weighted point
     typedef typename Kernel::Weighted_point_d WPoint;
 
-    // Triangulation object
-    Regular_triangulation t(DIM);
-
     
+    // Triangulation object
+    Regular_triangulation tri(DIM);
+    
+    // Map of lists of vertices of all simplices to index of simplex in alpha complex
     std::map<std::vector<int> , int> simplex_to_index;
 
-    CellComplex del_comp(DIM, true, true);
+    CellComplex alpha_comp(DIM, true, oriented);
+    
+    int NV = embed.NV;
 
     // Add all vertices to cell complex
     for(int i = 0; i < NV; i++) {
 
-        DVec pos = box_mat * vert_pos.segment<DIM>(DIM*i);
+        DVec pos = embed.get_pos(i);
         std::vector<double> coords(pos.data(), pos.data()+DIM);
         WPoint w(Point(coords.begin(), coords.end()), weights[i]);
 
-        auto vertex = t.insert(w);
+        auto vertex = tri.insert(w);
         vertex->data() = i;
 
         std::vector<int> facets;
         std::vector<int> coeffs;
-        del_comp.add_cell(i, 0, facets, coeffs);
+        alpha_comp.add_cell(i, 0, facets, coeffs);
 
         simplex_to_index.emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
     }
     
     
-    if(periodic) {
+    if(embed.periodic) {
         
         
         // First create list of images represented by the offset from the main image
@@ -130,12 +114,12 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
             
             for(int i = 0; i < NV; i++) {
 
-                DVec pos = box_mat * (vert_pos.segment<DIM>(DIM*i) + offset);
+                DVec pos = embed.box_mat * (embed.get_vpos(i) + offset);
                 
                 std::vector<double> coords(pos.data(), pos.data()+DIM);
                 WPoint w(Point(coords.begin(), coords.end()), weights[i]);
 
-                auto vertex = t.insert(w);
+                auto vertex = tri.insert(w);
                 vertex->data() = vi;
 
                 vi++;
@@ -148,10 +132,10 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
 
 
 
-    // py::print("Regular triangulation successfully computed: " , t.number_of_vertices(), " vertices, ",
-    // t.number_of_finite_full_cells()," finite cells.");
+    // py::print("Regular triangulation successfully computed: " , tri.number_of_vertices(), " vertices, ",
+    // tri.number_of_finite_full_cells()," finite cells.");
 
-//     for(auto it = t.finite_full_cells_begin(); it != t.finite_full_cells_end(); it++) {
+//     for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
 //         py::print("Cell:");
 
 //         for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
@@ -167,7 +151,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
 
         int label = 0;
 
-        for(auto it = t.finite_full_cells_begin(); it != t.finite_full_cells_end(); it++) {
+        for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
 
             bool has_central_image = false;
             std::vector<int> vertices;
@@ -210,7 +194,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
                     continue;
                 }
 
-                simplex_to_index[simplex] = del_comp.ncells;
+                simplex_to_index[simplex] = alpha_comp.ncells;
 
                 // Find facets
                 std::vector<int> facets;
@@ -221,7 +205,7 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
                     facets.push_back(simplex_to_index[facet]);
                     coeffs.push_back(-2*(j%2)+1);
                 }
-                del_comp.add_cell(label, d, facets, coeffs);
+                alpha_comp.add_cell(label, d, facets, coeffs);
                 label++;
 
             } while(std::prev_permutation(mask.begin(), mask.end()));
@@ -232,32 +216,30 @@ template <int DIM> CellComplex construct_alpha_complex(int NV, RXVec vert_pos, s
         
     // }
     
-    del_comp.construct_cofacets();
-    del_comp.make_compressed(); 
+    alpha_comp.construct_cofacets();
+    alpha_comp.make_compressed(); 
     
-    return del_comp;
+    return alpha_comp;
     
 }
 
 
-template <int DIM> double calc_power_distance(double alpha, Eigen::Matrix<double, DIM, 1> a, Eigen::Matrix<double, DIM, 1> pos, double weight) {
+template <int DIM> double calc_power_distance(double alpha, DVec a, DVec pos, double weight=0.0) {
     return (a - pos).squaredNorm() - weight - alpha;
 }
 
 
-template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circumsphere(std::vector<int> &vertices, RXVec vert_pos, std::vector<double> &weights, 
-                                                                                        Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, bool periodic=false) {
+template <int DIM> std::tuple<double, DVec > calc_circumsphere(std::vector<int> &vertices, 
+                                                               Embedding<DIM> &embed, std::vector<double> &weights) {
     
     
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
     
     // Find vertex positions relative to first vertex
     XMat X = XMat::Zero(DIM, vertices.size());
     for(std::size_t i = 0; i < vertices.size(); i++) {
-        X.block<DIM, 1>(0, i) = vert_pos.segment<DIM>(DIM*vertices[i]);
+        X.block<DIM, 1>(0, i) = embed.get_vpos(vertices[i]);
         
-        if(periodic && i > 0) {
+        if(embed.periodic && i > 0) {
             DVec bvec = X.block<DIM, 1>(0, i) - X.block<DIM, 1>(0, 0);
             
             for(int d = 0; d < DIM; d++) {
@@ -274,7 +256,7 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
     
     // Scale vertex positions to box size and shape
     for(std::size_t i = 0; i < vertices.size(); i++) {
-        X.block<DIM, 1>(0, i) = box_mat * X.block<DIM, 1>(0, i);
+        X.block<DIM, 1>(0, i) = embed.box_mat * X.block<DIM, 1>(0, i);
     }
     
     if(vertices.size() == 1) {
@@ -283,10 +265,6 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
         
         XMat A = XMat::Zero(DIM+1, DIM+1);
         
-        // for(std::size_t i = 0; i < DIM+1; i++) {
-        //     A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
-        // }
-        
         A.block<DIM+1, DIM>(0, 0) = 2.0 * X.block<DIM, DIM+1>(0, 0).transpose();
         
         A.block<DIM+1,1>(0, DIM) = XVec::Ones(DIM+1);        
@@ -294,7 +272,6 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
         XVec b = XVec::Zero(DIM+1);
         for(std::size_t i = 0; i < DIM+1; i++) {
             int vi = vertices[i];
-            // b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
             
             b(i) = X.block<DIM, 1>(0, i).squaredNorm() - weights[vi];
         }
@@ -307,18 +284,9 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
         
         XMat A = XMat::Zero(DIM+vertices.size(), DIM+vertices.size());
         
-        // for(std::size_t i = 0; i < vertices.size(); i++) {
-        //     A.block<1,DIM>(i, 0) = 2.0*vert_pos.segment<DIM>(DIM*vertices[i]);
-        // }
-        
         A.block(0, 0, vertices.size(), DIM) = 2.0 * X.block(0, 0, DIM, vertices.size()).transpose();
         
         A.block(0, DIM, vertices.size(), 1) = XVec::Ones(vertices.size());
-        
-        // DVec v0 = vert_pos.segment<DIM>(DIM*vertices[0]);
-        // for(std::size_t i = 1; i < vertices.size(); i++) {
-        //     A.block<DIM,1>(vertices.size(), DIM+i) = v0 - vert_pos.segment<DIM>(DIM*vertices[i]);
-        // }
         
         DVec v0 = X.block<DIM, 1>(0, 0);
         for(std::size_t i = 1; i < vertices.size(); i++) {
@@ -327,19 +295,14 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
         
         A.block<DIM, DIM>(vertices.size(), 0) = DMat::Identity();
         
-        
         XVec b = XVec::Zero(DIM+vertices.size());
         for(std::size_t i = 0; i < vertices.size(); i++) {
-            int vi = vertices[i];
-            // b(i) = vert_pos.segment<DIM>(DIM*vi).squaredNorm() - weights[vi];
-            
+            int vi = vertices[i];            
             b(i) = X.block<DIM, 1>(0, i).squaredNorm() - weights[vi];
         }
         
         b.segment<DIM>(vertices.size()) = v0;
-        
-        // py::print(A, b, py::arg("flush")=true);
-        
+                
         XVec x = A.partialPivLu().solve(b);
             
         return std::make_tuple(x(DIM) + x.segment<DIM>(0).squaredNorm(), x.segment<DIM>(0));
@@ -349,16 +312,13 @@ template <int DIM> std::tuple<double, Eigen::Matrix<double, DIM, 1> > calc_circu
     
 }
 
-template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vector<double> &weights, CellComplex &comp, 
-                                                       Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat, 
-                                                       bool periodic=false, double alpha0 = -1.0) {
+template <int DIM> XVec calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed, 
+                                                       std::vector<double> &weights, double alpha0 = -1.0) {
         
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
     
-    DMat box_mat_inv = box_mat.inverse();
+    DMat box_mat_inv = embed.box_mat.inverse();
     
-    std::vector<double> alpha_vals(comp.ncells);
+    XVec alpha_vals = XVec::Zero(comp.ncells);
         
     for(int c = comp.ncells-1; c >= 0; c--) {
         
@@ -368,14 +328,14 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
             continue;
         }
         
-        std::unordered_set<int> verts = get_star(c, true, comp, 0);
+        std::unordered_set<int> verts = comp.get_faces(c, 0);
         
         double alpha;
         DVec a;
         std::vector<int> tmp(verts.begin(), verts.end());
-        std::tie(alpha, a) = calc_circumsphere<DIM>(tmp, vert_pos, weights, box_mat, periodic);
+        std::tie(alpha, a) = calc_circumsphere<DIM>(tmp, embed, weights);
         
-        alpha_vals[c] = alpha;
+        alpha_vals(c) = alpha;
         
         // Skip highest dimension triangles
         if(comp.get_dim(c) == DIM) {
@@ -390,20 +350,20 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
         // We must detect simplices that don't obey #1 and change their value of alpha to that of their youngest coface
         
         // Find cofaces of dimension DIM
-        auto cofaces = get_star(c, false, comp, DIM);
+        auto cofaces = comp.get_cofaces(c, DIM);
                 
         bool conflict = false;
         // For each coface get the list of its vertices and check if any fall inside the circumsphere of c
         for(auto cf: cofaces) {
             
-            std::unordered_set<int> coface_verts = get_star(cf, true, comp, 0);
+            std::unordered_set<int> coface_verts = comp.get_faces(cf, 0);
             
             for(auto vi: coface_verts) {
 
                 // If inside the circumsphere, mark as conflict and continue
-                DVec x = vert_pos.segment<DIM>(DIM*vi);
+                DVec x = embed.get_vpos(vi);
                 
-                if(periodic) {
+                if(embed.periodic) {
                     DVec bvec = x - box_mat_inv * a;
             
                     for(int d = 0; d < DIM; d++) {
@@ -415,7 +375,7 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
                     x = a + bvec;
                 }
                 
-                x = box_mat * x;
+                x = embed.box_mat * x;
                 
                 if(!verts.count(vi) && calc_power_distance(alpha, a, x, weights[vi]) < 0.0) {
                     conflict = true;
@@ -443,12 +403,12 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
         auto cofacets = comp.get_cofacets(c);
         double conflict_alpha = 1e10;
         for(auto cf: cofacets) { 
-            if(alpha_vals[cf] < conflict_alpha) {
-                conflict_alpha = alpha_vals[cf];
+            if(alpha_vals(cf) < conflict_alpha) {
+                conflict_alpha = alpha_vals(cf);
             }
         }
         
-        alpha_vals[c] = conflict_alpha;
+        alpha_vals(c) = conflict_alpha;
         
         
     }
@@ -456,6 +416,337 @@ template <int DIM> std::vector<double> calc_alpha_vals(RXVec vert_pos, std::vect
     return alpha_vals;
     
 }
+
+
+template <int DIM> Filtration construct_alpha_filtration(CellComplex &comp, Embedding<DIM> &embed, 
+                                                         std::vector<double> &weights, double alpha0 = -1.0) {
+    
+    auto alpha_vals = calc_alpha_vals<DIM>(comp, embed, weights, alpha0);
+
+    return construct_filtration(comp, alpha_vals);
+    
+}
+
+//////////////////////////////////////////////////////////////////////////
+//Simplification
+//////////////////////////////////////////////////////////////////////////
+
+template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_vals, double threshold=0.0) {
+ 
+    std::vector<int> disjoint_set(comp.ncells);
+    std::iota(disjoint_set.begin(), disjoint_set.end(), 0);
+    
+        
+    CellComplex simp_comp(DIM, true, false);
+    
+    std::vector<int> full_to_reduced(comp.ncells, -1);
+    for(int c = 0; c < comp.dcell_begin[DIM]; c++) {
+        
+        // Find all edges
+        auto edges = comp.get_faces(c, 1);
+        
+        // Check if any edge has alpha value larger than threshold
+        bool prune = false;
+        for(auto ei: edges) {
+            if(alpha_vals[ei] > threshold) {
+                prune = true;
+                disjoint_set[c] = -1;
+                break;
+            }
+        }
+        
+        if(prune && comp.get_dim(c) == DIM - 1) {
+            // Join cofacets
+            std::vector<int> cofacets = comp.get_cofacets(c);
+            
+            std::sort(cofacets.begin(), cofacets.end());
+            for(std::size_t i = 1; i < cofacets.size(); i++) {
+                
+                int rooti = cofacets[i];
+                while(disjoint_set[rooti] != rooti) {
+                    rooti = disjoint_set[rooti];
+                }
+                
+                
+                int root0 = cofacets[0];
+                while(disjoint_set[root0] != root0) {
+                    root0 = disjoint_set[root0];
+                }
+                
+                if(root0 < rooti) {
+                    disjoint_set[rooti] = root0;
+                } else {
+                    disjoint_set[root0] = rooti;
+                }
+                
+                
+            }
+            
+//             if(c == 16372) {
+//                 py::print("heyo", cofacets);
+                
+//                 for(auto cf: cofacets) {
+//                     py::print(cf, disjoint_set[cf]);
+//                 }
+//             }
+            
+            
+        }
+        
+        if(prune) {
+            continue;
+        }
+        
+        // If not pruning, then add to cell complex
+        std::vector<int> facets;
+        auto frange = comp.get_facet_range(c);
+        for(auto it=frange.first; it!= frange.second; it++) {
+            facets.push_back(full_to_reduced[*it]);
+        }
+        
+        std::vector<int> coeffs;
+        auto crange = comp.get_coeff_range(c);
+        for(auto it=crange.first; it!= crange.second; it++) {
+            coeffs.push_back(*it);
+        }
+        
+        full_to_reduced[c] = simp_comp.ncells;
+        
+        simp_comp.add_cell(simp_comp.ndcells[comp.get_dim(c)], comp.get_dim(c), facets, coeffs);
+        
+    }
+           
+    std::map<int, std::set<int> > tris;
+    for(int c = comp.dcell_begin[DIM]; c < comp.dcell_begin[DIM]+comp.ndcells[DIM]; c++) {
+        
+        int root = c;
+        while(disjoint_set[root] != root) {
+            root = disjoint_set[root];
+        }
+        
+//         if(c == 24549 || c == 24554) {
+//             py::print(c, "root", root, disjoint_set[c]);
+//         }
+    
+        tris[root].insert(c);
+                
+    }
+    
+    for(auto pair: tris) {
+        
+        int c = pair.first;
+        
+//         std::unordered_set<int> facet_set;
+        std::unordered_map<int, int> facet_set;
+        for(auto alpha: pair.second) {
+            
+            // This might need to be implemented with symmetric difference addition
+            // However, this seems to result in removed edges being incorrectly added as facets
+            // Might be better to deal with coefficients
+            for(auto beta: comp.get_facets(alpha)) {
+                
+                if(facet_set.count(beta)) {
+                    facet_set[beta]++;
+                } else {
+                    facet_set[beta] = 1;
+                }
+                
+//                 if(disjoint_set[beta] != -1) {
+//                     facet_set.insert(beta);
+//                 }
+            }
+            
+        }
+        
+//         if(c == 24549 || c == 24554) {
+//             py::print(c, facet_set);
+//         }
+        
+        std::vector<int> facets;
+        for(auto pair: facet_set) {
+            
+            
+            if(pair.second % 2 == 0) {
+                continue;
+            }
+            
+            int alpha = pair.first;
+
+            
+            if(full_to_reduced[alpha] == -1) {
+//             if(alpha == 16372) {
+                py::print("help!", alpha, pair.second, alpha_vals[alpha], py::arg("flush")=true);
+                
+                for(auto beta: comp.get_cofacets(alpha)) {
+                    py::print("cofacet", beta, comp.get_facets(beta));
+                }
+            }
+            
+            facets.push_back(full_to_reduced[alpha]);
+        }
+        
+        // Coefficients are not treated here
+        std::vector<int> coeffs;
+        
+        
+        
+        full_to_reduced[c] = simp_comp.ncells;
+        
+        simp_comp.add_cell(simp_comp.ndcells[comp.get_dim(c)], comp.get_dim(c), facets, coeffs);
+        
+        
+    }
+    
+    simp_comp.construct_cofacets();
+    simp_comp.make_compressed();
+
+    return simp_comp;
+    
+    
+}
+
+//////////////////////////////////////////////////////////////////////////
+//Deformations
+//////////////////////////////////////////////////////////////////////////
+
+template <int DIM> std::tuple<XVec, XVec > 
+            calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
+    
+    
+    XVec eps_shear = XVec::Zero(comp.ndcells[DIM]);
+    XVec eps_comp = XVec::Zero(comp.ndcells[DIM]);
+    
+    for(int c = comp.dcell_begin[DIM]; c < comp.ncells; c++) {
+        
+        auto vset = comp.get_faces(c, 0);
+        
+        std::vector<int> verts(vset.begin(), vset.end());
+        
+        
+        int vi = verts[0];
+        
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+        
+        
+        for(int m = 0; m < DIM; m++) {  
+
+            int vj = verts[1+m];
+            DVec bvec = embed.get_vpos(vj); - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            X += bvec * bvec.transpose();
+            Y += du * bvec.transpose();
+
+        }
+        
+        DMat F = Y * X.inverse();
+        
+        DMat eps = 0.5 * (F + F.transpose());
+        
+        eps_comp(comp.get_label(c)) = eps.trace();
+                
+        eps_shear(comp.get_label(c)) = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
+        
+    }
+    
+    return std::forward_as_tuple(eps_comp, eps_shear);
+    
+    
+    
+    
+}
+
+
+template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
+    
+        
+    XVec D2min = XVec::Zero(embed.NV);
+        
+    for(int vi = 0; vi < comp.ndcells[0]; vi++) {        
+                
+        // get edges
+        auto eset = comp.get_cofacets(vi);
+        
+        std::unordered_set<int> verts;
+        
+        for(auto e: eset) {
+            auto vset = comp.get_facets(e);
+            verts.insert(vset.begin(), vset.end());
+        }
+        
+        verts.erase(vi);
+                
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+        
+        
+        for(auto vj: verts) {  
+
+            DVec bvec = embed.get_vpos(vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            X += du * bvec.transpose();
+            Y += bvec * bvec.transpose();
+
+        }
+        
+        DMat eps = X * Y.inverse(); 
+        
+        
+        for(auto vj: verts) {  
+
+            DVec bvec = embed.get_vpos(vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+            
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+            D2min(vi) += (du - eps*bvec).squaredNorm();
+
+        }
+        
+    }
+    
+    return D2min;
+    
+    
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+//Cell type counting
+//////////////////////////////////////////////////////////////////////////
 
 
 std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > > 
@@ -476,7 +767,7 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
         std::map<int, int> gaps;
         std::map<int, int> overlaps;
         
-        auto dists = find_all_tri_distances(c, comp, max_dist);
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
         
         for(int i = 0; i < comp.ncells; i++) {
             if(comp.get_dim(i) != 1 || dists[i] <= 0) {
@@ -497,6 +788,53 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
     }
     
     return gap_distribution;
+    
+    
+}
+
+
+std::unordered_map<int, std::map<int, std::map<int, int> >  >
+    calc_radial_tri_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    
+    // particle->dist->triangle_type->count
+    std::unordered_map<int, std::map<int, std::map<int, int> > > tri_distribution;
+    
+    int index = 0;
+    for(auto c: cell_list) {
+        
+        if(verbose && index % 500 == 0) {
+            py::print(index, "/", cell_list.size(), py::arg("flush")=true);
+        }
+        
+        index++;
+        
+        std::map<int, std::map<int, int> > tris;
+        
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
+        
+        for(int i = comp.dcell_begin[comp.dim]; i < comp.dcell_begin[comp.dim]+comp.ndcells[comp.dim]; i++) {
+            if(dists[i] <= 0) {
+                continue;
+            }
+            
+            auto edges = comp.get_faces(i, 1);
+            
+            int gap_count = 0;
+            
+            for(auto e: edges) {
+                if(alpha_vals[e] > 0.0) {
+                    gap_count++;
+                }
+            }
+            
+            tris[dists[i]][gap_count]++;
+        }
+        
+        tri_distribution[c] = tris;
+        
+    }
+    
+    return tri_distribution;
     
     
 }
@@ -523,7 +861,7 @@ std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
         std::map<int, std::map<int, int> > overlap_overlap;
         std::map<int, std::map<int, int> > gap_overlap;
         
-        auto dists = find_all_tri_distances(c, comp, max_dist);
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
         
         int max_rad_dist;
         if(max_dist == -1) {
@@ -549,7 +887,7 @@ std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
                                 
                 double alphaa = alpha_vals[a];
                 
-                auto layer_dists = find_search_zone_distances(a, dist_sets[i], comp);
+                auto layer_dists = calc_comp_point_dists_search_zone(a, dist_sets[i], comp);
                             
                 for(auto pair: layer_dists) {
                     
@@ -627,7 +965,7 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
         index++;
         
         
-        auto dists = find_all_tri_distances(c, comp, max_dist);
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
         
         for(int i = 0; i < comp.ncells; i++) {
             if(dists[i] <= 0) {
@@ -635,8 +973,8 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
             }
             
             
-            auto verts = get_star(i, true, comp, 0);
-            auto edges = get_star(i, true, comp, 1);
+            auto verts = comp.get_faces(i, 0);
+            auto edges = comp.get_faces(i, 1);
             
             std::vector<std::string> vtypes_list;
             for(auto v: verts) {
@@ -690,154 +1028,6 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
     
     
 }
-
-
-template <int DIM> std::tuple<std::vector<double>, std::vector<double> > 
-            calc_strains(RXVec disp, RXVec vert_pos, CellComplex &comp,
-                                                             Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
-    
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
-    
-    std::vector<double> eps_shear(comp.ncells, 0.0);
-    std::vector<double> eps_comp(comp.ncells, 0.0);
-    
-    for(int c = 0; c < comp.ncells; c++) {
-        int d = comp.get_dim(c);
-        
-        if(d != DIM) {
-            continue;
-        }
-        
-        auto vset = get_star(c, true, comp, 0);
-        
-        std::vector<int> verts(vset.begin(), vset.end());
-        
-        
-        int vi = verts[0];
-        
-        DVec O = vert_pos.segment<DIM>(DIM*vi);
-        DVec uO = disp.segment<DIM>(DIM*vi);
-
-        DMat X = DMat::Zero();
-        DMat Y = DMat::Zero();
-        
-        
-        for(int m = 0; m < DIM; m++) {  
-
-            int vj = verts[1+m];
-            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
-            
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-                }
-            }
-            
-            bvec = box_mat * bvec;
-
-            DVec du = disp.segment<DIM>(DIM*vj) - uO;
-            
-            X += bvec * bvec.transpose();
-            Y += du * bvec.transpose();
-
-        }
-        
-        DMat eps = Y * X.inverse();
-        
-        eps = 0.5 * (eps + eps.transpose());
-        
-        eps_comp[c] = eps.trace();
-                
-        eps_shear[c] = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
-        
-    }
-    
-    return std::forward_as_tuple(eps_comp, eps_shear);
-    
-    
-    
-    
-}
-
-
-
-template <int DIM> std::vector<double> calc_voronoi_D2min(int NP, RXVec disp, RXVec vert_pos, CellComplex &comp,
-                                                             Eigen::Ref<Eigen::Matrix<double, DIM, DIM> > box_mat) {
-    
-    typedef Eigen::Matrix<double, DIM, 1> DVec;
-    typedef Eigen::Matrix<double, DIM, DIM> DMat;
-    
-    std::vector<double> D2min(NP, 0.0);    
-    
-    for(int vi = 0; vi < NP; vi++) {
-        
-        // get edges
-        auto eset = get_star(vi, false, comp, 1);
-        
-        std::unordered_set<int> verts;
-        
-        for(auto e: eset) {
-            auto vset = comp.get_facets(e);
-            verts.insert(vset.begin(), vset.end());
-        }
-        
-        verts.erase(vi);
-                
-        DVec O = vert_pos.segment<DIM>(DIM*vi);
-        DVec uO = disp.segment<DIM>(DIM*vi);
-
-        DMat X = DMat::Zero();
-        DMat Y = DMat::Zero();
-        
-        
-        for(auto vj: verts) {  
-
-            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
-            
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-                }
-            }
-            
-            bvec = box_mat * bvec;
-
-            DVec du = disp.segment<DIM>(DIM*vj) - uO;
-            
-            X += du * bvec.transpose();
-            Y += bvec * bvec.transpose();
-
-        }
-        
-        DMat eps = X * Y.inverse(); 
-        
-        
-        for(auto vj: verts) {  
-
-            DVec bvec = vert_pos.segment<DIM>(DIM*vj) - O;
-            
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-                }
-            }
-            
-            bvec = box_mat * bvec;
-
-            DVec du = disp.segment<DIM>(DIM*vj) - uO;
-            
-            D2min[vi] += (du - eps*bvec).squaredNorm();
-
-        }
-        
-    }
-    
-    return D2min;
-    
-    
-}
-
 
     
     
