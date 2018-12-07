@@ -793,14 +793,11 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
 }
 
 
-std::map<int,string> calc_gap_angle_class(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp,int num_angles=128  bool verbose=false) {
+template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, Embedding<DIM> &embed, int num_angles=128 , bool verbose=false) {
 
     // particle->(gaps[dist]->count, overlaps[dist]->count)
-    std::map<int,string> class_map;
-    for(int i = comp.dcell_begin[0]; i < comp.dcell_begin[0]+comp.ndcells[0]; i++) {
-        if(dists[i] <= 0) {
-            continue;
-        }
+    std::map<int,std::string> class_map;
+    for(int i = 0; i <comp.ndcells[0]; i++) {
 
         auto edges = comp.get_cofaces(i, 1);
 
@@ -808,10 +805,10 @@ std::map<int,string> calc_gap_angle_class(std::vector<int> cell_list, std::vecto
 
         for(auto e: edges) {
             if(alpha_vals[e] > 0.0) { //this is a gap
-              auto edge_vertices = comp.get_faces(e,0);
+              std::vector<int> edge_vertices = comp.get_faces(e,0);
               int j = (edge_vertices[0] == i) ? edge_vertices[1] : edge_vertices[0];
               //now determine vector and thereby angle
-              DVec v = get_vdiff(embed.get_pos(i), embed.get_pos(i));
+              DVec v = embed.get_vdiff(embed.get_pos(i), embed.get_pos(j));
               double theta = std::atan2(v[0] - std::sqrt(2), v[1] - std::sqrt(2));
               if (theta < 0.0)
                   theta +=2.0*M_PI;
@@ -824,28 +821,29 @@ std::map<int,string> calc_gap_angle_class(std::vector<int> cell_list, std::vecto
         //now we need to map to the single representative of our equivalence class
         //currently only works in 2d
         //representative = member of equivalence class with smallest small angle, smallest second small angle, etc...
-        auto x_reflect = [](int theta) {return num_angles - theta;}
-        auto y_reflect = [](int theta) {return (theta < num_angles/2 )? num_angles/2-theta :3*num_angles/2 - theta  }
+        auto x_reflect = [num_angles](int theta) {return num_angles - theta;};
+        auto y_reflect = [num_angles](int theta) {return (theta < num_angles/2 )? num_angles/2-theta :3*num_angles/2 - theta ; };
 
         std::vector< std::vector<int> > equiv_class;
         equiv_class[0] = gap_angles;
-        equiv_class[1] = std::transform(gap_angles.begin(),gap_angles.end(),x_reflect);
-        equiv_class[2] = std::transform(gap_angles.begin(),gap_angles.end(),y_reflect);
-        equiv_class[3] = std::transform(equiv_class[1].begin(),equiv_class[1].end(),y_reflect);
+        std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[1].begin(),x_reflect);
+        std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[2].begin(),y_reflect);
+        std::transform(equiv_class[1].begin(),equiv_class[1].end(),equiv_class[3].begin(),y_reflect);
 
-        for (int k = 0; k < 4; k++) { equiv_class[k]= std::sort(equiv_class[k].begin(),equiv_class[k].end());}
+        for (int k = 0; k < 4; k++) {  std::sort(equiv_class[k].begin(),equiv_class[k].end());}
 
-        auto lex_min = [std::vector<int> v, std::vector<int> w] {
-          return (std::lexicographical_compare(v.begin(),v.end(),w.begin(),w.end()) ? v : w )
-        }
+        auto lex_min = [](std::vector<int> v, std::vector<int> w) {
+          return (std::lexicographical_compare(v.begin(),v.end(),w.begin(),w.end()) ? v : w );
+        };
 
-        std::vector<int> representative = std::reduce(equiv_class.begin(),equiv_class.end(),lex_min);
+	//accumulate = reduce but exists before c++17
+        std::vector<int> class_rep = std::accumulate(equiv_class.begin(),equiv_class.end(),equiv_class[0],lex_min);
 
         //now make a string for our representative
         std::string rep_string = "";
-        stringstream ss;
+        std::stringstream ss;
         std::string temp;
-        for (auto it = representative.begin(); it!= representative.end(); it++) {
+        for (auto it = class_rep.begin(); it!= class_rep.end(); it++) {
           ss << *it;
           ss >> temp;
           while(temp.length() < 3) {temp = "0" + temp;}
