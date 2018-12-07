@@ -805,10 +805,10 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
 
         for(auto e: edges) {
             if(alpha_vals[e] > 0.0) { //this is a gap
-              std::vector<int> edge_vertices = comp.get_faces(e,0);
-              int j = (edge_vertices[0] == i) ? edge_vertices[1] : edge_vertices[0];
+              auto edge_vertices = comp.get_faces(e,0);
+              int j = *std::find_if(edge_vertices.begin(),edge_vertices.end(),[i](int k) {return k != i;});
               //now determine vector and thereby angle
-              DVec v = embed.get_vdiff(embed.get_pos(i), embed.get_pos(j));
+              DVec v = embed.get_diff(embed.get_pos(i), embed.get_pos(j));
               double theta = std::atan2(v[0] - std::sqrt(2), v[1] - std::sqrt(2));
               if (theta < 0.0)
                   theta +=2.0*M_PI;
