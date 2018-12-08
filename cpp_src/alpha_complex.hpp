@@ -825,21 +825,18 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[1].begin(),x_reflect);
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[2].begin(),y_reflect);
         std::transform(equiv_class[1].begin(),equiv_class[1].end(),equiv_class[3].begin(),y_reflect);
-
         for (int k = 0; k < 4; k++) {  std::sort(equiv_class[k].begin(),equiv_class[k].end());}
 
         auto lex_min = [](std::vector<int> v, std::vector<int> w) {
           return (std::lexicographical_compare(v.begin(),v.end(),w.begin(),w.end()) ? v : w );
         };
-
 	//accumulate = reduce but exists before c++17
         std::vector<int> class_rep = std::accumulate(equiv_class.begin(),equiv_class.end(),equiv_class[0],lex_min);
-
         //now make a string for our representative
         std::string rep_string = "";
-        std::stringstream ss;
-        std::string temp;
         for (auto it = class_rep.begin(); it!= class_rep.end(); it++) {
+          std::string temp; 
+          std::stringstream ss;
           ss << *it;
           ss >> temp;
           while(temp.length() < 3) {temp = "0" + temp;}
