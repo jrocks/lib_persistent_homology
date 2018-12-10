@@ -820,8 +820,8 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
         //now we need to map to the single representative of our equivalence class
         //currently only works in 2d
         //representative = member of equivalence class with smallest small angle, smallest second small angle, etc...
-        auto x_reflect = [num_angles](int theta) {return num_angles - theta;};
-        auto y_reflect = [num_angles](int theta) {return (theta < num_angles/2 )? num_angles/2-theta :3*num_angles/2 - theta ; };
+        auto x_reflect = [num_angles](int theta) {return num_angles - 1 - theta;};
+        auto y_reflect = [num_angles](int theta) {return (theta < num_angles/2 )? num_angles/2 - 1 -theta :3*num_angles/2 - 1 - theta ; };
         std::vector< std::vector<int> > equiv_class(4, gap_angles);
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[1].begin(),x_reflect);
         std::transform(gap_angles.begin(),gap_angles.end(),equiv_class[2].begin(),y_reflect);
@@ -843,8 +843,8 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
           while(temp.length() < 3) {temp = "0" + temp;}
           rep_string = rep_string + temp;
         }
-        if (rep_string == "001001") {
-	  py::print("001001");
+        if (rep_string == "064") {
+	  py::print("064");
           py::print(equiv_class);
 	}
         class_map[i] = rep_string;
