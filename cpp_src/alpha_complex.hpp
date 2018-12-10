@@ -807,7 +807,7 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
               auto edge_vertices = comp.get_faces(e,0);
               int j = *std::find_if(edge_vertices.begin(),edge_vertices.end(),[i](int k) {return k != i;});
               //now determine vector and thereby angle
-              DVec v = embed.get_diff(embed.get_pos(i), embed.get_pos(j));
+              DVec v = embed.get_diff(embed.get_vpos(i), embed.get_vpos(j));
               //double s = 1.0/std::sqrt(2);
               double theta = std::atan2(v[1]-v[0],v[0] + v[1]);
               if (theta < 0.0)
@@ -843,6 +843,10 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
           while(temp.length() < 3) {temp = "0" + temp;}
           rep_string = rep_string + temp;
         }
+        if (rep_string == "001001") {
+	  py::print("001001");
+          py::print(equiv_class);
+	}
         class_map[i] = rep_string;
     }
 
