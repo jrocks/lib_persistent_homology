@@ -183,12 +183,17 @@ Filtration construct_induced_filtration(CellComplex &comp,  RXVec func, RXiVec d
         for(auto a: lex_cells) {
             lex_val[c].push_back(digi_func[comp.get_label(a)]);
         }
+        
+        if(lex_val[c].size() == 0) {
+        
+            py::print(c, comp.get_dim(c), lex_val[c], py::arg("flush")=true);
+        }
                         
         // Record function value of cell
         induced_func(c) = func(comp.get_label(lex_cells[0]));
         induced_digi_func(c) = digi_func[comp.get_label(lex_cells[0])];
     }
-        
+            
     auto lex_cmp = [&comp, &lex_val, ascend](const int &lhs, const int &rhs) {
         
         // Ascending filtraiton
@@ -236,7 +241,6 @@ Filtration construct_induced_filtration(CellComplex &comp,  RXVec func, RXiVec d
     for(int i = 0; i < comp.ncells; i++) {
         order(cells[i]) = i;
     }
-    
         
     return Filtration(comp, induced_func, induced_digi_func, order, ascend, filt_dim);
     

@@ -170,6 +170,9 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
 
         DMat X = DMat::Zero();
         DMat Y = DMat::Zero();
+        
+//         DVec bvec_avg = DVec::Zero();
+        
         for(int m = 0; m < DIM; m++) {  
 
             int vj = corner[1+m];
@@ -181,8 +184,12 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
             
             X += bvec * bvec.transpose();
             Y += du * bvec.transpose();
+            
+//             bvec_avg += bvec;
 
         }
+        
+//         bvec_avg.normalize();
 
         
         DMat F = Y * X.inverse();
@@ -209,13 +216,15 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
             gamma = sqrt(gamma);
         }
         
-        if(X.determinant() < 1e-4) {
-            py::print(i, "det", X.determinant(), Y.determinant(), eps.norm());
+//         DVec Ovec = embed.get_pos(vi) - 0.5*DVec::Ones();
+        
+// //         if(X.determinant() < 1e-4) {
+//             py::print(i, "det", X.determinant(), Y.determinant(), eps.norm(), bvec_avg.dot(Ovec / Ovec.norm()), Ovec.norm());
             
-            py::print("X", X);
-            py::print("Y", Y);
-            py::print("eps", eps);
-        }
+//             py::print("X", X);
+//             py::print("Y", Y);
+//             py::print("eps", eps);
+// //         }
         
         
         
@@ -230,7 +239,47 @@ template <int DIM> XVec calc_corner_strains(std::vector< std::vector<int> > &cor
     
 }
 
+template <int DIM> std::tuple<XVec, XVec> calc_corner_flatness(std::vector< std::vector<int> > &corners, Embedding<DIM> &embed) {
+    
+    XVec min_eval = XVec::Zero(corners.size());
+    XVec max_eval = XVec::Zero(corners.size());
+    
+    
+    for(std::size_t i = 0; i < corners.size(); i++) {
+        
+        auto corner = corners[i];
+        
+        int vi = corner[0];
+        
+        DVec O = embed.get_vpos(vi);
 
+        DMat X = DMat::Zero();
+                
+        for(int m = 0; m < DIM; m++) {  
+
+            int vj = corner[1+m];
+            
+            DVec posj = embed.get_vpos(vj);
+            
+            DVec bvec = embed.get_diff(O, posj);
+            bvec.normalize();
+            
+            X += bvec * bvec.transpose();
+            
+        }
+        
+        Eigen::SelfAdjointEigenSolver<DMat> esolver(X);
+        
+        DVec evals = esolver.eigenvalues();
+                
+        min_eval[i] = evals[0];
+        max_eval[i] = evals[DIM-1];
+        
+    }
+    
+    return std::make_tuple(min_eval, max_eval);
+    
+}
 
 
 // Creates cell complex from network with d-dimensional simplices at each "corner"
@@ -239,7 +288,7 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
      
     CellComplex comp(DIM, true, false);
           
-    // Map of vertices to lists of vertices of all simplices of all corners at that vertex to index of simplex in comp
+    // For each vertex, map of lists of vertices representing each simplex in corner to index in full cell complex
     std::vector<std::map<std::vector<int> , int> > vertices_to_index(graph.NV);
     
     // First process vertices
@@ -274,6 +323,14 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
         vertices_to_index[vj].emplace(std::piecewise_construct, std::forward_as_tuple(1, vi), std::forward_as_tuple(vi));
     }
     
+//     for(std::size_t vi = 0; vi < vertices_to_index.size(); vi++) {
+//         py::print(vi);
+        
+//         for(auto pair: vertices_to_index[vi]) {
+//             py::print(pair.first, pair.second);
+//         }
+        
+//     }
     
     std::vector<int> corner_to_cell;
     
@@ -302,6 +359,9 @@ template <int DIM> CellComplex construct_corner_complex(std::vector<std::vector<
                 
                 // Sorted list of vertices of cell
                 std::sort(simplex.begin(), simplex.end());
+                
+                
+//                 py::print(vi, simplex);
                 
                 // If simplex already exists in graph complex, then skip                
                 if(vertices_to_index[vi].count(simplex)) {
