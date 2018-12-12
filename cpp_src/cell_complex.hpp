@@ -246,6 +246,60 @@ public:
 
 
 
+//////////////////////////////////////////////////////////////////////////
+//Cell complex pruning
+//////////////////////////////////////////////////////////////////////////
+
+
+CellComplex prune_cell_complex(std::vector<int> &rem_cells, CellComplex &comp) {
+    
+    std::unordered_set<int> full_rem_set;
+    
+    for(int c: rem_cells) {
+        auto cofaces = comp.get_cofaces(c);
+        full_rem_set.insert(cofaces.begin(), cofaces.end());
+    }
+    
+    CellComplex red_comp(comp.dim, comp.regular, comp.oriented);
+    
+    std::unordered_map<int, int> full_to_reduced;
+    
+    for(int c = 0; c < comp.ncells; c++) {
+        
+        if(full_rem_set.count(c)) {
+            continue;
+        }
+        
+        
+        std::vector<int> facets;
+        auto frange = comp.get_facet_range(c);
+        for(auto it=frange.first; it!= frange.second; it++) {
+            facets.push_back(full_to_reduced[*it]);
+        }
+        
+        std::vector<int> coeffs;
+        auto crange = comp.get_coeff_range(c);
+        for(auto it=crange.first; it!= crange.second; it++) {
+            coeffs.push_back(*it);
+        }
+        
+        full_to_reduced[c] = red_comp.ncells;
+        
+        red_comp.add_cell(red_comp.ndcells[comp.get_dim(c)], comp.get_dim(c), facets, coeffs);
+        
+        
+        
+        
+    }
+    
+    red_comp.construct_cofacets();
+    red_comp.make_compressed();
+    
+    return red_comp;
+    
+    
+}
+
 
     
 // bool check_boundary_op(CellComplex &comp) {

@@ -322,7 +322,7 @@ std::unordered_map<int, int> calc_comp_point_dists_search_zone(int p, std::unord
 }
 
 // Find cells within discrete distance max_dist to vertex p within cell complex
-std::vector<std::vector<int> > find_nearest_neighbors(int p, int max_dist, int target_dim, CellComplex &comp) {
+std::vector<std::vector<int> > find_nearest_neighbors(int p, CellComplex &comp, int max_dist, int target_dim=-1) {
     
     
     std::vector<std::vector<int> > neighbors(max_dist+1);
@@ -330,7 +330,7 @@ std::vector<std::vector<int> > find_nearest_neighbors(int p, int max_dist, int t
     auto dist = calc_comp_point_dists(p, comp, max_dist);
     
     for(int c = 0; c < comp.ncells; c++) {
-        if(dist[c] != -1) {
+        if(dist[c] != -1 && (target_dim==-1 || comp.get_dim(c) == target_dim)) {
             neighbors[dist[c]].push_back(c);
         }
     }

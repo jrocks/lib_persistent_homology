@@ -143,6 +143,31 @@ template <int DIM> XVec calc_edge_extensions(RXVec disp, Graph &graph, Embedding
 }
 
 
+template <int DIM> std::tuple<int, XVec, int, XiVec, XiVec, DVec> 
+    convert_to_network(CellComplex &comp, Embedding<DIM> &embed) {
+    
+    int NE = comp.ndcells[1];
+    XiVec edgei = XiVec::Zero(NE);
+    XiVec edgej = XiVec::Zero(NE);
+    
+    for(int c = comp.dcell_begin[1]; c < comp.dcell_begin[1]+comp.ndcells[1]; c++) {
+        auto facets = comp.get_facets(c);
+        
+        edgei[c-comp.dcell_begin[1]] = facets[0];
+        edgej[c-comp.dcell_begin[1]] = facets[1];
+        
+    }
+    
+    XVec node_pos = XVec::Zero(DIM*embed.NV);
+    
+    for(int i = 0; i < embed.NV; i++) {
+        node_pos.segment<DIM>(DIM*i) = embed.get_pos(i);
+    }
+    
+    return std::make_tuple(embed.NV, node_pos, NE, edgei, edgej, embed.box_mat.diagonal());
+    
+}
+
 
     
 #endif // GRAPHCOMPLEX_HPP

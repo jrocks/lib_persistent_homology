@@ -428,7 +428,7 @@ template <int DIM> Filtration construct_alpha_filtration(CellComplex &comp, Embe
 }
 
 //////////////////////////////////////////////////////////////////////////
-//Simplification
+//Simplification/Pruning
 //////////////////////////////////////////////////////////////////////////
 
 template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_vals, double threshold=0.0) {
@@ -605,6 +605,7 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
     
 }
 
+
 //////////////////////////////////////////////////////////////////////////
 //Deformations
 //////////////////////////////////////////////////////////////////////////
@@ -635,7 +636,7 @@ template <int DIM> std::tuple<XVec, XVec >
         for(int m = 0; m < DIM; m++) {  
 
             int vj = verts[1+m];
-            DVec bvec = embed.get_vpos(vj); - O;
+            DVec bvec = embed.get_vpos(vj) - O;
             
             for(int d = 0; d < DIM; d++) {
                 if(std::fabs(bvec(d)) > 0.5) {
@@ -658,9 +659,11 @@ template <int DIM> std::tuple<XVec, XVec >
         
         eps_comp(comp.get_label(c)) = eps.trace();
                 
-        eps_shear(comp.get_label(c)) = (eps - DMat::Identity() * 1.0/DIM * eps_comp[c]).norm();
+        eps_shear(comp.get_label(c)) = (eps - DMat::Identity() * 1.0/DIM * eps.trace()).norm();
         
     }
+    
+    eps_comp = eps_comp.cwiseAbs();
     
     return std::forward_as_tuple(eps_comp, eps_shear);
     
@@ -1028,7 +1031,6 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
     
     
 }
-
-    
+ 
     
 #endif //ALPHACOMPLEX_HPP

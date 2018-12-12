@@ -22,6 +22,7 @@
     #include "optimal.hpp"
 #endif
 
+#include "mech_network.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -51,6 +52,8 @@ template <int DIM> void init_graph_templates(py::module &m) {
     
     m.def((std::string("calc_edge_extensions_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_edge_extensions<DIM>, 
          py::arg("disp"), py::arg("graph"), py::arg("embed"), py::arg("is_strain") = false);
+    
+    m.def((std::string("convert_to_network_")+std::to_string(DIM)+std::string("D")).c_str(), &convert_to_network<DIM>);
         
 }
 
@@ -63,6 +66,9 @@ template <int DIM> void init_corner_templates(py::module &m) {
           &find_corners<DIM>);
     m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &calc_corner_strains<DIM>, py::arg("corners"), py::arg("disp"), py::arg("embed"), py::arg("strain")=false);
+    
+    m.def((std::string("calc_corner_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_corner_flatness<DIM>);
     
         
 }
@@ -84,6 +90,8 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
         py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
+    
+    
 }
 #endif
 
@@ -100,6 +108,10 @@ template <int DIM> void init_search_templates(py::module &m) {
 
 
         
+}
+
+template <int DIM> void init_mech_templates(py::module &m) {
+    m.def((std::string("make_ball_")+std::to_string(DIM)+std::string("D")).c_str(), &make_ball<DIM>);
 }
 
 
@@ -128,6 +140,8 @@ PYBIND11_MODULE(phom, m) {
         .def("make_compressed", &CellComplex::make_compressed)
         .def("construct_cofacets", &CellComplex::construct_cofacets);
         
+    
+    m.def("prune_cell_complex", &prune_cell_complex);
     //     m.def("check_boundary_op", &check_boundary_op, 
     //           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
     //     m.def("get_boundary", &get_boundary);
@@ -215,6 +229,9 @@ PYBIND11_MODULE(phom, m) {
 
 #endif
     
+    // Mechanical network
+    init_mech_templates<2>(m);
+    init_mech_templates<3>(m);
     
     
     // Morse complex
@@ -277,7 +294,8 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_comp_pair_dists", &calc_comp_pair_dists);
     m.def("calc_comp_point_dists", &calc_comp_point_dists,
          py::arg("p"), py::arg("comp"), py::arg("max_dist")=-1);
-    m.def("find_nearest_neighbors", &find_nearest_neighbors);
+    m.def("find_nearest_neighbors", &find_nearest_neighbors,
+         py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("taget_dim")=-1);
     m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
     m.def("find_local_extrema", &find_local_extrema);
     //     m.def("find_thresholded_component", &find_thresholded_component);
