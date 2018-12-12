@@ -90,8 +90,10 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
         py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
+
     
-    
+    m.def(("calc_gap_angle_class"+std::to_string(DIM)+std::string("D")).c_str(), &calc_gap_angle_class<DIM>, py::arg("cell_list"),py::arg("alpha_vals"),py::arg("comp"),py::arg("Embedding"),py::arg("num_angles")=128,py::arg("verbose")=false); 
+
 }
 #endif
 
@@ -216,7 +218,6 @@ PYBIND11_MODULE(phom, m) {
     
     m.def("calc_radial_gap_distribution", &calc_radial_gap_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
-    
     m.def("calc_radial_tri_distribution", &calc_radial_tri_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
     
