@@ -83,11 +83,12 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
          py::arg("comp"), py::arg("embed"), py::arg("weights"), py::arg("alpha0")=-1.0);
     
-    m.def((std::string("calc_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_strains<DIM>);
+    m.def((std::string("calc_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_strains<DIM>,
+         py::arg("disp"), py::arg("comp"), py::arg("embed"), py::arg("keep_rotations")=false);
     
-    
-    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>);
-    
+    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>,
+         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
+        
     m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
         py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
 
@@ -356,7 +357,13 @@ PYBIND11_MODULE(phom, m) {
           &simplify_morse_complex, 
           py::arg("preserve_pairs"), py::arg("V"), py::arg("coV"), py::arg("comp"),
           py::arg("filt"), py::arg("finagle")=false, py::arg("verbose") = false);
+    m.def("simplify_morse_complex", 
+          (double (*)(std::pair<int,int>, RXiVec, RXiVec, Filtration&, CellComplex&, bool)) 
+          &simplify_morse_complex, 
+          py::arg("pair"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+          py::arg("filt"), py::arg("verbose") = false);
     m.def("find_cancel_threshold", &find_cancel_threshold);
+    m.def("find_cancel_order", &find_cancel_order);
     m.def("find_join_threshold", &find_join_threshold);
     m.def("find_join_feature", &find_join_feature);
     

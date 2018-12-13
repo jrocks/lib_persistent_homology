@@ -18,6 +18,7 @@
 #include "embedding.hpp"
 #include "cell_complex.hpp"
 #include "filtration.hpp"
+#include "search.hpp"
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -611,7 +612,7 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
 //////////////////////////////////////////////////////////////////////////
 
 template <int DIM> std::tuple<XVec, XVec >
-            calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
+            calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, bool keep_rotations=false) {
 
 
     XVec eps_shear = XVec::Zero(comp.ndcells[DIM]);
@@ -657,7 +658,14 @@ template <int DIM> std::tuple<XVec, XVec >
 
         DMat F = Y * X.inverse();
 
-        DMat eps = 0.5 * (F + F.transpose());
+        DMat eps;
+        if(keep_rotations) {
+            eps = F;
+        } else {
+            eps = 0.5 * (F + F.transpose());
+        }
+        
+        
 
         eps_comp(comp.get_label(c)) = eps.trace();
                 
@@ -676,22 +684,24 @@ template <int DIM> std::tuple<XVec, XVec >
 }
 
 
-template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed) {
+template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2) {
 
 
     XVec D2min = XVec::Zero(embed.NV);
 
     for(int vi = 0; vi < comp.ndcells[0]; vi++) {
 
-        // get edges
-        auto eset = comp.get_cofacets(vi);
+        auto verts = find_neighbors(vi, comp, max_dist, 0);
+        
+//         // get edges
+//         auto eset = comp.get_cofacets(vi);
 
-        std::unordered_set<int> verts;
+//         std::unordered_set<int> verts;
 
-        for(auto e: eset) {
-            auto vset = comp.get_facets(e);
-            verts.insert(vset.begin(), vset.end());
-        }
+//         for(auto e: eset) {
+//             auto vset = comp.get_facets(e);
+//             verts.insert(vset.begin(), vset.end());
+//         }
 
         verts.erase(vi);
 

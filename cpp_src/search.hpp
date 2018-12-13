@@ -342,6 +342,29 @@ std::vector<std::vector<int> > find_nearest_neighbors(int p, CellComplex &comp, 
     
 }
 
+
+// Find cells within discrete distance max_dist to vertex p within cell complex
+std::unordered_set<int> find_neighbors(int p, CellComplex &comp, int max_dist, int target_dim=-1) {
+    
+    
+    std::unordered_set<int> neighbors;
+    
+    auto dist = calc_comp_point_dists(p, comp, max_dist);
+    
+    for(int c = 0; c < comp.ncells; c++) {
+        if(dist[c] != -1 && (target_dim==-1 || comp.get_dim(c) == target_dim)) {
+            neighbors.insert(c);
+        }
+    }
+    
+    
+    return neighbors;
+    
+    
+    
+}
+
+
 // Find vertices that are local extrema in the height function
 std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height, CellComplex &comp) {
     
