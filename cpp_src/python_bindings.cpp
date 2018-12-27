@@ -242,7 +242,7 @@ PYBIND11_MODULE(phom, m) {
           py::arg("alpha"), py::arg("filt"), py::arg("comp"), py::arg("target_dim")=-1);
     m.def("construct_discrete_gradient", &construct_discrete_gradient);
     m.def("traverse_flow", &traverse_flow, py::arg("s"), py::arg("V"), 
-          py::arg("comp"), py::arg("co")=true, py::arg("coordinated")=false);
+          py::arg("comp"), py::arg("co")=false, py::arg("coordinated")=false);
     m.def("find_morse_boundary", &find_morse_boundary, py::arg("s"), py::arg("V"), 
           py::arg("comp"), py::arg("co")=true, py::arg("oriented")=false);
     m.def("construct_morse_complex", &construct_morse_complex, py::arg("V"), 
@@ -365,12 +365,10 @@ PYBIND11_MODULE(phom, m) {
     m.def("find_cancel_threshold", &find_cancel_threshold);
     m.def("find_cancel_order", &find_cancel_order);
     m.def("find_join_threshold", &find_join_threshold);
-    m.def("find_join_feature", &find_join_feature);
-    
-    
-    
-    
-
+    m.def("find_join_feature", 
+          (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool)) &find_join_feature);
+    m.def("find_join_feature", 
+          (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool))  &find_join_feature);
     
     
 //

@@ -148,7 +148,6 @@ std::tuple<double, std::pair<int, int>> find_join_feature(std::vector<int> &cell
                 
         // First check how many basins the vertices are divided into
         std::unordered_set<int> morse_cells;
-        unsigned int total_morse_cells = 0;
         for(auto s: cells) {
             
             // py::print("cell", s);
@@ -156,7 +155,6 @@ std::tuple<double, std::pair<int, int>> find_join_feature(std::vector<int> &cell
             // Check if vertex is critical
             if(V_tmp(s) == s) {
                 morse_cells.insert(s);
-                total_morse_cells++;
                 continue;
             }
                     
@@ -171,13 +169,154 @@ std::tuple<double, std::pair<int, int>> find_join_feature(std::vector<int> &cell
                 if(b == c) {
                     // py::print("morse_cell", c);
                     morse_cells.insert(c);
-                    total_morse_cells++;
                 }
             }
         }
         
         // If cells have overlapping sets of corresponding morse cells
-        if(morse_cells.size() < total_morse_cells) {
+        if(morse_cells.size() == 1) {
+            return std::make_tuple(threshold, threshold_pair);
+        }
+
+                
+        // Otherwise pass through all unpaired critical cells and find cancellable pairs
+        std::vector<int> remove;
+        for(auto s: unpaired_crit_cells) {
+                        
+            auto cpair = find_cancel_pair(s, V_tmp, coV_tmp, filt, comp);
+            if(cpair.first != -1) {
+            
+                // py::print(filt.get_func(cpair.second)-filt.get_func(cpair.first), cpair);
+                
+                cancel_pairs.emplace(std::abs(filt.get_func(cpair.second)-filt.get_func(cpair.first)), cpair);
+                
+                remove.push_back(cpair.first);
+                remove.push_back(cpair.second);
+                
+            }   
+        }
+                
+        for(auto s: remove) {
+            unpaired_crit_cells.erase(std::find(unpaired_crit_cells.begin(), unpaired_crit_cells.end(), s));
+        }        
+                
+        // Cancel critical pair with lowest persistence
+        
+        if(cancel_pairs.empty()) {
+            break;
+        }
+        
+        auto top = cancel_pairs.top();
+        cancel_pairs.pop();
+        threshold_pair = top.second;
+                
+        if(top.first > threshold) {
+            threshold = top.first;
+        }
+        
+                
+        cancel_close_pair(threshold_pair, V_tmp, coV_tmp, comp);
+                
+    } 
+    
+    return std::make_tuple(-1.0 , threshold_pair);
+    
+}
+
+
+std::tuple<double, std::pair<int, int>> find_join_feature(std::vector<int> &cells1, std::vector<int> &cells2, 
+                                                          RXiVec V, RXiVec coV, 
+                           Filtration &filt, CellComplex &comp, bool verbose) {
+    
+    
+    XiVec V_tmp = V;
+    XiVec coV_tmp = coV;
+
+    std::vector<int> unpaired_crit_cells;
+    for(int s = 0; s < V.size(); s++) {
+        if(V(s) == s) {
+            unpaired_crit_cells.push_back(s);
+        }
+    }
+    
+
+    auto cmp = [](const std::pair<double, std::pair<int, int> > &lhs, const std::pair<double, std::pair<int, int> > &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue<std::pair<double, std::pair<int, int> >, 
+        std::vector<std::pair<double, std::pair<int, int> > >, decltype(cmp)> cancel_pairs(cmp);
+    
+    double threshold = 0.0;
+    std::pair<int, int> threshold_pair(-1, -1);
+    
+    for(int n = 1; ; n++) {
+        
+        if(verbose) {
+            py::print("Pass:", n, py::arg("flush")=true);
+            py::print("Unpaired Critical Cells:", unpaired_crit_cells.size(), py::arg("flush")=true);
+            py::print("Cancellable Pairs:", cancel_pairs.size(), py::arg("flush")=true);
+        }
+        
+                
+        // First check how many basins the vertices are divided into
+        std::set<int> morse_cells1;
+        for(auto s: cells1) {
+            
+            // py::print("cell", s);
+            
+            // Check if vertex is critical
+            if(V_tmp(s) == s) {
+                morse_cells1.insert(s);
+                continue;
+            }
+                    
+            // If not, then start from adjacent edge and flow to critical vertex
+            std::vector<std::tuple<int, int, int> > traversal = traverse_flow(V_tmp(s), V_tmp, comp, false, false);
+            
+            // py::print("V_path", traversal);
+            
+            for(auto trip: traversal) {
+                int b, c;
+                std::tie(std::ignore, b, c) = trip;
+                if(b == c) {
+                    // py::print("morse_cell", c);
+                    morse_cells1.insert(c);
+                }
+            }
+        }
+        
+        std::set<int> morse_cells2;
+        for(auto s: cells2) {
+            
+            // py::print("cell", s);
+            
+            // Check if vertex is critical
+            if(V_tmp(s) == s) {
+                morse_cells2.insert(s);
+                continue;
+            }
+                    
+            // If not, then start from adjacent edge and flow to critical vertex
+            std::vector<std::tuple<int, int, int> > traversal = traverse_flow(V_tmp(s), V_tmp, comp, false, false);
+            
+            // py::print("V_path", traversal);
+            
+            for(auto trip: traversal) {
+                int b, c;
+                std::tie(std::ignore, b, c) = trip;
+                if(b == c) {
+                    // py::print("morse_cell", c);
+                    morse_cells2.insert(c);
+                }
+            }
+        }
+        
+        
+        
+        // If cells have overlapping sets of corresponding morse cells
+        if(std::includes(morse_cells1.begin(), morse_cells1.end(), morse_cells2.begin(), morse_cells2.end())
+          || std::includes(morse_cells2.begin(), morse_cells2.end(), morse_cells1.begin(), morse_cells1.end())) {
             return std::make_tuple(threshold, threshold_pair);
         }
 
