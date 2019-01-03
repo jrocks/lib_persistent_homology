@@ -76,6 +76,7 @@ template <int DIM> void init_corner_templates(py::module &m) {
 #ifdef ALPHA
 template <int DIM> void init_alpha_templates(py::module &m) {
     
+    m.def((std::string("calc_circumsphere_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_circumsphere<DIM>);
     
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>,
          py::arg("embed"), py::arg("weights"), py::arg("oriented")=false);
@@ -88,6 +89,8 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
+    
+    m.def((std::string("calc_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_flatness<DIM>);
         
     m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
         py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
@@ -307,6 +310,7 @@ PYBIND11_MODULE(phom, m) {
     // Persistent homology
     
     m.def("calc_persistence", &calc_persistence);
+    m.def("calc_betti_numbers", &calc_betti_numbers);
         
     m.def("calc_extended_persistence", (std::tuple<std::tuple<std::vector<std::pair<int, int> >, 
                                         std::vector<std::pair<int, int> >, 

@@ -54,6 +54,37 @@ std::tuple<std::vector<std::vector<int> >, std::vector<int>, std::vector<int> >
 }
 
 
+std::vector<std::vector<int> > calc_boundary_mat(CellComplex &comp) {
+    
+    std::vector<std::vector<int> > columns(comp.ncells);
+    
+    for(int ci = 0; ci < comp.ncells; ci++) {
+        
+
+        if(comp.regular) {
+            auto facet_range = comp.get_facet_range(ci);
+            for(auto it = facet_range.first; it != facet_range.second; it++) {
+                columns[ci].push_back(*it);
+            }
+        } else {
+            auto facet_range = comp.get_facet_range(ci);
+            auto coeff_range = comp.get_coeff_range(ci);
+            for(auto itf = facet_range.first, itc = coeff_range.first; itf != facet_range.second; itf++, itc++) {
+                if((*itc) % 2!= 0) {
+                    columns[ci].push_back(*itf);
+                }
+            }
+        }
+        
+        columns[ci].shrink_to_fit();
+        std::sort(columns[ci].begin(), columns[ci].end());
+    }
+    
+    return columns;
+    
+}
+
+
 std::vector<int> add_cols_Z2(std::vector<int> &col1, std::vector<int> &col2) {
     
     std::vector<int> col_sum(col1.size() + col2.size());
@@ -147,6 +178,29 @@ std::vector<std::pair<int, int> > calc_persistence(Filtration &filt, CellComplex
     }
     
     return pairs;
+    
+    
+}
+
+std::vector<int> calc_betti_numbers(CellComplex &comp) {
+    
+    // Get boundary matrices for ascending and descending filtrations
+    std::vector<std::vector<int> > columns = calc_boundary_mat(comp);
+        
+    reduce_smith_normal_form(columns);
+    
+    // py::print(columns);    
+    
+    std::vector<int> betti(comp.dim+1, 0); 
+    for(std::size_t cj = 0; cj < columns.size(); cj++) {
+        if(columns[cj].empty()) {
+            betti[comp.get_dim(cj)]++;
+        } else {
+            betti[comp.get_dim(cj)-1]--;
+        }        
+    }
+    
+    return betti;
     
     
 }

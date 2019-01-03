@@ -760,6 +760,61 @@ template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedd
 }
 
 
+// Calculate condition numbers of triangulation Jacobians
+template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) {
+
+
+    XVec flatness = XVec::Zero(comp.ndcells[DIM]);
+
+    for(int c = comp.dcell_begin[DIM]; c < comp.ncells; c++) {
+
+        auto vset = comp.get_faces(c, 0);
+
+        std::vector<int> verts(vset.begin(), vset.end());
+
+        int vi = verts[0];
+
+        DVec O = embed.get_vpos(vi);
+        
+        DMat X = DMat::Zero();
+
+        for(int m = 0; m < DIM; m++) {
+
+            int vj = verts[1+m];
+
+            DVec bvec = embed.get_vpos(vj) - O;
+            
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+
+            bvec = embed.box_mat * bvec;
+
+            X += bvec * bvec.transpose();
+
+        }
+        
+        
+        Eigen::SelfAdjointEigenSolver<DMat> esolver(X);
+        
+        DVec evals = esolver.eigenvalues();
+
+        flatness(comp.get_label(c)) = evals[DIM-1] / evals[0];
+                
+        
+    }
+        
+
+    return flatness;
+
+
+
+
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 //Cell type counting
 //////////////////////////////////////////////////////////////////////////
