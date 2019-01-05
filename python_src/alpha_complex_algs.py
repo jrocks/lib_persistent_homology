@@ -464,3 +464,28 @@ def get_cycle_dist(particles, config, max_tri_dist, only_neighbor=False, max_nei
     df = pd.DataFrame(s_list, columns=columns)   
     
     return df
+
+
+
+#for a numpy array X defined on the particles, compute for each edge e_ij Y := X_i - X_j
+def compute_edge_differences(X, config):
+    
+    (NP, pos, rad2, DIM, box_mat) = config
+   
+    r2norm = np.min(rad2):
+    comp = getattr(phom, 'construct_alpha_complex_'+str(DIM)+'D')(NP, pos, rad2, box_mat, periodic=True)
+    alpha_vals = getattr(phom,"calc_alpha_vals_"+str(DIM)+"D")(pos, rad2, comp, box_mat, periodic=True, alpha0=-r2norm)
+    
+    NE = comp.ndcells[1]
+    
+    Y = np.zeros(NE)
+    
+    for c in range(comp.dcell_begin[1], comp.dcell_begin[1]+comp.ndcells[1]):
+        
+        facets = comp.get_facets(c)
+        i = np.min(facets)
+        j = np.max(facets)
+        Y[c-comp.dcell_begin[1]] = X[j] - X[i]
+        
+    return Y    
+        
