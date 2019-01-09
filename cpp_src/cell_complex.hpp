@@ -17,7 +17,7 @@ public:
     const int dim;  
     int ncells;
     std::vector<int> ndcells;
-    std::vector<int> dcell_begin;
+    std::vector<std::pair<int,int> > dcell_range;
     const bool regular;
     const bool oriented;
     
@@ -36,7 +36,7 @@ protected:
 public:
     
     CellComplex(int dim, bool regular = true, bool oriented = false) :
-        dim(dim), ncells(0), ndcells(dim+1, 0), dcell_begin(dim+1, 0), regular(regular), oriented(oriented) {
+        dim(dim), ncells(0), ndcells(dim+1, 0), dcell_range(dim+1, std::pair<int,int>(0,0)), regular(regular), oriented(oriented) {
         facet_ind.push_back(0);            
     }
     
@@ -55,11 +55,14 @@ public:
         ncells++;
         
         ndcells[dim]++;
+        dcell_range[dim].second++;
         for(int d = dim+1; d <= this->dim+1; d++) {
-            dcell_begin[d]++;
+            dcell_range[d].first++;
+            dcell_range[d].second++;
         }
         
     }
+
     
     // Get cell dimension
     int get_dim(int alpha) {
@@ -186,8 +189,10 @@ public:
         ncells++;
         
         ndcells[dim]++;
+        dcell_range[dim].second++;
         for(int d = dim+1; d <= this->dim+1; d++) {
-            dcell_begin[d]++;
+            dcell_range[d].first++;
+            dcell_range[d].second++;
         }
         
     }

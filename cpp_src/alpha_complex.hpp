@@ -441,7 +441,7 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
     CellComplex simp_comp(DIM, true, false);
 
     std::vector<int> full_to_reduced(comp.ncells, -1);
-    for(int c = 0; c < comp.dcell_begin[DIM]; c++) {
+    for(int c = 0; c < comp.dcell_range[DIM].first; c++) {
 
         // Find all edges
         auto edges = comp.get_faces(c, 1);
@@ -518,7 +518,7 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
     }
 
     std::map<int, std::set<int> > tris;
-    for(int c = comp.dcell_begin[DIM]; c < comp.dcell_begin[DIM]+comp.ndcells[DIM]; c++) {
+    for(int c = comp.dcell_range[DIM].first; c < comp.dcell_range[DIM].second; c++) {
 
         int root = c;
         while(disjoint_set[root] != root) {
@@ -618,7 +618,7 @@ template <int DIM> std::tuple<XVec, XVec >
     XVec eps_shear = XVec::Zero(comp.ndcells[DIM]);
     XVec eps_comp = XVec::Zero(comp.ndcells[DIM]);
 
-    for(int c = comp.dcell_begin[DIM]; c < comp.ncells; c++) {
+    for(int c = comp.dcell_range[DIM].first; c < comp.ncells; c++) {
 
         auto vset = comp.get_faces(c, 0);
 
@@ -766,7 +766,7 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
 
     XVec flatness = XVec::Zero(comp.ndcells[DIM]);
 
-    for(int c = comp.dcell_begin[DIM]; c < comp.ncells; c++) {
+    for(int c = comp.dcell_range[DIM].first; c < comp.ncells; c++) {
 
         auto vset = comp.get_faces(c, 0);
 
@@ -946,7 +946,7 @@ std::unordered_map<int, std::map<int, std::map<int, int> >  >
 
         auto dists = calc_comp_point_dists(c, comp, max_dist);
 
-        for(int i = comp.dcell_begin[comp.dim]; i < comp.dcell_begin[comp.dim]+comp.ndcells[comp.dim]; i++) {
+        for(int i = comp.dcell_range[comp.dim].first; i < comp.dcell_range[comp.dim].second; i++) {
             if(dists[i] <= 0) {
                 continue;
             }

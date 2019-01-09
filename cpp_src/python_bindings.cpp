@@ -129,7 +129,7 @@ PYBIND11_MODULE(phom, m) {
         .def_readonly("dim", &CellComplex::dim)
         .def_readonly("ncells", &CellComplex::ncells)
         .def_readonly("ndcells", &CellComplex::ndcells)
-        .def_readonly("dcell_begin", &CellComplex::dcell_begin)
+        .def_readonly("dcell_range", &CellComplex::dcell_range)
         .def_readonly("regular", &CellComplex::regular)
         .def_readonly("oriented", &CellComplex::oriented)
         .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)

@@ -372,7 +372,7 @@ std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height,
     std::vector<int> maxima;
     
     
-    for(int c = comp.dcell_begin[0]; c < comp.dcell_begin[0]+comp.ndcells[0]; c++) {
+    for(int c = comp.dcell_range[0].first; c < comp.dcell_range[0].second; c++) {
             
         bool largest = true;
         bool smallest = true;

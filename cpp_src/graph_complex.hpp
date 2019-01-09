@@ -150,11 +150,11 @@ template <int DIM> std::tuple<int, XVec, int, XiVec, XiVec, DVec>
     XiVec edgei = XiVec::Zero(NE);
     XiVec edgej = XiVec::Zero(NE);
     
-    for(int c = comp.dcell_begin[1]; c < comp.dcell_begin[1]+comp.ndcells[1]; c++) {
+    for(int c = comp.dcell_range[1].first; c < comp.dcell_range[1].second; c++) {
         auto facets = comp.get_facets(c);
         
-        edgei[c-comp.dcell_begin[1]] = facets[0];
-        edgej[c-comp.dcell_begin[1]] = facets[1];
+        edgei[c-comp.dcell_range[1].first] = facets[0];
+        edgej[c-comp.dcell_range[1].first] = facets[1];
         
     }
     
