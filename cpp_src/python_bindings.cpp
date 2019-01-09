@@ -148,9 +148,9 @@ PYBIND11_MODULE(phom, m) {
         
     
     m.def("prune_cell_complex", &prune_cell_complex);
-    //     m.def("check_boundary_op", &check_boundary_op, 
-    //           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
-    //     m.def("get_boundary", &get_boundary);
+    m.def("check_boundary_op", &check_boundary_op, 
+          "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
+//         m.def("get_boundary", &get_boundary);
 
     
     // Filtration
@@ -352,15 +352,15 @@ PYBIND11_MODULE(phom, m) {
     // Persistence simplification
 
     // need to type these
-    m.def("simplify_morse_complex", 
-          (void (*)(double, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) &simplify_morse_complex, 
-          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("filt"), py::arg("leq") = true, py::arg("verbose") = false);
-    m.def("simplify_morse_complex", 
-          (void (*)(std::unordered_set<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) 
-          &simplify_morse_complex, 
-          py::arg("preserve_pairs"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("filt"), py::arg("finagle")=false, py::arg("verbose") = false);
+//     m.def("simplify_morse_complex", 
+//           (void (*)(double, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) &simplify_morse_complex, 
+//           py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+//           py::arg("filt"), py::arg("leq") = true, py::arg("verbose") = false);
+//     m.def("simplify_morse_complex", 
+//           (void (*)(std::unordered_set<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) 
+//           &simplify_morse_complex, 
+//           py::arg("preserve_pairs"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+//           py::arg("filt"), py::arg("finagle")=false, py::arg("verbose") = false);
     m.def("simplify_morse_complex", 
           (void (*)(std::pair<int,int>, RXiVec, RXiVec, Filtration&, CellComplex&, int, bool, bool)) 
           &simplify_morse_complex, 
@@ -368,16 +368,16 @@ PYBIND11_MODULE(phom, m) {
           py::arg("filt"), py::arg("target_dim")=-1, py::arg("cancel_target_pair")=false, py::arg("verbose") = false);
     
     
+    m.def("find_join_pair", &find_join_pair);
     
     
-    
-    m.def("find_cancel_threshold", &find_cancel_threshold);
-    m.def("find_cancel_order", &find_cancel_order);
-    m.def("find_join_threshold", &find_join_threshold);
-    m.def("find_join_feature", 
-          (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool)) &find_join_feature);
-    m.def("find_join_feature", 
-          (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool))  &find_join_feature);
+//     m.def("find_cancel_threshold", &find_cancel_threshold);
+//     m.def("find_cancel_order", &find_cancel_order);
+//     m.def("find_join_threshold", &find_join_threshold);
+//     m.def("find_join_feature", 
+//           (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, int, bool)) &find_join_feature);
+//     m.def("find_join_feature", 
+//           (std::tuple<double, std::pair<int, int>> (*)(std::vector<int>&, std::vector<int>&, RXiVec, RXiVec, Filtration&, CellComplex&, bool))  &find_join_feature);
     
     
 //

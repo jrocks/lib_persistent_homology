@@ -302,66 +302,66 @@ CellComplex prune_cell_complex(std::vector<int> &rem_cells, CellComplex &comp) {
 
 
     
-// bool check_boundary_op(CellComplex &comp) {
-//     bool valid = true;
+bool check_boundary_op(CellComplex &comp) {
+    bool valid = true;
     
-//     for(int i = 0; i < comp.ncells; i++) {
-//         if(comp.get_dim(i) > 0) {
-//             if(!comp.regular || comp.oriented) {
-//                 std::unordered_map<int, int> sub_face_coeffs;
+    for(int i = 0; i < comp.ncells; i++) {
+        if(comp.get_dim(i) > 0) {
+            if(!comp.regular || comp.oriented) {
+                std::unordered_map<int, int> sub_face_coeffs;
                 
-//                 std::unordered_map<int, int> coeffsi = comp.get_coeffs(i);
-//                 for(auto j: coeffsi) {
-//                     std::unordered_map<int, int> coeffsj = comp.get_coeffs(j.first);
-//                     for(auto k: coeffsj) {
-//                         sub_face_coeffs[k.first] += coeffsi[j.first] * coeffsj[k.first];
-//                     }
+                std::unordered_map<int, int> coeffsi = comp.get_coeffs(i);
+                for(auto j: coeffsi) {
+                    std::unordered_map<int, int> coeffsj = comp.get_coeffs(j.first);
+                    for(auto k: coeffsj) {
+                        sub_face_coeffs[k.first] += coeffsi[j.first] * coeffsj[k.first];
+                    }
                     
-//                 }
+                }
                 
-//                 for(auto j: sub_face_coeffs) {
-//                     if((comp.oriented && j.second != 0) || (!comp.oriented && j.second % 2 != 0) ) {
-//                         py::print("Error:", i, j.first, j.second);
-//                         valid = false;
-//                     }
-//                 }
+                for(auto j: sub_face_coeffs) {
+                    if((comp.oriented && j.second != 0) || (!comp.oriented && j.second % 2 != 0) ) {
+                        py::print("Error:", i, j.first, j.second);
+                        valid = false;
+                    }
+                }
 
                 
-//             } else {
-//                 std::unordered_set<int> sub_faces;
+            } else {
+                std::unordered_set<int> sub_faces;
                 
-//                 auto rangei = comp.get_facet_range(i);
+                auto rangei = comp.get_facet_range(i);
                 
-//                 for(auto iti = rangei.first; iti != rangei.second; iti++) {
+                for(auto iti = rangei.first; iti != rangei.second; iti++) {
                     
-//                     auto rangej = comp.get_facet_range(*iti);
+                    auto rangej = comp.get_facet_range(*iti);
                                     
-//                     for(auto itj = rangej.first; itj != rangej.second; itj++) {
-//                         if(sub_faces.count(*itj)) {
-//                             sub_faces.erase(*itj);
-//                         } else {
-//                             sub_faces.insert(*itj);
-//                         }
-//                     }
+                    for(auto itj = rangej.first; itj != rangej.second; itj++) {
+                        if(sub_faces.count(*itj)) {
+                            sub_faces.erase(*itj);
+                        } else {
+                            sub_faces.insert(*itj);
+                        }
+                    }
                     
-//                 }
+                }
                 
                 
-//                 if(!sub_faces.empty()) {
-//                     py::print("Error:", i);
-//                     valid = false;
+                if(!sub_faces.empty()) {
+                    py::print("Error:", i);
+                    valid = false;
                     
-//                 }
+                }
                 
                 
-//             }
+            }
             
-//         }
-//     }
+        }
+    }
         
-//     return valid;
+    return valid;
     
-// }
+}
 
 
 // std::unordered_set<int> get_boundary(std::unordered_set<int> &cells, CellComplex &comp) {
