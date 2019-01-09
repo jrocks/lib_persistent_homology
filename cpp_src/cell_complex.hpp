@@ -56,7 +56,7 @@ public:
         
         ndcells[dim]++;
         dcell_range[dim].second++;
-        for(int d = dim+1; d <= this->dim+1; d++) {
+        for(int d = dim+1; d < this->dim+1; d++) {
             dcell_range[d].first++;
             dcell_range[d].second++;
         }
@@ -190,7 +190,7 @@ public:
         
         ndcells[dim]++;
         dcell_range[dim].second++;
-        for(int d = dim+1; d <= this->dim+1; d++) {
+        for(int d = dim+1; d < this->dim+1; d++) {
             dcell_range[d].first++;
             dcell_range[d].second++;
         }
