@@ -638,16 +638,7 @@ template <int DIM> std::tuple<XVec, XVec >
 
             int vj = verts[1+m];
 
-            DVec bvec = embed.get_vpos(vj) - O;
-            
-
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-                }
-            }
-
-            bvec = embed.box_mat * bvec;
+            DVec bvec = embed.get_diff(embed.get_vpos(vj), O);
 
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
 
@@ -677,6 +668,110 @@ template <int DIM> std::tuple<XVec, XVec >
     
 
     return std::forward_as_tuple(eps_comp, eps_shear);
+
+
+
+
+}
+
+
+template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Embedding<DIM> &embed) {
+
+    
+    XVec sigma = XVec::Zero(comp.ndcells[DIM]);
+
+    for(int c = comp.dcell_range[DIM].first; c < comp.dcell_range[DIM].second; c++) {
+
+        auto eset = comp.get_faces(c, 1);
+        
+        std::map<int, DVec> dEdu;
+                
+        for(auto e: eset) {
+            
+            auto verts = comp.get_facets(e);
+
+            int vi = verts[0];
+            int vj = verts[1];
+                
+                
+            DVec bvec = embed.get_diff(embed.get_vpos(vj), embed.get_vpos(vi));
+
+            DVec du = disp.segment<DIM>(DIM*vj) - disp.segment<DIM>(DIM*vi);
+
+            double ell2 = bvec.squaredNorm();
+
+            DVec x = K[comp.get_label(e)]  / ell2 * (bvec.dot(du)) * bvec;
+
+            
+            if(!dEdu.count(vj)) {
+                dEdu[vj] = x;
+            } else {
+                dEdu[vj] += x;
+            }
+            
+            if(!dEdu.count(vi)) {
+                dEdu[vi] = -x;
+            } else {
+                dEdu[vi] -= x;
+            }
+
+        }
+        
+        py::print(c);
+        
+        auto vset = comp.get_faces(c, 0);
+
+        std::vector<int> verts(vset.begin(), vset.end());
+
+
+        int vi = verts[0];
+
+        DVec O = embed.get_vpos(vi);
+
+        DMat J = DMat::Zero();
+        
+
+        for(int m = 0; m < DIM; m++) {
+
+            int vj = verts[1+m];
+
+            DVec bvec = embed.get_diff(embed.get_vpos(vj), O);
+
+            J += bvec * bvec.transpose();
+
+        }
+        
+        DMat Jinv = J.inverse();
+        
+        py::print(Jinv);
+        
+        DVec bvecJinvi = DVec::Zero();
+        
+        DMat stress = DMat::Zero();
+        
+        for(int m = 0; m < DIM; m++) {
+
+            int vj = verts[1+m];
+            
+            DVec bvecJinvj = embed.get_diff(embed.get_vpos(vj), O).transpose() * Jinv;
+            
+            bvecJinvi += bvecJinvj;
+                        
+            stress += dEdu[vj] * bvecJinvj.transpose() / bvecJinvj.squaredNorm();
+            
+        }
+                
+        stress -= dEdu[vi] *  bvecJinvi.transpose() / bvecJinvi.squaredNorm();
+        
+        py::print(stress);
+        py::print(stress.norm());
+        
+        sigma[comp.get_label(c)] = stress.norm();
+        
+    }
+    
+
+    return sigma;
 
 
 
@@ -760,7 +855,8 @@ template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedd
 }
 
 
-// Calculate condition numbers of triangulation Jacobians
+
+// Calculate condition numbers of triangulation element stiffness tensors
 template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) {
 
 
@@ -772,29 +868,52 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
 
         std::vector<int> verts(vset.begin(), vset.end());
 
-        int vi = verts[0];
-
-        DVec O = embed.get_vpos(vi);
+        // Each column is an altitude vector pointing from a (d-1)-face to the opposite vertex
+        XMat altitudes(DIM, DIM+1);
         
-        DMat X = DMat::Zero();
-
-        for(int m = 0; m < DIM; m++) {
-
-            int vj = verts[1+m];
-
-            DVec bvec = embed.get_vpos(vj) - O;
+        for(int i = 0; i < DIM+1; i++) {
             
-            for(int d = 0; d < DIM; d++) {
-                if(std::fabs(bvec(d)) > 0.5) {
-                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+            int vi = verts[i];
+            
+            std::vector<int> fverts;
+            for(int j = 0; j < DIM+1; j++) {
+                if(j != i) {
+                    fverts.push_back(verts[j]);
                 }
             }
-
-            bvec = embed.box_mat * bvec;
-
-            X += bvec * bvec.transpose();
-
+            
+            // Calculate positions of all verts relative to one vert
+            XMat cross_mat(DIM, DIM-1);
+            
+            DVec O = embed.get_vpos(fverts[0]);
+            for(int m = 0; m < DIM-1; m++) {
+                cross_mat.col(m) = embed.get_diff(embed.get_vpos(fverts[1+m]), O);
+            }
+            
+            // Use cofactors of cross product matrix to calculate normal vector
+            DVec normal;
+            for(int m = 0; m < DIM; m++) {
+                
+                XMat cofactor_mat(DIM-1, DIM-1);
+                cofactor_mat.block(0, 0, m, DIM-1) = cross_mat.block(0, 0, m, DIM-1);
+                cofactor_mat.block(m, 0, DIM-1-m, DIM-1) = cross_mat.block(m+1, 0, DIM-1-m, DIM-1);
+                
+                int sign = (m % 2 == 0) ? 1 : -1;
+                normal(m) = sign * cofactor_mat.determinant();
+            }
+            
+            normal.normalize();
+            
+            // Calculate altitude vector
+            DVec u = embed.get_diff(embed.get_vpos(vi), O);
+            DVec a = normal.dot(u) * normal;
+            a /= a.squaredNorm();
+            altitudes.col(i) = a;
+            
         }
+        
+        // Calculate element stiffness matrix
+        XMat X = altitudes.transpose() * altitudes;
         
         
         Eigen::SelfAdjointEigenSolver<DMat> esolver(X);
@@ -813,6 +932,61 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
 
 
 }
+
+
+// // Calculate condition numbers of triangulation Jacobians
+// template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) {
+
+
+//     XVec flatness = XVec::Zero(comp.ndcells[DIM]);
+
+//     for(int c = comp.dcell_range[DIM].first; c < comp.ncells; c++) {
+
+//         auto vset = comp.get_faces(c, 0);
+
+//         std::vector<int> verts(vset.begin(), vset.end());
+
+//         int vi = verts[0];
+
+//         DVec O = embed.get_vpos(vi);
+        
+//         DMat X = DMat::Zero();
+
+//         for(int m = 0; m < DIM; m++) {
+
+//             int vj = verts[1+m];
+
+//             DVec bvec = embed.get_vpos(vj) - O;
+            
+//             for(int d = 0; d < DIM; d++) {
+//                 if(std::fabs(bvec(d)) > 0.5) {
+//                     bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+//                 }
+//             }
+
+//             bvec = embed.box_mat * bvec;
+
+//             X += bvec * bvec.transpose();
+
+//         }
+        
+        
+//         Eigen::SelfAdjointEigenSolver<DMat> esolver(X);
+        
+//         DVec evals = esolver.eigenvalues();
+
+//         flatness(comp.get_label(c)) = evals[DIM-1] / evals[0];
+                
+        
+//     }
+        
+
+//     return flatness;
+
+
+
+
+// }
 
 
 //////////////////////////////////////////////////////////////////////////

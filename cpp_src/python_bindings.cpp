@@ -87,6 +87,8 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     m.def((std::string("calc_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_strains<DIM>,
          py::arg("disp"), py::arg("comp"), py::arg("embed"), py::arg("keep_rotations")=false);
     
+    m.def((std::string("calc_stresses_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_stresses<DIM>);
+    
     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
     
