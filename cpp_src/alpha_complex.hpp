@@ -611,12 +611,10 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
 //Deformations
 //////////////////////////////////////////////////////////////////////////
 
-template <int DIM> std::tuple<XVec, XVec >
-            calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, bool keep_rotations=false) {
+template <int DIM> XVec calc_strains(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, bool keep_rotations=false) {
 
 
-    XVec eps_shear = XVec::Zero(comp.ndcells[DIM]);
-    XVec eps_comp = XVec::Zero(comp.ndcells[DIM]);
+    XVec strains = XVec::Zero(comp.ndcells[DIM]);
 
     for(int c = comp.dcell_range[DIM].first; c < comp.ncells; c++) {
 
@@ -658,16 +656,11 @@ template <int DIM> std::tuple<XVec, XVec >
         
         
 
-        eps_comp(comp.get_label(c)) = eps.trace();
-                
-        eps_shear(comp.get_label(c)) = (eps - DMat::Identity() * 1.0/DIM * eps.trace()).norm();
-        
-    }
-    
-    eps_comp = eps_comp.cwiseAbs();
-    
+        strains(comp.get_label(c)) = eps.norm();
+                        
+    }    
 
-    return std::forward_as_tuple(eps_comp, eps_shear);
+    return strains;
 
 
 
