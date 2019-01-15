@@ -678,47 +678,10 @@ template <int DIM> std::tuple<XVec, XVec >
 template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Embedding<DIM> &embed) {
 
     
-    XVec sigma = XVec::Zero(comp.ndcells[DIM]);
+    XVec stress = XVec::Zero(comp.ndcells[DIM]);
 
     for(int c = comp.dcell_range[DIM].first; c < comp.dcell_range[DIM].second; c++) {
 
-        auto eset = comp.get_faces(c, 1);
-        
-        std::map<int, DVec> dEdu;
-                
-        for(auto e: eset) {
-            
-            auto verts = comp.get_facets(e);
-
-            int vi = verts[0];
-            int vj = verts[1];
-                
-                
-            DVec bvec = embed.get_diff(embed.get_vpos(vj), embed.get_vpos(vi));
-
-            DVec du = disp.segment<DIM>(DIM*vj) - disp.segment<DIM>(DIM*vi);
-
-            double ell2 = bvec.squaredNorm();
-
-            DVec x = K[comp.get_label(e)]  / ell2 * (bvec.dot(du)) * bvec;
-
-            
-            if(!dEdu.count(vj)) {
-                dEdu[vj] = x;
-            } else {
-                dEdu[vj] += x;
-            }
-            
-            if(!dEdu.count(vi)) {
-                dEdu[vi] = -x;
-            } else {
-                dEdu[vi] -= x;
-            }
-
-        }
-        
-        py::print(c);
-        
         auto vset = comp.get_faces(c, 0);
 
         std::vector<int> verts(vset.begin(), vset.end());
@@ -727,9 +690,11 @@ template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Em
         int vi = verts[0];
 
         DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
 
-        DMat J = DMat::Zero();
-        
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+
 
         for(int m = 0; m < DIM; m++) {
 
@@ -737,44 +702,40 @@ template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Em
 
             DVec bvec = embed.get_diff(embed.get_vpos(vj), O);
 
-            J += bvec * bvec.transpose();
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+            X += bvec * bvec.transpose();
+            Y += du * bvec.transpose();
 
         }
-        
-        DMat Jinv = J.inverse();
-        
-        py::print(Jinv);
-        
-        DVec bvecJinvi = DVec::Zero();
-        
-        DMat stress = DMat::Zero();
-        
-        for(int m = 0; m < DIM; m++) {
 
-            int vj = verts[1+m];
+        DMat F = Y * X.inverse();
+        
+        DMat sigma = DMat::Zero();
+        
+        for(int e: comp.get_faces(c, 1)) {
+            auto everts = comp.get_facets(e);
             
-            DVec bvecJinvj = embed.get_diff(embed.get_vpos(vj), O).transpose() * Jinv;
+            int vi = everts[0];
+            int vj = everts[1];
             
-            bvecJinvi += bvecJinvj;
-                        
-            stress += dEdu[vj] * bvecJinvj.transpose() / bvecJinvj.squaredNorm();
+            DVec bvec = embed.get_diff(embed.get_vpos(vj), embed.get_vpos(vi));
+            double ell2 = bvec.squaredNorm();
+            
+            double ext = bvec.transpose() * F * bvec;
+            
+            sigma += K(comp.get_label(e)) / ell2 * ext * bvec * bvec.transpose();
+            
             
         }
-                
-        stress -= dEdu[vi] *  bvecJinvi.transpose() / bvecJinvi.squaredNorm();
         
-        py::print(stress);
-        py::print(stress.norm());
-        
-        sigma[comp.get_label(c)] = stress.norm();
+        stress(comp.get_label(c)) = sigma.norm();
+
         
     }
     
 
-    return sigma;
-
-
-
+    return stress;
 
 }
 
