@@ -50,7 +50,7 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
     std::vector<int> multi_index(dim, 0);
     for(int k = 0; k <= dim; k++) {
         
-        py::print(k, py::arg("flush")=true);
+//         py::print(k, py::arg("flush")=true);
         
         for(int i = 0; i < size; i++) {
 
@@ -126,7 +126,7 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
                 
                 std::vector<int> coeffs;
                 
-                py::print("facet", label, py::arg("flush")=true);
+//                 py::print("facet", label, py::arg("flush")=true);
                 
                 
                 comp.add_cell(label, k, facets, coeffs);
@@ -158,12 +158,12 @@ CellComplex construct_cubical_complex(std::vector<int> &shape, bool oriented, bo
         
     }
     
-    py::print("cofacets", py::arg("flush")=true);
+//     py::print("cofacets", py::arg("flush")=true);
     
     comp.construct_cofacets();
     
     
-    py::print("compressing", py::arg("flush")=true);
+//     py::print("compressing", py::arg("flush")=true);
     
     comp.make_compressed(); 
         

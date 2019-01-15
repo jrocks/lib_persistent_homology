@@ -369,6 +369,12 @@ PYBIND11_MODULE(phom, m) {
           py::arg("pair"), py::arg("V"), py::arg("coV"), py::arg("comp"),
           py::arg("filt"), py::arg("target_dim")=-1, py::arg("cancel_target_pair")=false, py::arg("verbose") = false);
     
+    m.def("simplify_morse_complex", 
+          (void (*)(double, RXiVec, RXiVec, Filtration&, CellComplex&, int, bool, bool)) 
+          &simplify_morse_complex, 
+          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
+          py::arg("filt"), py::arg("target_dim")=-1, py::arg("parallel")=false, py::arg("verbose") = false);
+    
     
     m.def("find_join_pair", &find_join_pair);
     
