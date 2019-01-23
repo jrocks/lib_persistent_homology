@@ -222,6 +222,9 @@ PYBIND11_MODULE(phom, m) {
     init_alpha_templates<3>(m);
     // init_alpha_templates<4>(m);
     
+    m.def("calc_radial_edge_counts", &calc_radial_edge_counts,
+          py::arg("cell_list"), py::arg("edge_types"), py::arg("comp"), py::arg("max_dist")=-1);
+    
     m.def("calc_radial_gap_distribution", &calc_radial_gap_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("max_dist")=-1, py::arg("verbose")=false);
     m.def("calc_radial_tri_distribution", &calc_radial_tri_distribution,

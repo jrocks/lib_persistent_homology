@@ -947,9 +947,34 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
 //Cell type counting
 //////////////////////////////////////////////////////////////////////////
 
+std::unordered_map<int, std::unordered_map<int, std::unordered_map<std::string, int> > >
+    calc_radial_edge_counts(std::vector<int> &cell_list, std::vector<std::string> &edge_types, 
+                            CellComplex &comp, int max_dist=-1) {
+
+    // particle->dist->edge_type->count
+    std::unordered_map<int, std::unordered_map<int, std::unordered_map<std::string, int> > > edge_count;
+
+    for(int c: cell_list) {
+
+        auto dists = calc_comp_point_dists(c, comp, max_dist);
+
+        for(int i = comp.dcell_range[1].first; i < comp.dcell_range[1].second; i++) {
+            if(dists[i] <= 0) {
+                continue;
+            }
+                
+            edge_count[c][dists[i]][edge_types[comp.get_label(i)]]++;
+        }
+
+    }
+
+    return edge_count;
+
+
+}
 
 std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
-    calc_radial_gap_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    calc_radial_gap_distribution(std::vector<int> &cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
 
     // particle->(gaps[dist]->count, overlaps[dist]->count)
     std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > > gap_distribution;
@@ -992,7 +1017,7 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
 }
 
 
-template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, Embedding<DIM> &embed, int num_angles=128 , bool verbose=false) {
+template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<int> &cell_list, std::vector<double> &alpha_vals, CellComplex &comp, Embedding<DIM> &embed, int num_angles=128 , bool verbose=false) {
 
     // particle->(gaps[dist]->count, overlaps[dist]->count)
     std::map<int,std::string> class_map;
@@ -1056,7 +1081,7 @@ template <int DIM> std::map<int,std::string> calc_gap_angle_class(std::vector<in
 
 
 std::unordered_map<int, std::map<int, std::map<int, int> >  >
-    calc_radial_tri_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    calc_radial_tri_distribution(std::vector<int> &cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
 
     // particle->dist->triangle_type->count
     std::unordered_map<int, std::map<int, std::map<int, int> > > tri_distribution;
@@ -1104,7 +1129,7 @@ std::unordered_map<int, std::map<int, std::map<int, int> >  >
 std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
                                     std::map<int, std::map<int, int> >,
                                     std::map<int, std::map<int, int> > > >
-    calc_angular_gap_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    calc_angular_gap_distribution(std::vector<int> &cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
 
     std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
                                     std::map<int, std::map<int, int> >,
@@ -1211,7 +1236,7 @@ std::unordered_map<int, std::tuple<std::map<int, std::map<int, int> >,
 
 
 std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string, std::string >, int> > >
-    calc_radial_cycle_distribution(std::vector<int> cell_list, std::vector<double> &alpha_vals, std::vector<std::string> &vertex_types, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+    calc_radial_cycle_distribution(std::vector<int> &cell_list, std::vector<double> &alpha_vals, std::vector<std::string> &vertex_types, CellComplex &comp, int max_dist=-1, bool verbose=false) {
 
 
     // particle->dist->(vertex_types, edge_types)->count
