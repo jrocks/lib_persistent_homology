@@ -65,6 +65,7 @@ public:
         
     }
     
+    // Takes in virtual coords
     // Returns real coords
     inline DVec get_diff(DVec const  &xi, DVec const &xj) {
         

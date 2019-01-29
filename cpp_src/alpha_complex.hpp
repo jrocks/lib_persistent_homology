@@ -636,7 +636,7 @@ template <int DIM> XVec calc_strains(RXVec disp, CellComplex &comp, Embedding<DI
 
             int vj = verts[1+m];
 
-            DVec bvec = embed.get_diff(embed.get_vpos(vj), O);
+            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
 
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
 
@@ -693,7 +693,7 @@ template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Em
 
             int vj = verts[1+m];
 
-            DVec bvec = embed.get_diff(embed.get_vpos(vj), O);
+            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
 
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
 
@@ -712,7 +712,7 @@ template <int DIM> XVec calc_stresses(RXVec disp, RXVec K, CellComplex &comp, Em
             int vi = everts[0];
             int vj = everts[1];
             
-            DVec bvec = embed.get_diff(embed.get_vpos(vj), embed.get_vpos(vi));
+            DVec bvec = embed.get_diff(embed.get_vpos(vi), embed.get_vpos(vj));
             double ell2 = bvec.squaredNorm();
             
             double ext = bvec.transpose() * F * bvec;
@@ -841,7 +841,7 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
             
             DVec O = embed.get_vpos(fverts[0]);
             for(int m = 0; m < DIM-1; m++) {
-                cross_mat.col(m) = embed.get_diff(embed.get_vpos(fverts[1+m]), O);
+                cross_mat.col(m) = embed.get_diff(O, embed.get_vpos(fverts[1+m]));
             }
             
             // Use cofactors of cross product matrix to calculate normal vector
@@ -859,7 +859,7 @@ template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) 
             normal.normalize();
             
             // Calculate altitude vector
-            DVec u = embed.get_diff(embed.get_vpos(vi), O);
+            DVec u = embed.get_diff(O, embed.get_vpos(vi));
             DVec a = normal.dot(u) * normal;
             a /= a.squaredNorm();
             altitudes.col(i) = a;
