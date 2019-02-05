@@ -366,7 +366,7 @@ std::unordered_set<int> find_neighbors(int p, CellComplex &comp, int max_dist, i
 
 
 // Find vertices that are local extrema in the height function
-std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height, CellComplex &comp) {
+std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height, CellComplex &comp, int max_dist=1) {
     
     std::vector<int> minima;
     std::vector<int> maxima;
@@ -377,13 +377,27 @@ std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height,
         bool largest = true;
         bool smallest = true;
         double h = height[comp.get_label(c)];
-    
-//         auto range = comp.get_cofacet_range(c);
+        
+        
+        auto neighbors = find_neighbors(c, comp, max_dist, 0);
+        for(auto alpha: neighbors) {
+            if(alpha != c) {
 
-//         for(auto it = range.first; it != range.second && (largest || smallest); it++) {
+                if(height[comp.get_label(alpha)] <= h) {
+                    smallest = false;
+                }
 
-//             auto facets = comp.get_facets(*it);
-//             for(auto alpha: facets) {
+                if(height[comp.get_label(alpha)] >= h) {
+                    largest = false;
+                }
+
+            }
+        }
+        
+
+//         for(auto cf: comp.get_cofaces(c)) {
+
+//             for(auto alpha: comp.get_faces(cf, 0)) {
 //                 if(alpha != c) {
 
 //                     if(height[comp.get_label(alpha)] <= h) {
@@ -398,26 +412,6 @@ std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height,
 //             }
 
 //         }
-        
-        
-
-        for(auto cf: comp.get_cofaces(c)) {
-
-            for(auto alpha: comp.get_faces(cf, 0)) {
-                if(alpha != c) {
-
-                    if(height[comp.get_label(alpha)] <= h) {
-                        smallest = false;
-                    }
-
-                    if(height[comp.get_label(alpha)] >= h) {
-                        largest = false;
-                    }
-                    
-                }
-            }
-
-        }
         
         if(largest && smallest) {
             py::print("Vertex ", comp.get_label(c), "can't be both largest and smallest...");

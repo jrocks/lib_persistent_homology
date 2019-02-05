@@ -312,7 +312,8 @@ PYBIND11_MODULE(phom, m) {
          py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("taget_dim")=-1);
     m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
     m.def("find_local_extrema", 
-          (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&)) &find_local_extrema);
+          (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&, int)) &find_local_extrema,
+         py::arg("heigh"), py::arg("comp"), py::arg("max_dist")=1);
     m.def("find_local_extrema", 
           (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&, std::vector<bool>&)) &find_local_extrema);
     //     m.def("find_thresholded_component", &find_thresholded_component);
