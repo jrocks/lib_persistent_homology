@@ -11,10 +11,10 @@ sys.path.insert(0, '../../lib_persistent_homology/')
 import phom
 
 
+gray = "#969696"
 
 
-
-def show_network(ax, comp, embed, styles={}, alpha=1.0, boundary_cutoff=0.1):
+def show_network(ax, comp, embed, styles={}, alpha=1.0, boundary_cutoff=0.1, zorder=None, kwargs=dict()):
     
     box_mat = embed.box_mat
     L = np.diagonal(box_mat)
@@ -96,13 +96,13 @@ def show_network(ax, comp, embed, styles={}, alpha=1.0, boundary_cutoff=0.1):
             
             
             
-    lc = collections.LineCollection(edges, linestyle=ls, lw=lw, alpha=alpha, color=colors)
+    lc = collections.LineCollection(edges, linestyle=ls, lw=lw, alpha=alpha, color=colors, zorder=zorder, **kwargs)
     ax.add_collection(lc)
     
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     
-def show_discs(ax, comp, embed, rad, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None):
+def show_discs(ax, comp, embed, rad, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None, edgecolor='k', kwargs=dict()):
     
     box_mat = embed.box_mat
     L = np.diagonal(box_mat)
@@ -170,10 +170,38 @@ def show_discs(ax, comp, embed, rad, subset=None, styles={}, alpha=1.0, boundary
             
             
             
-    pc = collections.PatchCollection(discs, edgecolor='k', linewidth=0.5, alpha=alpha, facecolors=colors, zorder=zorder)
+    pc = collections.PatchCollection(discs, edgecolor=edgecolor, linewidth=0.5, alpha=alpha, facecolors=colors, zorder=zorder, **kwargs)
     ax.add_collection(pc)
     
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     
     
+def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=dict()):
+    
+    L = np.diagonal(embed.box_mat)
+    DIM = embed.dim
+    
+    X = []
+    Y = []
+    U = []
+    V = []
+    
+    for c in range(*comp.dcell_range[0]):
+        
+        vi = comp.get_label(c)
+        
+        pos = embed.get_pos(vi) / L
+        
+        u = vec_field[DIM*vi:DIM*vi+DIM] / L
+        
+        X.append(pos[0])
+        Y.append(pos[1])
+        U.append(u[0])
+        V.append(u[1])
+        
+        
+    ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.005, zorder=None, color=color, **kwargs)
+        
+
+

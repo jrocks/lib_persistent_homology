@@ -741,16 +741,6 @@ template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedd
     for(int vi = 0; vi < comp.ndcells[0]; vi++) {
 
         auto verts = find_neighbors(vi, comp, max_dist, 0);
-        
-//         // get edges
-//         auto eset = comp.get_cofacets(vi);
-
-//         std::unordered_set<int> verts;
-
-//         for(auto e: eset) {
-//             auto vset = comp.get_facets(e);
-//             verts.insert(vset.begin(), vset.end());
-//         }
 
         verts.erase(vi);
 
@@ -800,6 +790,83 @@ template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedd
             D2min(vi) += (du - eps*bvec).squaredNorm();
 
         }
+        
+        D2min(vi) /= verts.size();
+
+    }
+
+    return D2min;
+
+
+}
+
+
+template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, std::vector<bool> &is_contact) {
+
+
+    XVec D2min = XVec::Zero(embed.NV);
+
+    for(int vi = comp.dcell_range[0].first; vi < comp.dcell_range[0].second; vi++) {
+        
+        std::unordered_set<int> verts;
+        
+        for(auto ei: comp.get_cofacets(vi)) {
+            if(is_contact[comp.get_label(ei)]) {
+                auto everts = comp.get_facets(ei);
+                int vj = (everts[0] == vi) ? everts[1] : everts[0];
+               
+                verts.insert(vj);
+            }
+        }
+
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+
+
+        for(auto vj: verts) {
+
+            DVec bvec = embed.get_vpos(vj) - O;
+
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+            X += du * bvec.transpose();
+            Y += bvec * bvec.transpose();
+
+        }
+
+        DMat eps = X * Y.inverse();
+
+
+        for(auto vj: verts) {
+
+            DVec bvec = embed.get_vpos(vj) - O;
+
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+            D2min(vi) += (du - eps*bvec).squaredNorm();
+
+        }
+        
+        D2min(vi) /= verts.size();
 
     }
 

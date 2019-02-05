@@ -12,7 +12,7 @@
 #include "search.hpp"
 #include "persistent_homology.hpp"
 #include "persistence_simplification.hpp"
-// #include "persistence_landscape.hpp"
+#include "persistence_landscape.hpp"
     
 #ifdef ALPHA
     #include "alpha_complex.hpp"
@@ -89,8 +89,12 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     
     m.def((std::string("calc_stresses_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_stresses<DIM>);
     
-    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>,
+    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, int)) &calc_voronoi_D2min<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
+    
+    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, std::vector<bool>&)) &calc_voronoi_D2min<DIM>);
     
     m.def((std::string("calc_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_flatness<DIM>);
         
@@ -307,7 +311,10 @@ PYBIND11_MODULE(phom, m) {
     m.def("find_nearest_neighbors", &find_nearest_neighbors,
          py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("taget_dim")=-1);
     m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
-    m.def("find_local_extrema", &find_local_extrema);
+    m.def("find_local_extrema", 
+          (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&)) &find_local_extrema);
+    m.def("find_local_extrema", 
+          (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&, std::vector<bool>&)) &find_local_extrema);
     //     m.def("find_thresholded_component", &find_thresholded_component);
     
 
@@ -401,14 +408,24 @@ PYBIND11_MODULE(phom, m) {
 //     // m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<double>&, std::vector<double>&, std::vector<double>&, int)) &calc_persistence_landscape);
 //     // m.def("calc_persistence_landscape", (std::vector<std::vector<double> > (*)(std::vector<std::pair<int, int> >&, std::vector<double>&, int, StarFiltration&)) &calc_persistence_landscape);
     
-//     m.def("calc_landscape", &calc_landscape, py::return_value_policy::take_ownership);
-//     m.def("calc_landscape_norm", (double (*)(CRXMat, CRXVec))&calc_landscape_norm);
-//     m.def("calc_landscape_dist", (double (*)(CRXMat, CRXMat, CRXVec))&calc_landscape_dist);
-//     m.def("calc_landscape_norm", (double (*)(CRXVec, CRXVec, CRXVec))&calc_landscape_norm);
-//     m.def("calc_landscape_dist", (double (*)(CRXVec, CRXVec, CRXVec, CRXVec, CRXVec))&calc_landscape_dist);
+
     
+    m.def("construct_landscape", &construct_landscape);
+    m.def("eval_landscape", &eval_landscape);
+    m.def("combine_landscapes", 
+          (std::vector< std::pair<std::vector<double>, std::vector<double> > > 
+           (*)(std::vector< std::pair<std::vector<double>, std::vector<double> > >&, 
+            std::vector< std::pair<std::vector<double>, std::vector<double> > >&, double, double)) &combine_landscapes);
     
-    
+    m.def("combine_landscapes", 
+          (std::vector< std::pair<std::vector<double>, std::vector<double> > > 
+           (*)(std::vector<std::vector< std::pair<std::vector<double>, std::vector<double> > > >&, 
+               RXVec)) &combine_landscapes);
+    m.def("calc_average_landscape", &calc_average_landscape);
+    m.def("calc_landscape_norm", &calc_landscape_norm);
+    m.def("calc_landscape_dist", &calc_landscape_dist);
+    m.def("calc_dist_mat", &calc_dist_mat);
+    m.def("calc_dist_mat_norms", &calc_dist_mat_norms);
 
         
 

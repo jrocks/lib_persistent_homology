@@ -378,9 +378,83 @@ std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height,
         bool smallest = true;
         double h = height[comp.get_label(c)];
     
+//         auto range = comp.get_cofacet_range(c);
+
+//         for(auto it = range.first; it != range.second && (largest || smallest); it++) {
+
+//             auto facets = comp.get_facets(*it);
+//             for(auto alpha: facets) {
+//                 if(alpha != c) {
+
+//                     if(height[comp.get_label(alpha)] <= h) {
+//                         smallest = false;
+//                     }
+
+//                     if(height[comp.get_label(alpha)] >= h) {
+//                         largest = false;
+//                     }
+                    
+//                 }
+//             }
+
+//         }
+        
+        
+
+        for(auto cf: comp.get_cofaces(c)) {
+
+            for(auto alpha: comp.get_faces(cf, 0)) {
+                if(alpha != c) {
+
+                    if(height[comp.get_label(alpha)] <= h) {
+                        smallest = false;
+                    }
+
+                    if(height[comp.get_label(alpha)] >= h) {
+                        largest = false;
+                    }
+                    
+                }
+            }
+
+        }
+        
+        if(largest && smallest) {
+            py::print("Vertex ", comp.get_label(c), "can't be both largest and smallest...");
+        }
+
+        if(largest) {
+            maxima.push_back(comp.get_label(c));
+        } else if(smallest) {
+            minima.push_back(comp.get_label(c));
+
+        }   
+    }
+    
+    return std::make_tuple(minima, maxima);
+    
+}
+
+
+std::tuple<std::vector<int>, std::vector<int> > find_local_extrema(RXVec height, CellComplex &comp, std::vector<bool> &is_contact) {
+    
+    std::vector<int> minima;
+    std::vector<int> maxima;
+    
+    
+    for(int c = comp.dcell_range[0].first; c < comp.dcell_range[0].second; c++) {
+            
+        bool largest = true;
+        bool smallest = true;
+        double h = height[comp.get_label(c)];
+    
         auto range = comp.get_cofacet_range(c);
 
         for(auto it = range.first; it != range.second && (largest || smallest); it++) {
+            
+            if(!is_contact[comp.get_label(*it)]) {
+                continue;
+            }
 
             auto facets = comp.get_facets(*it);
             for(auto alpha: facets) {
