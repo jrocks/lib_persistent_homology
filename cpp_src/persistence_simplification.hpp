@@ -116,7 +116,7 @@ void cancel_close_pair(std::pair<int, int> &pair, RXiVec V, RXiVec coV, CellComp
 
 
 std::tuple<double, std::pair<int, int>> find_join_pair(std::vector<int> &cells, RXiVec V, RXiVec coV, 
-                           Filtration &filt, CellComplex &comp, bool verbose) {
+                           Filtration &filt, CellComplex &comp, std::size_t ntarget_cells=1, bool verbose=false) {
     
     
     XiVec V_tmp = V;
@@ -191,7 +191,7 @@ std::tuple<double, std::pair<int, int>> find_join_pair(std::vector<int> &cells, 
         }
 
         // If cells have overlapping sets of corresponding morse cells
-        if(morse_cells.size() == 1) {
+        if(morse_cells.size() <= ntarget_cells) {
             return std::make_tuple(threshold, threshold_pair);
         }
 

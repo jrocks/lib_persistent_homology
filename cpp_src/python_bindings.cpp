@@ -387,8 +387,9 @@ PYBIND11_MODULE(phom, m) {
           py::arg("filt"), py::arg("target_dim")=-1, py::arg("parallel")=false, py::arg("verbose") = false);
     
     
-    m.def("find_join_pair", &find_join_pair);
-    
+    m.def("find_join_pair", &find_join_pair,
+         py::arg("cells"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
+         py::arg("ntarget_cells")=1, py::arg("verbose")=false);
     
 //     m.def("find_cancel_threshold", &find_cancel_threshold);
 //     m.def("find_cancel_order", &find_cancel_order);
