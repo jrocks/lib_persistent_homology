@@ -192,6 +192,9 @@ std::tuple<double, std::pair<int, int>> find_join_pair(std::vector<int> &cells, 
 
         // If cells have overlapping sets of corresponding morse cells
         if(morse_cells.size() <= ntarget_cells) {
+            
+//             py::print(morse_cells);
+            
             return std::make_tuple(threshold, threshold_pair);
         }
 
@@ -212,6 +215,8 @@ std::tuple<double, std::pair<int, int>> find_join_pair(std::vector<int> &cells, 
             threshold = top.first;
         }
 
+//         py::print(n, top.first, top.second);
+        
         cancel_close_pair(cpair, V_tmp, coV_tmp, comp);
                
         
@@ -272,8 +277,10 @@ void simplify_morse_complex(std::pair<int, int> pair, RXiVec V, RXiVec coV, Filt
             cancel_pairs.pop();
 
             auto cpair = top.second;
+            
+//             py::print(n, top.first, top.second);
 
-            // If not cancelling target pair, then skip
+            // If not cancelling target pair, then end
             if(!cancel_target_pair && cpair == pair) {
                 return;
             }
@@ -283,8 +290,15 @@ void simplify_morse_complex(std::pair<int, int> pair, RXiVec V, RXiVec coV, Filt
             if(target_dim != -1 && comp.get_dim(cpair.first) != target_dim) {
                 continue;
             }
+            
+            
 
             cancel_close_pair(cpair, V, coV, comp);
+            
+            // If cancelling target pair, then end
+            if(cancel_target_pair && cpair == pair) {
+                return;
+            }
             
             cancelled = true;
             break;
