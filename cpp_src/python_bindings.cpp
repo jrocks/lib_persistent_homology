@@ -309,7 +309,9 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_comp_point_dists", &calc_comp_point_dists,
          py::arg("p"), py::arg("comp"), py::arg("max_dist")=-1);
     m.def("find_nearest_neighbors", &find_nearest_neighbors,
-         py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("taget_dim")=-1);
+         py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("target_dim")=-1);
+    m.def("find_neighbors", &find_neighbors,
+         py::arg("p"), py::arg("comp"), py::arg("max_dist"), py::arg("target_dim")=-1);
     m.def("calc_cell_pair_dist", &calc_cell_pair_dist);
     m.def("find_local_extrema", 
           (std::tuple<std::vector<int>, std::vector<int> > (*) (RXVec, CellComplex&, int)) &find_local_extrema,
