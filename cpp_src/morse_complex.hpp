@@ -669,24 +669,80 @@ std::unordered_map<int, std::unordered_set<int> >
     }
     
     auto cmp = [&filt] (const int &lhs, const int &rhs) {
-        return filt(lhs, rhs);
+        return filt(rhs, lhs);
     };
+    
+    std::unordered_set<int> unsorted;
     
     // Assign vertices to latest coface
     for(int vi = comp.dcell_range[0].first; vi < comp.dcell_range[0].second; vi++) {
 
-        auto cofaces = comp.get_cofaces(vi, filt.filt_dim);
+        auto cofaces = comp.get_cofaces(vi, comp.dim);
+//         std::vector<int> coface_list(cofaces.begin(), cofaces.end());
         
-        int imax = *std::max_element(cofaces.begin(), cofaces.end(), cmp);
+//         std::sort(coface_list.begin(), coface_list.end(), cmp);
         
-        if(!cells_to_voids.count(imax)) {
-            py::print("doesn't exist", vi, cofaces, imax);
+//         bool inserted = false;
+//         for(int cf: coface_list) {
+            
+//             if(cells_to_voids.count(cf)) {
+//                 basins[cells_to_voids[cf]].insert(vi);
+//                 inserted = true;
+//                 break;
+//             }  
+//         }
+        
+//         if(!inserted) {
+//             unsorted.insert(vi);
+//         }
+        
+        int imax = *std::min_element(cofaces.begin(), cofaces.end(), cmp);
+        
+        if(cells_to_voids.count(imax)) {
+            cells_to_voids[vi] = cells_to_voids[imax];
+            basins[cells_to_voids[imax]].insert(vi);
+        } else {
+            unsorted.insert(vi);
         }
         
-        basins[cells_to_voids[imax]].insert(vi);
+    }
+    
+    
+    for(int vi : unsorted) {
         
+        std::unordered_set<int> neighbors;
+        
+        for(int ei: comp.get_cofacets(vi)) {
+            
+            auto verts = comp.get_facets(ei);
+            
+            neighbors.insert(verts.begin(), verts.end());
+            
+        }
+        
+        neighbors.erase(vi);
+        
+        
+        std::vector<int> neighbor_list(neighbors.begin(), neighbors.end());
+        std::sort(neighbor_list.begin(), neighbor_list.end(), cmp);
+        
+        bool inserted = false;
+        for(int vj: neighbor_list) {
+            if(cells_to_voids.count(vj)) {
+                basins[cells_to_voids[vj]].insert(vi);
+                
+                inserted = true;
+                break;
+            }
+        }
+        
+        if(!inserted) {
+            py::print("Unsorted", vi);
+        }
         
     }
+    
+    
     
     return basins;
     
