@@ -177,6 +177,88 @@ def show_discs(ax, comp, embed, rad, subset=None, styles={}, alpha=1.0, boundary
     ax.set_ylim(0, 1)
     
     
+    
+def show_verts(ax, comp, embed, nodes, styles={}, alpha=1.0, zorder=None, marker='o', shadow=False, kwargs=dict()):
+    
+    box_mat = embed.box_mat
+    L = np.diagonal(box_mat)
+    
+    image_offsets = [np.array([0.0, 0.0]),
+                    np.array([1.0, 0.0]),
+                    np.array([-1.0, 0.0]),
+                    np.array([0.0, 1.0]),
+                    np.array([0.0, -1.0]),
+                    np.array([1.0, 1.0]),
+                    np.array([-1.0, 1.0]),
+                    np.array([1.0, -1.0]),
+                    np.array([-1.0, -1.0])]  
+    
+    
+    x = []
+    y = []
+    vert_index = []
+    
+    for c in nodes:
+        
+        vi = comp.get_label(c)
+        
+        vposi = embed.get_vpos(vi)       
+
+        posi = box_mat.dot(vposi) / L
+                            
+        
+        if embed.periodic:
+            
+            test_duplicates = ((posi < 0.0).any() or (posi > 1.0).any())
+            
+            if test_duplicates:
+                for offset in image_offsets:
+                    oposi = box_mat.dot(vposi+offset) / L
+                    
+                    if ((oposi > 0.0).all() and (oposi < 1.0).all()):
+                        x.append(oposi[0])
+                        y.append(oposi[1])
+                        vert_index.append(vi)
+                    
+            else:
+                x.append(posi[0])
+                y.append(posi[1])
+                vert_index.append(vi)
+                
+        else:
+            x.append(posi[0])
+            y.append(posi[1])
+            vert_index.append(vi)
+        
+        
+        
+        
+    colors = []
+    sizes = []
+    
+    for i, b in enumerate(vert_index):
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append('k')
+            
+        if b in styles and 'size' in styles[b]:
+            sizes.append(styles[b]['size'])
+        else:
+            sizes.append(200)
+            
+            
+    if shadow:
+        ax.scatter(np.array(x), np.array(y), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
+    
+    ax.scatter(x, y, marker=marker , s=sizes, facecolor=colors, alpha=1.0, linewidths=0.0)
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    
+  
+    
 def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=dict()):
     
     L = np.diagonal(embed.box_mat)
@@ -204,4 +286,89 @@ def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=di
     ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.005, zorder=None, color=color, **kwargs)
         
 
-
+def show_patches(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None, kwargs=dict()):
+    
+    box_mat = embed.box_mat
+    L = np.diagonal(box_mat)
+    
+    image_offsets = [np.array([0.0, 0.0]),
+                    np.array([1.0, 0.0]),
+                    np.array([-1.0, 0.0]),
+                    np.array([0.0, 1.0]),
+                    np.array([0.0, -1.0]),
+                    np.array([1.0, 1.0]),
+                    np.array([-1.0, 1.0]),
+                    np.array([1.0, -1.0]),
+                    np.array([-1.0, -1.0])]    
+    
+    patch_list = []
+    patch_index = []
+    
+    if subset is not None:
+        cell_list = subset
+    else:
+        cell_list = range(*comp.dcell_range[2])
+    
+    for c in cell_list:
+        
+        verts = list(comp.get_faces(c, 0))
+        
+        vposi = embed.get_vpos(verts[0])
+        posi = box_mat.dot(vposi) / L
+        
+        corners = np.zeros([len(verts), 2], float)
+        corners[0] = posi
+        
+        for j in range(1, len(verts)):
+            vposj = embed.get_vpos(verts[j])
+            vbvec = embed.get_vdiff(vposi, vposj)
+            
+            bvec = box_mat.dot(vbvec) / L
+            posj = posi + bvec
+            corners[j] = posj
+            
+        if embed.periodic:
+            test_duplicates = ((posi < boundary_cutoff).any() or (posi > 1.0-boundary_cutoff).any())
+            
+            if test_duplicates:
+                for offset in image_offsets:
+                    oposi = box_mat.dot(vposi+offset) / L
+                    
+                    if ((oposi > -boundary_cutoff).all() and (oposi < 1.0+boundary_cutoff).all()):
+                        
+                        corners_tmp = np.copy(corners)
+                        for j in range(1, len(verts)):
+                            vposj = embed.get_vpos(verts[j])
+                            vbvec = embed.get_vdiff(vposi+offset, vposj)
+                            bvec = box_mat.dot(vbvec) / L
+                            posj = oposi + bvec
+                            corners_tmp[j] = posj
+                        
+                        
+                        patch_list.append(patches.Polygon(corners_tmp))
+                        patch_index.append(comp.get_label(c))
+                    
+            else:
+                patch_list.append(patches.Polygon(corners))
+                patch_index.append(comp.get_label(c))
+                
+        else:
+            patch_list.append(patches.Polygon(corners))
+            patch_index.append(comp.get_label(c))
+        
+        
+        
+    colors = []    
+    for i, b in enumerate(patch_index):
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append(gray)
+            
+    pc = collections.PatchCollection(patch_list, color=colors, zorder=zorder, alpha=alpha, **kwargs)
+    ax.add_collection(pc)
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+  

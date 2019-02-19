@@ -877,6 +877,80 @@ template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedd
 
 
 
+
+template <int DIM> std::tuple<XVec, XVec> calc_delaunay_D2min_strain(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2) {
+
+
+    XVec D2min = XVec::Zero(comp.ndcells[0]);
+    XVec strains = XVec::Zero(comp.ndcells[0]);
+
+    for(int vi = 0; vi < comp.ndcells[0]; vi++) {
+
+        auto verts = find_neighbors(vi, comp, max_dist, 0);
+
+        verts.erase(vi);
+
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
+
+
+        for(auto vj: verts) {
+
+            DVec bvec = embed.get_vpos(vj) - O;
+
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+            X += du * bvec.transpose();
+            Y += bvec * bvec.transpose();
+
+        }
+
+        DMat F = X * Y.inverse();
+
+
+        for(auto vj: verts) {
+
+            DVec bvec = embed.get_vpos(vj) - O;
+
+            for(int d = 0; d < DIM; d++) {
+                if(std::fabs(bvec(d)) > 0.5) {
+                    bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
+                }
+            }
+
+            bvec = embed.box_mat * bvec;
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+            D2min(vi) += (du - F*bvec).squaredNorm();
+
+        }
+        
+        D2min(vi) /= verts.size();
+        
+        DMat eps = 0.5 * (F + F.transpose());
+        strains(vi) = eps.norm();
+
+    }
+
+    return std::make_tuple(D2min, strains);
+
+
+}
+
+
+
 // Calculate condition numbers of triangulation element stiffness tensors
 template <int DIM> XVec calc_flatness(CellComplex &comp, Embedding<DIM> &embed) {
 
@@ -1382,6 +1456,153 @@ std::unordered_map<int,  std::unordered_map<int, std::map<std::tuple<std::string
 
 
 }
+
+
+
+
+
+// This is here because it relies on betti numbers
+
+std::tuple<CellComplex, std::unordered_set<int> >  
+    prune_cell_complex_sequential_surface(CellComplex &comp, RXVec priority, std::unordered_set<int> &preserve,
+                                          std::unordered_set<int> &surface,
+                                          bool allow_holes=false, double threshold=0.0, int target_dim=-1) {
+    
+    
+    // Only works for cells of maximum dimension
+    if(target_dim==-1) {
+        target_dim = comp.dim;
+    }
+    
+    
+    std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int> >> PQ;
+    
+    for(int c = comp.dcell_range[target_dim].first; c < comp.dcell_range[target_dim].second; c++) {
+        PQ.emplace(priority(comp.get_label(c)), c);
+    }
+    
+    std::unordered_set<int> rem_cells;
+    while(!PQ.empty()) {
+        
+        auto top = PQ.top();
+        PQ.pop();
+        
+        double val = top.first;
+        int c = top.second;
+                        
+        if(val <= threshold) {
+            break;
+        }
+        
+
+        std::unordered_set<int> test_cells;
+        test_cells.insert(c);
+        
+        bool stop = false;
+        for(int f: comp.get_faces(c)) {
+        
+            auto cofaces = comp.get_cofaces(f, target_dim);
+            bool has_coface = false;
+            for(int cf: cofaces) {
+                if(!rem_cells.count(cf) && !test_cells.count(cf)) {
+                    has_coface = true;
+                    break;
+                }
+            }
+
+            if(!has_coface) {
+                
+                if(preserve.count(f)) {
+                    stop = true;
+                    break;
+                } else {
+                    test_cells.insert(f);
+                }
+            }
+                
+        }
+        
+        if(stop) {
+            break;
+        }
+        
+        if(!allow_holes) {
+
+            std::unordered_set<int> all_rem_cells(rem_cells);
+            all_rem_cells.insert(test_cells.begin(), test_cells.end());
+            std::vector<int> all_rem_cells_list(all_rem_cells.begin(), all_rem_cells.end());
+            CellComplex comp_tmp = prune_cell_complex(all_rem_cells_list, comp);
+
+            auto betti = calc_betti_numbers(comp_tmp);
+            
+            if(betti[0] > 1) {
+                break;
+            }
+            for(std::size_t i = 1; i < betti.size(); i++) {
+                if(betti[i] > 0) {
+                    stop = true;
+                }
+            }
+
+            if(stop) {
+                break;
+            }
+        }
+                
+        rem_cells.insert(test_cells.begin(), test_cells.end());
+        
+        auto facets = comp.get_facets(c);
+        bool is_surface = false;
+        for(int f: facets) {
+            if(surface.count(f)) {
+                is_surface=true;
+                break;
+            }
+        }
+
+        if(is_surface) {
+            for(int f: facets) {
+                if(surface.count(f)) {
+                    surface.erase(f);
+                } else {
+                    surface.insert(f);
+                }
+            }
+        }
+            
+        
+    }
+    
+    std::vector<int> rem_cells_list(rem_cells.begin(), rem_cells.end());
+    
+    auto result = prune_cell_complex_map(rem_cells_list, comp);
+    
+    CellComplex comp_tmp = std::get<0>(result);
+    auto full_to_reduced = std::get<1>(result);
+    
+    std::unordered_set<int> red_surface;
+    for(int i: surface) {
+        red_surface.insert(full_to_reduced[i]);
+    }
+        
+    return std::make_tuple(comp_tmp, red_surface);
+    
+    
+}
+
+CellComplex prune_cell_complex_sequential(CellComplex &comp, RXVec priority, std::unordered_set<int> &preserve,
+                                          bool allow_holes=false, double threshold=0.0, int target_dim=-1) {
+    
+    std::unordered_set<int> surface;
+    auto result = prune_cell_complex_sequential_surface(comp, priority, preserve, surface, allow_holes, threshold, target_dim);
+
+    return  std::get<0>(result);
+    
+    
+}
+
+
+
  
     
 #endif //ALPHACOMPLEX_HPP

@@ -14,6 +14,61 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
+
+std::unordered_map<int, int> perform_bfs(std::vector<int> &start, CellComplex &comp, std::unordered_set<int> &dims) {
+    
+    auto cmp = [](const std::pair<int, int> &lhs, const std::pair<int, int> &rhs) {
+        return lhs > rhs;
+    };
+    
+    std::priority_queue< std::pair<int, int>, 
+        std::vector<std::pair<int, int> >, decltype(cmp)> PQ(cmp);
+    
+    for(int s: start) {
+        PQ.emplace(0, s);
+    }
+    
+    std::unordered_map<int, int> dists;
+    
+    while(!PQ.empty()) {
+        
+        auto top = PQ.top();
+        PQ.pop();
+        
+        int d = top.first;
+        int a = top.second;
+        
+        if(!dists.count(a) || dists[a] > d) {
+            dists[a] = d;
+        } else {
+            continue;
+        }
+        
+        std::unordered_set<int> cofaces = comp.get_cofaces(a);
+        for(auto c: cofaces) {
+            if(c != a) {
+                if(dims.empty() || dims.count(comp.get_dim(c))) {
+                    PQ.emplace(d+1, c);
+                }
+            }
+        }
+        
+        std::unordered_set<int> faces = comp.get_faces(a);
+        for(auto c: faces) {
+            if(c != a) {
+                if(dims.empty() || dims.count(comp.get_dim(c))) {
+                    PQ.emplace(d+1, c);
+                }
+            }
+        }
+        
+    }
+    
+    return dists;
+    
+}
+
+
 // Euclidean distances between all pairs
 template <int DIM> XMat calc_euclid_pair_dists(std::vector<int> &verts, Embedding<DIM> &embed) {
     

@@ -93,6 +93,10 @@ template <int DIM> void init_alpha_templates(py::module &m) {
           (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, int)) &calc_voronoi_D2min<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
     
+    m.def((std::string("calc_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_delaunay_D2min_strain<DIM>,
+         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
+    
     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
           (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, std::vector<bool>&)) &calc_voronoi_D2min<DIM>);
     
@@ -139,6 +143,7 @@ PYBIND11_MODULE(phom, m) {
         .def_readonly("regular", &CellComplex::regular)
         .def_readonly("oriented", &CellComplex::oriented)
         .def(py::init<int, bool, bool>(), py::arg("dim"), py::arg("regular")=true, py::arg("oriented")=false)
+       . def(py::init<CellComplex>())
         .def("add_cell", (void (CellComplex::*)(int, int, std::vector<int>&, std::vector<int>&)) &CellComplex::add_cell)
         .def("get_dim", &CellComplex::get_dim)
         .def("get_label", &CellComplex::get_label)
@@ -154,6 +159,10 @@ PYBIND11_MODULE(phom, m) {
         
     
     m.def("prune_cell_complex", &prune_cell_complex);
+    m.def("prune_cell_complex_sequential", &prune_cell_complex_sequential,
+          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
+    m.def("prune_cell_complex_sequential_surface", &prune_cell_complex_sequential_surface,
+          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("surface"), py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
 //         m.def("get_boundary", &get_boundary);
@@ -268,6 +277,8 @@ PYBIND11_MODULE(phom, m) {
          py::arg("s"), py::arg("V"), py::arg("comp"), py::arg("co")=false);
     m.def("find_morse_features", &find_morse_features,
          py::arg("cells"), py::arg("V"), py::arg("comp"), py::arg("co")=false);
+    m.def("find_morse_cells", &find_morse_cells,
+         py::arg("cells"), py::arg("V"), py::arg("mcomp"), py::arg("comp"), py::arg("co")=false);
     
     m.def("find_morse_basins", &find_morse_basins);
     m.def("find_morse_skeleton", &find_morse_skeleton,
@@ -275,6 +286,8 @@ PYBIND11_MODULE(phom, m) {
     
     m.def("convert_feature_dim", &convert_feature_dim,
           py::arg("feature"), py::arg("target_dim"), py::arg("filt"), py::arg("comp"), py::arg("inclusive")=true);
+    
+    m.def("convert_morse_voids_to_basins", &convert_morse_voids_to_basins);
 
 
     //     m.def("find_morse_basin_borders", &find_morse_basin_borders,
@@ -305,6 +318,7 @@ PYBIND11_MODULE(phom, m) {
     init_search_templates<2>(m);
     init_search_templates<3>(m);
     
+    m.def("perform_bfs", &perform_bfs);
     m.def("calc_comp_pair_dists", &calc_comp_pair_dists);
     m.def("calc_comp_point_dists", &calc_comp_point_dists,
          py::arg("p"), py::arg("comp"), py::arg("max_dist")=-1);
@@ -379,14 +393,19 @@ PYBIND11_MODULE(phom, m) {
     m.def("simplify_morse_complex", 
           (void (*)(std::pair<int,int>, RXiVec, RXiVec, Filtration&, CellComplex&, int, bool, bool)) 
           &simplify_morse_complex, 
-          py::arg("pair"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("filt"), py::arg("target_dim")=-1, py::arg("cancel_target_pair")=false, py::arg("verbose") = false);
+          py::arg("pair"), py::arg("V"), py::arg("coV"), py::arg("filt"),
+          py::arg("comp"), py::arg("target_dim")=-1, py::arg("cancel_target_pair")=false, py::arg("verbose") = false);
     
     m.def("simplify_morse_complex", 
           (void (*)(double, RXiVec, RXiVec, Filtration&, CellComplex&, int, bool, bool)) 
           &simplify_morse_complex, 
-          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("comp"),
-          py::arg("filt"), py::arg("target_dim")=-1, py::arg("parallel")=false, py::arg("verbose") = false);
+          py::arg("threshold"), py::arg("V"), py::arg("coV"), py::arg("filt"),
+          py::arg("comp"), py::arg("target_dim")=-1, py::arg("parallel")=false, py::arg("verbose") = false);
+    
+    
+    m.def("find_cancel_order", &find_cancel_order, 
+          py::arg("V"), py::arg("coV"), py::arg("filt"),
+          py::arg("comp"), py::arg("target_dim")=-1, py::arg("parallel")=false, py::arg("verbose") = false);
     
     
     m.def("find_join_pair", &find_join_pair,

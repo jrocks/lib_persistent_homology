@@ -542,6 +542,8 @@ std::vector<std::tuple<int, int, int> > find_connections(int s, int t, RXiVec V,
 }
 
 
+
+
 // Convert cell alpha in morse complex to representation in original cell complex
 // co determines V or coV
 std::unordered_set<int> find_morse_feature(int s, RXiVec V, CellComplex &comp, bool co=false) {
@@ -564,6 +566,27 @@ std::unordered_set<int> find_morse_feature(int s, RXiVec V, CellComplex &comp, b
     return feature;
     
 }
+
+std::unordered_map<int, std::unordered_set<int> > find_morse_cells(std::vector<int> &cells, RXiVec V, 
+                                                  CellComplex &mcomp, CellComplex &comp, bool co=false) {
+    
+    
+    std::unordered_map<int, std::unordered_set<int> > mcells;
+    
+    for(auto c: cells) {
+        
+        auto feature = find_morse_feature(mcomp.get_label(c), V, comp, co);
+        
+        mcells.emplace(std::piecewise_construct, std::forward_as_tuple(mcomp.get_label(c)), 
+                           std::forward_as_tuple(feature.begin(), feature.end()));
+        
+    }
+    
+    
+    return mcells;
+    
+}
+
 
 std::unordered_map<int, std::unordered_set<int> > find_morse_features(std::vector<int> &cells, RXiVec V, 
                                                   CellComplex &comp, bool co=false) {
@@ -627,6 +650,47 @@ std::unordered_set<int> find_morse_skeleton(RXiVec V, CellComplex &morse_comp, C
     return skeleton;
 }
 
+// Sorts vertices into voids determined by morse skeleton of highest dimension
+std::unordered_map<int, std::unordered_set<int> > 
+    convert_morse_voids_to_basins(std::unordered_map<int, std::unordered_set<int> > &mvoids,
+                                                                   CellComplex &comp, Filtration &filt) {
+ 
+    std::unordered_map<int, std::unordered_set<int> > basins;
+    std::unordered_map<int, int> cells_to_voids;
+    for(auto& v: mvoids) {
+        
+        int mvi = v.first;
+        
+//         basins[mvi];
+        
+        for(int c: v.second) {
+            cells_to_voids[c] = mvi;
+        }
+    }
+    
+    auto cmp = [&filt] (const int &lhs, const int &rhs) {
+        return filt(lhs, rhs);
+    };
+    
+    // Assign vertices to latest coface
+    for(int vi = comp.dcell_range[0].first; vi < comp.dcell_range[0].second; vi++) {
+
+        auto cofaces = comp.get_cofaces(vi, filt.filt_dim);
+        
+        int imax = *std::max_element(cofaces.begin(), cofaces.end(), cmp);
+        
+        if(!cells_to_voids.count(imax)) {
+            py::print("doesn't exist", vi, cofaces, imax);
+        }
+        
+        basins[cells_to_voids[imax]].insert(vi);
+        
+        
+    }
+    
+    return basins;
+    
+}
 
 /***************************************************
 

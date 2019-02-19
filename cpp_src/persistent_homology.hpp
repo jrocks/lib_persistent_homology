@@ -577,7 +577,5 @@ std::unordered_set<int> extract_persistence_feature(int i, int j, CellComplex &c
 
 
 
-
-
     
 #endif // PERSIST_HPP

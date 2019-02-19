@@ -237,6 +237,9 @@ public:
                 cell_list[*j].push_back(i);
             }
         }
+        
+        cofacet_ind.clear();
+        cofacets.clear();
 
         cofacet_ind.push_back(0);
         for(int i = 0; i < ncells; i++) {
@@ -252,11 +255,14 @@ public:
 
 
 //////////////////////////////////////////////////////////////////////////
-//Cell complex pruning
+// Cell complex modification
 //////////////////////////////////////////////////////////////////////////
 
 
-CellComplex prune_cell_complex(std::vector<int> &rem_cells, CellComplex &comp) {
+
+
+
+std::tuple<CellComplex, std::unordered_map<int, int> >  prune_cell_complex_map(std::vector<int> &rem_cells, CellComplex &comp) {
     
     std::unordered_set<int> full_rem_set;
     
@@ -300,10 +306,18 @@ CellComplex prune_cell_complex(std::vector<int> &rem_cells, CellComplex &comp) {
     red_comp.construct_cofacets();
     red_comp.make_compressed();
     
-    return red_comp;
+    return std::make_tuple(red_comp, full_to_reduced);
     
     
 }
+
+CellComplex prune_cell_complex(std::vector<int> &rem_cells, CellComplex &comp) {
+    
+    auto result = prune_cell_complex_map(rem_cells, comp);
+    return std::get<0>(result);
+    
+}
+
 
 
     
