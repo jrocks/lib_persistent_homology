@@ -3,6 +3,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from matplotlib import collections as collections
 import matplotlib.patches as patches
+import scipy.spatial as spatial
 
 
 import sys
@@ -250,9 +251,9 @@ def show_verts(ax, comp, embed, nodes, styles={}, alpha=1.0, zorder=None, marker
             
             
     if shadow:
-        ax.scatter(np.array(x), np.array(y), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5)
+        ax.scatter(np.array(x), np.array(y), marker=marker , s=1.25*np.array(sizes), facecolor='#636363', alpha=0.5, zorder=zorder)
     
-    ax.scatter(x, y, marker=marker , s=sizes, facecolor=colors, alpha=1.0, linewidths=0.0)
+    ax.scatter(x, y, marker=marker , s=sizes, facecolor=colors, alpha=1.0, linewidths=0.0, zorder=zorder)
     
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
@@ -283,7 +284,7 @@ def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=di
         V.append(u[1])
         
         
-    ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.005, zorder=None, color=color, **kwargs)
+    ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.006, zorder=None, color=color, **kwargs)
         
 
 def show_patches(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None, kwargs=dict()):
@@ -371,4 +372,75 @@ def show_patches(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cu
     
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-  
+    
+
+def show_voronoi(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None, kwargs=dict()):
+    
+    
+    box_mat = embed.box_mat
+    L = np.diagonal(box_mat)
+    
+    
+    image_offsets = [np.array([0.0, 0.0]),
+                    np.array([1.0, 0.0]),
+                    np.array([-1.0, 0.0]),
+                    np.array([0.0, 1.0]),
+                    np.array([0.0, -1.0]),
+                    np.array([1.0, 1.0]),
+                    np.array([-1.0, 1.0]),
+                    np.array([1.0, -1.0]),
+                    np.array([-1.0, -1.0])]    
+    
+    
+    if embed.periodic:
+        vert_pos = np.zeros([9*embed.NV, 2], float)
+        for vi in range(embed.NV):
+            for i, image in enumerate(image_offsets):
+                vert_pos[embed.NV*i+vi, :] = box_mat.dot(embed.get_vpos(vi)+image) / L
+                
+    else:
+        vert_pos = np.zeros([embed.NV, 2], float)
+        for vi in range(embed.NV):
+            vert_pos[vi, :] = embed.get_pos(vi) / L
+            
+            
+            
+    vor = spatial.Voronoi(vert_pos)
+        
+    patch_list = []
+    patch_index = []
+    
+    if subset is not None:
+        cell_list = subset
+    else:
+        cell_list = range(*comp.dcell_range[0])
+    
+    for vi in cell_list:
+        region = vor.regions[vor.point_region[vi]]
+        
+        corners = np.zeros([len(region), 2], float)
+        
+        for j in range(len(region)):
+            corners[j] = vor.vertices[region[j]]
+            
+            
+        patch_list.append(patches.Polygon(corners))
+        patch_index.append(comp.get_label(vi))
+            
+                    
+        
+    colors = []    
+    for i, b in enumerate(patch_index):
+        
+        if b in styles and 'color' in styles[b]:
+            colors.append(styles[b]['color'])
+        else:
+            colors.append(gray)
+            
+    pc = collections.PatchCollection(patch_list, color=colors, zorder=zorder, alpha=alpha, **kwargs)
+    ax.add_collection(pc)
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    
+    
