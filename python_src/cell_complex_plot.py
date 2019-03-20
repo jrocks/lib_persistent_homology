@@ -335,9 +335,12 @@ def show_patches(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cu
                 for offset in image_offsets:
                     oposi = box_mat.dot(vposi+offset) / L
                     
+                    
+                    # this logic may be off
                     if ((oposi > -boundary_cutoff).all() and (oposi < 1.0+boundary_cutoff).all()):
                         
                         corners_tmp = np.copy(corners)
+                        # first coordinate may be wrong in corners_tmp since first coordinate does not get offset
                         for j in range(1, len(verts)):
                             vposj = embed.get_vpos(verts[j])
                             vbvec = embed.get_vdiff(vposi+offset, vposj)
