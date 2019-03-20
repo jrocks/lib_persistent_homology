@@ -22,6 +22,8 @@ typedef Eigen::Map<Eigen::ArrayXd > XArrMap;
 // These are defined using macros for use in templated functions
 # define DVec Eigen::Matrix<double, DIM, 1>
 # define DMat Eigen::Matrix<double, DIM, DIM>
+# define DiVec Eigen::Matrix<int, DIM, 1>
+# define DiMat Eigen::Matrix<int, DIM, DIM>
 
 # define RDVec Eigen::Ref<DVec >
 # define RDMat Eigen::Ref<DMat >

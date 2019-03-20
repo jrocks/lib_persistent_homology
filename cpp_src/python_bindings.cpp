@@ -8,6 +8,8 @@
 #include "morse_complex.hpp"
 #include "extended_complex.hpp"
 
+#include "deformation.hpp"
+
 
 #include "search.hpp"
 #include "persistent_homology.hpp"
@@ -22,7 +24,8 @@
     #include "optimal.hpp"
 #endif
 
-#include "mech_network.hpp"
+#include "protein_algs.hpp"
+#include "softness.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -84,24 +87,7 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
          py::arg("comp"), py::arg("embed"), py::arg("weights"), py::arg("alpha0")=-1.0);
     
-    m.def((std::string("calc_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_strains<DIM>,
-         py::arg("disp"), py::arg("comp"), py::arg("embed"), py::arg("keep_rotations")=false);
-    
-    m.def((std::string("calc_stresses_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_stresses<DIM>);
-    
-    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, int)) &calc_voronoi_D2min<DIM>,
-         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
-    
-    m.def((std::string("calc_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          &calc_delaunay_D2min_strain<DIM>,
-         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
-    
-    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, std::vector<bool>&)) &calc_voronoi_D2min<DIM>);
-    
-    m.def((std::string("calc_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_flatness<DIM>);
-        
+  
     m.def((std::string("join_dtriangles_")+std::to_string(DIM)+std::string("D")).c_str(), &join_dtriangles<DIM>,
         py::arg("comp"), py::arg("alpha_vals"), py::arg("threshold")=0.0);
 
@@ -110,6 +96,49 @@ template <int DIM> void init_alpha_templates(py::module &m) {
 
 }
 #endif
+
+
+template <int DIM> void init_deform_templates(py::module &m) {
+     
+    
+    m.def((std::string("calc_def_grad_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_def_grad<DIM>,
+         py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("calc_D2min")=false);
+    
+    m.def((std::string("def_grad_to_strain_")+std::to_string(DIM)+std::string("D")).c_str(), &def_grad_to_strain<DIM>,
+         py::arg("F"), py::arg("linear")=true);
+    
+    m.def((std::string("subtract_global_motion_")+std::to_string(DIM)+std::string("D")).c_str(), &subtract_global_motion<DIM>,
+         py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
+        
+    
+    m.def((std::string("calc_tri_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_tri_strains<DIM>,
+         py::arg("disp"), py::arg("comp"), py::arg("embed"), py::arg("linear")=true);
+    
+    m.def((std::string("calc_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_delaunay_D2min_strain<DIM>,
+         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
+    
+    m.def((std::string("calc_grouped_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_grouped_delaunay_D2min_strain<DIM>,
+         py::arg("groups"), py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
+    
+  
+//     m.def((std::string("calc_stresses_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_stresses<DIM>);
+    
+//     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
+//           (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, int)) &calc_voronoi_D2min<DIM>,
+//          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2);
+    
+    
+    
+//     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
+//           (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, std::vector<bool>&)) &calc_voronoi_D2min<DIM>);
+    
+    m.def((std::string("calc_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_flatness<DIM>);
+        
+    
+}
+
 
 template <int DIM> void init_search_templates(py::module &m) {
 
@@ -126,8 +155,22 @@ template <int DIM> void init_search_templates(py::module &m) {
         
 }
 
-template <int DIM> void init_mech_templates(py::module &m) {
-    m.def((std::string("make_ball_")+std::to_string(DIM)+std::string("D")).c_str(), &make_ball<DIM>);
+
+template <int DIM> void init_protein_templates(py::module &m) {
+
+    m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &shrink_alpha_complex<DIM>, py::arg("comp"), py::arg("filt"), py::arg("max_dist"), py::arg("threshold")=0.0, py::arg("verbose")=false);
+    
+    m.def((std::string("calc_neighborhood_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_neighborhood_D2min_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    
+    
+    m.def((std::string("get_contact_network_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &get_contact_network<DIM>);
+    
+    m.def((std::string("transform_coords_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &transform_coords<DIM>);
+            
 }
 
 
@@ -160,9 +203,9 @@ PYBIND11_MODULE(phom, m) {
     
     m.def("prune_cell_complex", &prune_cell_complex);
     m.def("prune_cell_complex_sequential", &prune_cell_complex_sequential,
-          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
+          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("preserve_stop")=true, py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
     m.def("prune_cell_complex_sequential_surface", &prune_cell_complex_sequential_surface,
-          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("surface"), py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
+          py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("surface"), py::arg("preserve_stop")=true, py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1, py::arg("verbose")=false);
     m.def("check_boundary_op", &check_boundary_op, 
           "Checks the boundary operator of a complex to ensure that \\delta_d\\delta_(d-1) = 0 for each cell.");
 //         m.def("get_boundary", &get_boundary);
@@ -252,9 +295,9 @@ PYBIND11_MODULE(phom, m) {
 
 #endif
     
-    // Mechanical network
-    init_mech_templates<2>(m);
-    init_mech_templates<3>(m);
+    // Deformation calculations
+    init_deform_templates<2>(m);
+    init_deform_templates<3>(m);
     
     
     // Morse complex
@@ -449,10 +492,18 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_landscape_dist", &calc_landscape_dist);
     m.def("calc_dist_mat", &calc_dist_mat);
     m.def("calc_dist_mat_norms", &calc_dist_mat_norms);
-
-        
-
-     
+    
+    
+    init_protein_templates<3>(m);
+    m.def("find_hinge_pairs", &find_hinge_pairs,
+          py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
+          py::arg("n_basins")=2, py::arg("min_size")=1, py::arg("reset")=false, py::arg("verbose")=false);
+    m.def("simplify_morse_complex", 
+          (void (*)(std::vector<std::pair<int, int> >&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool)) 
+          &simplify_morse_complex, 
+          py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"),
+          py::arg("comp"), py::arg("reset")=false, py::arg("verbose") = false);
+    
 };
 
 
