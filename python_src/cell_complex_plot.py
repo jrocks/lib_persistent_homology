@@ -283,7 +283,7 @@ def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=di
         V.append(u[1])
         
         
-    ax.quiver(X, Y, U, V, units='xy', scale=1.0, width=0.005, zorder=None, color=color, **kwargs)
+    ax.quiver(X, Y, U, V, units='xy', scale=1.0, zorder=None, color=color, **kwargs)
         
 
 def show_patches(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cutoff=0.01, zorder=None, kwargs=dict()):
