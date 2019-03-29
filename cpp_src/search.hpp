@@ -116,17 +116,11 @@ template <int DIM> XVec calc_euclid_point_dists(int p, Embedding<DIM> &embed) {
         
     for(int pj = 0; pj < embed.NV; pj++) {
                         
-        XVec posj = embed.get_vpos(pj);
+        DVec posj = embed.get_vpos(pj);
 
-        XVec bvec = posj - posi;
+        DVec bvec = embed.get_diff(posi, posj);
 
-        for(int d = 0; d < DIM; d++) {
-            if(std::fabs(bvec(d)) > 0.5) {
-                bvec(d) -= ((bvec(d) > 0) - (bvec(d) < 0));
-            }
-        }
-
-        dist(pj) = (embed.box_mat*bvec).norm();        
+        dist(pj) = bvec.norm();        
                 
     }
         
