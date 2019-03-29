@@ -202,6 +202,7 @@ PYBIND11_MODULE(phom, m) {
         
     
     m.def("prune_cell_complex", &prune_cell_complex);
+    m.def("prune_cell_complex_map", &prune_cell_complex_map);
     m.def("prune_cell_complex_sequential", &prune_cell_complex_sequential,
           py::arg("comp"), py::arg("priority"), py::arg("preserve"), py::arg("preserve_stop")=true, py::arg("allow_holes")=false, py::arg("threshold")=0.0, py::arg("target_dim")=-1);
     m.def("prune_cell_complex_sequential_surface", &prune_cell_complex_sequential_surface,
