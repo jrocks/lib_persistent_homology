@@ -164,6 +164,51 @@ template <int DIM> std::tuple<XVec, XVec> calc_delaunay_D2min_strain(RXVec disp,
 
 }
 
+template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2, bool linear=true) {
+
+
+    XVec D2min = XVec::Zero(comp.ndcells[0]);
+
+    for(int vi = 0; vi < comp.ndcells[0]; vi++) {
+
+        auto vset = find_neighbors(vi, comp, max_dist, 0);
+        vset.erase(vi);
+        
+        std::vector<int> verts(vset.begin(), vset.end());
+        verts.insert(verts.begin(), vi);
+        
+        
+        DMat F;
+        std::tie(F, std::ignore) = calc_def_grad(verts, disp, embed, false);
+        
+        DMat dR  = 0.5*(F - F.transpose());
+        
+        
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
+        
+        for(std::size_t j = 1; j < verts.size(); j++) {
+            
+            int vj = verts[j];
+
+            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+
+            D2min[vi] += (dR*bvec - du).squaredNorm();
+
+        }
+        
+        D2min[vi] /= verts.size();
+        
+    }
+
+    return D2min;
+
+
+}
+
 
 // Remember that the first vertex in each group is the reference point - need reference if there is non-affine motion
 template <int DIM> std::tuple<XVec, XVec> calc_grouped_delaunay_D2min_strain(std::vector<std::vector<int> > &groups, RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2, bool linear=true) {

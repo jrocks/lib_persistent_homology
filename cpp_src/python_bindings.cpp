@@ -118,6 +118,11 @@ template <int DIM> void init_deform_templates(py::module &m) {
           &calc_delaunay_D2min_strain<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
     
+    
+    m.def((std::string("calc_delaunay_rigid_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          &calc_delaunay_rigid_D2min<DIM>,
+         py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
+    
     m.def((std::string("calc_grouped_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &calc_grouped_delaunay_D2min_strain<DIM>,
          py::arg("groups"), py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
