@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import numpy.linalg as la
 import matplotlib.pyplot as plt
 from matplotlib import collections as collections
 import matplotlib.patches as patches
@@ -260,28 +261,73 @@ def show_verts(ax, comp, embed, nodes, styles={}, alpha=1.0, zorder=None, marker
     
   
     
-def show_vec_field(ax, comp, embed, vec_field, zorder=None, color='k', kwargs=dict()):
+def show_vec_field(ax, comp, embed, vec_field, zorder=None, boundary_cutoff=0.01, color='k', kwargs=dict()):
     
+    box_mat = embed.box_mat
     L = np.diagonal(embed.box_mat)
     DIM = embed.dim
+    
+    image_offsets = [np.array([0.0, 0.0]),
+                    np.array([1.0, 0.0]),
+                    np.array([-1.0, 0.0]),
+                    np.array([0.0, 1.0]),
+                    np.array([0.0, -1.0]),
+                    np.array([1.0, 1.0]),
+                    np.array([-1.0, 1.0]),
+                    np.array([1.0, -1.0]),
+                    np.array([-1.0, -1.0])]    
     
     X = []
     Y = []
     U = []
     V = []
+    norm = []
     
     for c in range(*comp.dcell_range[0]):
         
+        
         vi = comp.get_label(c)
+        
+        vpos = embed.get_vpos(vi)
         
         pos = embed.get_pos(vi) / L
         
         u = vec_field[DIM*vi:DIM*vi+DIM] / L
+        norm.append(la.norm(u))
         
-        X.append(pos[0])
-        Y.append(pos[1])
-        U.append(u[0])
-        V.append(u[1])
+        
+        if embed.periodic:
+            test_duplicates = ((pos < boundary_cutoff).any() or (pos > 1.0-boundary_cutoff).any())
+            
+            if test_duplicates:
+                for offset in image_offsets:
+                    opos = box_mat.dot(vpos+offset) / L
+                    
+                    # this logic may be off
+                    if ((opos > -boundary_cutoff).all() and (opos < 1.0+boundary_cutoff).all()):
+                        X.append(opos[0])
+                        Y.append(opos[1])
+                        U.append(u[0])
+                        V.append(u[1])
+                        
+            else:
+                X.append(pos[0])
+                Y.append(pos[1])
+                U.append(u[0])
+                V.append(u[1])
+                
+        else:
+            X.append(pos[0])
+            Y.append(pos[1])
+            U.append(u[0])
+            V.append(u[1])
+        
+        
+    asort = np.argsort(norm)
+    X = np.array(X)[asort]
+    Y = np.array(Y)[asort]
+    U = np.array(U)[asort]
+    V = np.array(V)[asort]
         
         
     ax.quiver(X, Y, U, V, units='xy', scale=1.0, zorder=None, color=color, **kwargs)

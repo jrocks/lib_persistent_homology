@@ -495,65 +495,65 @@ template <int DIM> XVec subtract_global_motion(RXVec disp, Embedding<DIM> &embed
 // }
 
 
-// template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, std::vector<bool> &is_contact) {
+template <int DIM> XVec calc_voronoi_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, std::vector<bool> &is_contact) {
 
 
-//     XVec D2min = XVec::Zero(embed.NV);
+    XVec D2min = XVec::Zero(embed.NV);
 
-//     for(int vi = comp.dcell_range[0].first; vi < comp.dcell_range[0].second; vi++) {
+    for(int vi = comp.dcell_range[0].first; vi < comp.dcell_range[0].second; vi++) {
         
-//         std::unordered_set<int> verts;
+        std::unordered_set<int> verts;
         
-//         for(auto ei: comp.get_cofacets(vi)) {
-//             if(is_contact[comp.get_label(ei)]) {
-//                 auto everts = comp.get_facets(ei);
-//                 int vj = (everts[0] == vi) ? everts[1] : everts[0];
+        for(auto ei: comp.get_cofacets(vi)) {
+            if(is_contact[comp.get_label(ei)]) {
+                auto everts = comp.get_facets(ei);
+                int vj = (everts[0] == vi) ? everts[1] : everts[0];
                
-//                 verts.insert(vj);
-//             }
-//         }
+                verts.insert(vj);
+            }
+        }
 
-//         DVec O = embed.get_vpos(vi);
-//         DVec uO = disp.segment<DIM>(DIM*vi);
+        DVec O = embed.get_vpos(vi);
+        DVec uO = disp.segment<DIM>(DIM*vi);
 
-//         DMat X = DMat::Zero();
-//         DMat Y = DMat::Zero();
+        DMat X = DMat::Zero();
+        DMat Y = DMat::Zero();
 
 
-//         for(auto vj: verts) {
+        for(auto vj: verts) {
 
-//             DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
 
-//             DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
 
-//             X += bvec * bvec.transpose();
-//             Y += du * bvec.transpose();
+            X += bvec * bvec.transpose();
+            Y += du * bvec.transpose();
                         
 
-//         }
+        }
 
-//         DMat F = Y * X.inverse();
+        DMat F = Y * X.inverse();
 
 
-//         for(auto vj: verts) {
+        for(auto vj: verts) {
 
-//             DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
 
-//             DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
 
-//             D2min(vi) += (du - F*bvec).squaredNorm();
+            D2min(vi) += (du - F*bvec).squaredNorm();
 
-//         }
+        }
         
-//         D2min(vi) /= verts.size();
+        D2min(vi) /= verts.size();
 
-//     }
+    }
 
-//     return D2min;
+    return D2min;
 
 
-// }
+}
 
 
 

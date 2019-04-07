@@ -136,8 +136,7 @@ template <int DIM> void init_deform_templates(py::module &m) {
     
     
     
-//     m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), 
-//           (XVec (*) (RXVec, CellComplex&, Embedding<DIM>&, std::vector<bool>&)) &calc_voronoi_D2min<DIM>);
+    m.def((std::string("calc_voronoi_D2min_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_voronoi_D2min<DIM>);
     
     m.def((std::string("calc_flatness_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_flatness<DIM>);
         
