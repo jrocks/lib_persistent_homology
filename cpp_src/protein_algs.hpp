@@ -70,77 +70,135 @@ std::unordered_set<int> get_restricted_neighbors(int start, CellComplex &comp, s
 
 
 
-template <int DIM> CellComplex shrink_alpha_complex(CellComplex &comp, Filtration &filt, int max_dist, double threshold=0.0, bool verbose=false) {
+// template <int DIM> CellComplex shrink_alpha_complex(CellComplex &comp, Filtration &filt, int max_dist, double threshold=0.0, bool verbose=false) {
     
     
-    auto cmp = [&filt](const int lhs, const int rhs) {
-        return filt.get_order(lhs) < filt.get_order(rhs);
-    };
+//     auto cmp = [&filt](const int lhs, const int rhs) {
+//         return filt.get_order(lhs) < filt.get_order(rhs);
+//     };
         
-    std::vector<int> cell_order(comp.ndcells[1]);
-    std::iota(cell_order.begin(), cell_order.end(), comp.dcell_range[1].first);
-    std::sort(cell_order.begin(), cell_order.end(), cmp);
+//     std::vector<int> cell_order(comp.ndcells[1]);
+//     std::iota(cell_order.begin(), cell_order.end(), comp.dcell_range[1].first);
+//     std::sort(cell_order.begin(), cell_order.end(), cmp);
     
     
-    std::unordered_set<int> restricted;
-    std::unordered_set<int> incomplete;
+//     std::unordered_set<int> restricted;
+//     std::unordered_set<int> incomplete;
     
-    for(int i = 0; i < comp.ndcells[0]; i++) {
-        incomplete.insert(i);
+//     for(int i = 0; i < comp.ndcells[0]; i++) {
+//         incomplete.insert(i);
+//     }
+    
+//     int c;
+//     for(int i = 0; i < comp.ndcells[1]; i++) {
+//         c = cell_order[i];
+        
+        
+//         if(verbose && restricted.size() % 1000 == 0) {
+//             py::print(restricted.size(), incomplete.size(), filt.get_func(c), py::arg("flush")=true);
+//         }
+        
+//         restricted.insert(c);
+        
+//         if(filt.get_func(c) < threshold) {
+//             continue;
+//         }
+                
+//         std::vector<int> complete;
+//         for(int vi: incomplete) {
+                        
+//             auto neigh = get_restricted_neighbors(vi, comp, restricted, max_dist);
+//             // Includes vi
+//             if(neigh.size() >= DIM+1) {
+//                 complete.push_back(vi);
+//             }
+            
+//         }
+        
+//         for(int vi: complete) {
+//             incomplete.erase(vi);
+//         }
+        
+//         if(incomplete.empty() && filt.get_func(c) > threshold) {
+//             break;
+//         }
+        
+//     }
+    
+//     std::vector<int> rem_cells;
+//     for(int i = comp.dcell_range[1].first; i < comp.ncells; i++) {
+//         if(filt.get_order(i) > filt.get_order(c)) {
+//             rem_cells.push_back(i);
+//         }
+//     }
+    
+//     if(verbose) {
+//         py::print("Final alpha", filt.get_func(c), py::arg("flush")=true);
+//     }
+    
+    
+//     return prune_cell_complex(rem_cells, comp);
+    
+
+// }
+
+
+template <int DIM> CellComplex shrink_alpha_complex(CellComplex &comp, Embedding<DIM> &embed) {
+    
+    std::vector<int> edge_order(comp.ndcells[1]);
+    std::iota(edge_order.begin(), edge_order.end(), comp.dcell_range[1].first);
+    
+    std::vector<double> eq_lengths(comp.ndcells[1]);
+    for(int c = comp.dcell_range[1].first; c < comp.dcell_range[1].second; c++) {
+        
+        auto facets = comp.get_facets(c);
+        int vi = facets[0];
+        int vj = facets[1];
+        
+        DVec bvec = embed.get_diff(embed.get_vpos(vj), embed.get_vpos(vi));
+        
+//         py::print(c, comp.get_label(c), bvec.norm());
+        
+        eq_lengths[comp.get_label(c)] = bvec.norm();
+        
     }
     
-    int c;
+    auto cmp = [&comp, &eq_lengths](const int &lhs, const int &rhs) {
+        return eq_lengths[comp.get_label(lhs)] > eq_lengths[comp.get_label(rhs)];
+    };
+    
+    std::sort(edge_order.begin(), edge_order.end(), cmp);
+    
+//     for(int i = 0; i < comp.ndcells[1]; i++) {
+//         py::print(i, edge_order[i], eq_lengths[comp.get_label(edge_order[i])]);
+//     }
+        
+    std::vector<int> rem_cells;
     for(int i = 0; i < comp.ndcells[1]; i++) {
-        c = cell_order[i];
+        int c = edge_order[i];
         
+        rem_cells.push_back(c);
         
-        if(verbose && restricted.size() % 1000 == 0) {
-            py::print(restricted.size(), incomplete.size(), filt.get_func(c), py::arg("flush")=true);
-        }
+        CellComplex comp_tmp = prune_cell_complex(rem_cells, comp);
         
-        restricted.insert(c);
+        auto betti = calc_betti_numbers(comp_tmp);
         
-        if(filt.get_func(c) < threshold) {
-            continue;
-        }
-                
-        std::vector<int> complete;
-        for(int vi: incomplete) {
-                        
-            auto neigh = get_restricted_neighbors(vi, comp, restricted, max_dist);
-            // Includes vi
-            if(neigh.size() >= DIM+1) {
-                complete.push_back(vi);
-            }
-            
-        }
+        py::print(i, c, eq_lengths[comp.get_label(c)], betti);
         
-        for(int vi: complete) {
-            incomplete.erase(vi);
-        }
-        
-        if(incomplete.empty() && filt.get_func(c) > threshold) {
+        if(betti[0] > 1 || betti[comp.dim-1] > 0) {
+            rem_cells.pop_back();
             break;
         }
         
-    }
-    
-    std::vector<int> rem_cells;
-    for(int i = comp.dcell_range[1].first; i < comp.ncells; i++) {
-        if(filt.get_order(i) > filt.get_order(c)) {
-            rem_cells.push_back(i);
-        }
-    }
-    
-    if(verbose) {
-        py::print("Final alpha", filt.get_func(c), py::arg("flush")=true);
+        
     }
     
     
     return prune_cell_complex(rem_cells, comp);
     
-
+    
 }
+
 
 
 
@@ -383,7 +441,60 @@ template <int DIM> CellComplex get_contact_network(Embedding<DIM> &embed, RXVec 
 
 
 
-std::vector<std::pair<int, int> > find_hinge_pairs(std::vector<std::pair<int, int> > &pairs, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp, int n_basins=2, int min_size=1, bool reset=false, bool verbose=false) {
+void merge_basins(std::vector<int> &saddles, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp) {
+    
+    for(auto s: saddles) {
+     
+//             py::print("Saddle", i, j, s, filt.get_func(s), py::arg("flush")=true);
+
+        auto morse_boundary = find_morse_boundary(s, V, comp, false, comp.oriented);
+
+        std::vector<int> mverts;
+
+        for(auto trip: morse_boundary) {
+            int c, k;
+            std::tie(c, k, std::ignore) = trip;
+
+            if(k % 2 == 0) {
+                py::print("Error", c, k);
+            }
+
+            mverts.push_back(c);
+
+//                 py::print("vert", c, filt.get_func(c));
+
+        }
+
+        if(mverts.size() != 2) {
+            py::print("Error", mverts, mverts.size());
+        }
+
+
+        auto pers_cmp = [s, &filt](const int &lhs, const int &rhs) {
+
+            return std::abs(filt.get_func(s)-filt.get_func(lhs)) 
+                < std::abs(filt.get_func(s)-filt.get_func(rhs));
+        };
+
+        int min_vert = *std::min_element(mverts.begin(), mverts.end(), pers_cmp);
+
+//             py::print(filt.get_func(min_vert), filt.get_func(s), std::abs(filt.get_func(s)-filt.get_func(min_vert)));
+
+        std::pair<int, int> cpair(min_vert, s);
+        cancel_close_pair(cpair, V, coV, comp);
+
+    }
+
+    
+    
+    
+}
+
+
+
+
+
+std::vector<std::pair<int, int> > find_hinge_persistence_pairs(std::vector<std::pair<int, int> > &pairs, RXiVec V, RXiVec coV, Filtration &filt, CellComplex &comp, int n_basins=2, int min_size=1, bool reset=false, bool verbose=false) {
     
     
     XiVec V_tmp = V;

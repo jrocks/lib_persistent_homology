@@ -162,8 +162,11 @@ template <int DIM> void init_search_templates(py::module &m) {
 
 template <int DIM> void init_protein_templates(py::module &m) {
 
+//     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), 
+//           &shrink_alpha_complex<DIM>, py::arg("comp"), py::arg("filt"), py::arg("max_dist"), py::arg("threshold")=0.0, py::arg("verbose")=false);
+    
     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), 
-          &shrink_alpha_complex<DIM>, py::arg("comp"), py::arg("filt"), py::arg("max_dist"), py::arg("threshold")=0.0, py::arg("verbose")=false);
+          &shrink_alpha_complex<DIM>);
     
     m.def((std::string("calc_neighborhood_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(), 
           &calc_neighborhood_D2min_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
@@ -499,8 +502,13 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_dist_mat_norms", &calc_dist_mat_norms);
     
     
+    init_protein_templates<2>(m);
     init_protein_templates<3>(m);
-    m.def("find_hinge_pairs", &find_hinge_pairs,
+   
+//     m.def("find_optimal_hinge", &find_optimal_hinge,
+//           py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
+//           py::arg("n_basins")=2, py::arg("verbose")=false);
+    m.def("find_hinge_persistence_pairs", &find_hinge_persistence_pairs,
           py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
           py::arg("n_basins")=2, py::arg("min_size")=1, py::arg("reset")=false, py::arg("verbose")=false);
     m.def("simplify_morse_complex", 
@@ -508,6 +516,8 @@ PYBIND11_MODULE(phom, m) {
           &simplify_morse_complex, 
           py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"),
           py::arg("comp"), py::arg("reset")=false, py::arg("verbose") = false);
+    
+    m.def("merge_basins", &merge_basins);
     
 };
 
