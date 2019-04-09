@@ -196,7 +196,7 @@ template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp,
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
 
-            D2min[vi] += (dR*bvec - du).squaredNorm();
+            D2min[vi] += (dR*bvec - du).norm();
 
         }
         
