@@ -693,8 +693,8 @@ std::unordered_map<int, std::unordered_map<int, std::unordered_map<std::string, 
 
 }
 
-std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
-    calc_radial_gap_distribution(std::vector<int> &cell_list, std::vector<double> &alpha_vals, CellComplex &comp, int max_dist=-1, bool verbose=false) {
+template <int DIM> std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
+    calc_radial_gap_distribution(std::vector<int> &cell_list, CellComplex &comp, Embedding<DIM> &embed, std::vector<double> &rad, int max_dist=-1, bool verbose=false) {
 
     // particle->(gaps[dist]->count, overlaps[dist]->count)
     std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > > gap_distribution;
@@ -713,14 +713,22 @@ std::unordered_map<int, std::tuple<std::map<int, int>, std::map<int, int> > >
 
         auto dists = calc_comp_point_dists(c, comp, max_dist);
 
-        for(int i = 0; i < comp.ncells; i++) {
-            if(comp.get_dim(i) != 1 || dists[i] <= 0) {
+        for(int i = comp.dcell_range[1].first; i < comp.dcell_range[1].second; i++) {
+            if(dists[i] <= 0) {
                 continue;
             }
 
-            double alpha = alpha_vals[i];
-
-            if(alpha > 0.0) {
+            auto verts = comp.get_facets(i);
+            
+            int vi = verts[0];
+            int vj = verts[1];
+            
+            double ri = rad[vi];
+            double rj = rad[vj];
+            
+            double l0 = embed.get_diff(embed.get_vpos(vi), embed.get_vpos(vj)).norm();
+            
+            if( l0 > ri + rj ) {
                 gaps[dists[i]]++;
             } else {
                 overlaps[dists[i]]++;
