@@ -27,10 +27,13 @@
 #include "protein_algs.hpp"
 #include "softness.hpp"
 
+#include "voronoi.hpp"
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/iostream.h>
 #include <pybind11/eigen.h>
+
     
 namespace py = pybind11;
 
@@ -247,6 +250,7 @@ PYBIND11_MODULE(phom, m) {
     init_embedding_templates<1>(m);
     init_embedding_templates<2>(m);
     init_embedding_templates<3>(m);
+    init_embedding_templates<4>(m);
     
     // Graph complex
     
@@ -269,7 +273,7 @@ PYBIND11_MODULE(phom, m) {
     init_corner_templates<1>(m);
     init_corner_templates<2>(m);
     init_corner_templates<3>(m);
-    
+    init_corner_templates<4>(m);
     // Cubical complex
     
     m.def("construct_cubical_complex", &construct_cubical_complex);
@@ -284,7 +288,7 @@ PYBIND11_MODULE(phom, m) {
     
     init_alpha_templates<2>(m);
     init_alpha_templates<3>(m);
-    // init_alpha_templates<4>(m);
+    init_alpha_templates<4>(m);
     
     m.def("calc_radial_edge_counts", &calc_radial_edge_counts,
           py::arg("cell_list"), py::arg("edge_types"), py::arg("comp"), py::arg("max_dist")=-1);
@@ -306,7 +310,7 @@ PYBIND11_MODULE(phom, m) {
     // Deformation calculations
     init_deform_templates<2>(m);
     init_deform_templates<3>(m);
-    
+    init_deform_templates<4>(m); 
     
     // Morse complex
     
@@ -368,7 +372,8 @@ PYBIND11_MODULE(phom, m) {
     
     init_search_templates<2>(m);
     init_search_templates<3>(m);
-    
+    init_search_templates<4>(m);    
+
     m.def("perform_bfs", &perform_bfs);
     m.def("calc_comp_pair_dists", &calc_comp_pair_dists);
     m.def("calc_comp_point_dists", &calc_comp_point_dists,
