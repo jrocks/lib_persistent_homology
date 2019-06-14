@@ -44,7 +44,7 @@ void Voronoi<DIM>::construct_voronoi_vertices() {
   voronoi_vertices = XVec::Zero(DIM*comp.ndcells[2]);
   for (int v = 0; v < comp.ndcells[2]; v++) {
     auto neighb_cells = comp.get_cofaces(v+comp.dcell_range[2].first,0);
-    std::vector neighb_cells_vec(neighb_cells.begin(), neighb_cells.end());
+    std::vector<int> neighb_cells_vec(neighb_cells.begin(), neighb_cells.end());
     voronoi_vertices.segment<DIM>(DIM*v) = calc_circumsphere(neighb_cells_vec,
         embed, std::vector<double>(DIM+1,0.0))[1];
   }
