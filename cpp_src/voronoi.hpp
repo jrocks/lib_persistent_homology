@@ -55,9 +55,9 @@ void Voronoi<DIM>::construct_cell_areas_and_centroids() {
   cell_areas = XVec::Zero(comp.ndcells[0]);
   cell_centroids = XVec::Zero(DIM*comp.ndcells[0]);
   for (int c = 0; c < comp.ndcells[0]; c++) {
-    auto vert_set = comp.get_cofaces(c+comp.dcell_range[0].first, 2); //this is actually an unordered set
+    auto neighb_vertices = comp.get_cofaces(c+comp.dcell_range[0].first, 2); //this is actually an unordered set
     std::vector< DVec > vert_pos(neighb_vertices.size(), DVec::Zero(DIM));
-    std::transform(vert_set.begin(), vert_set.end(), vert_pos.begin(), [this](int i){return voronoi_vertices.segment<DIM>(DIM*neighb_vertices[i]);})
+    std::transform(vert_set.begin(), vert_set.end(), vert_pos.begin(), [this](int i){return voronoi_vertices.segment<DIM>(DIM*neighb_vertices[i]);});
 
     //now sort vertices counterclockwise - definitely only works in 2d...
     auto angle_comp = [] (DVec x, DVec y) {return atan2(x[1], x[0]) < atan2(y[1], y[0]) ;};
