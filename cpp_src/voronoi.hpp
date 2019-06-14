@@ -16,6 +16,7 @@ public:
   XVec voronoi_vertices;
   XVec cell_centroids;
   XVec cell_areas;
+  XVec rad2;
 
   Voronoi();
   Voronoi(int NV, RXVec vert_pos, std::vector<double> rad2, RDMat box_mat, bool periodic);
@@ -33,8 +34,8 @@ template <int DIM>
 Voronoi<DIM>::Voronoi() {}
 
 template <int DIM>
-Voronoi<DIM>::Voronoi(int NV, RXVec vert_pos, std::vector<double> rad2, RDMat box_mat, bool periodic) :embed(NV, vert_pos, box_mat, periodic), comp(2) {
-  comp = construct_alpha_complex(embed,rad2, false);
+Voronoi<DIM>::Voronoi(int NV, RXVec vert_pos, std::vector<double> _rad2, RDMat box_mat, bool periodic) :embed(NV, vert_pos, box_mat, periodic), comp(2), rad2(_rad2) {
+  comp = construct_alpha_complex(embed,_rad2, false);
   construct_voronoi_vertices();
   construct_cell_areas_and_centroids();
 }
