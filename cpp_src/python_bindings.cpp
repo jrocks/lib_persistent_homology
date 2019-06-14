@@ -105,7 +105,7 @@ template <int DIM> void init_alpha_templates(py::module &m) {
 template <int DIM> void init_voronoi_templates(py::module &m) {
 
     py::class_<Voronoi<DIM> >(m, (std::string("Voronoi")+std::to_string(DIM)+std::string("D")).c_str())
-        .def(py::init<int, RXVec, std::vector<dbl> , RDMat, bool>())
+        .def(py::init<int, RXVec, std::vector<double> , RDMat, bool>())
         .def_readonly("comp", &Voronoi<DIM>::comp)
         .def_readonly("embed", &Voronoi<DIM>::embed)
         .def("get_cell_centroids", &Voronoi<DIM>::get_cell_centroids)
