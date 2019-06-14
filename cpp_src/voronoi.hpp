@@ -10,14 +10,13 @@
 template <int DIM>
 class Voronoi {
 
-private:
+public:
   Embedding<DIM> embed;
   CellComplex comp;
   XVec voronoi_vertices;
   XVec cell_centroids;
   XVec cell_areas;
 
-public:
   Voronoi();
   Voronoi(int NV, RXVec vert_pos, RDMat box_mat, bool periodic);
 
@@ -26,7 +25,7 @@ public:
   void construct_cell_areas_and_centroids();
 
 
-  XVec get_cell_centroids() const; 
+  XVec get_cell_centroids() const;
   Embedding<DIM> get_embedding() const;
 };
 
