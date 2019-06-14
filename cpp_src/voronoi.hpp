@@ -18,7 +18,7 @@ public:
   XVec cell_areas;
 
   Voronoi();
-  Voronoi(int NV, RXVec vert_pos, RXVec rad2, RDMat box_mat, bool periodic);
+  Voronoi(int NV, RXVec vert_pos, std::vector<double> rad2, RDMat box_mat, bool periodic);
 
   //construction subroutines
   void construct_voronoi_vertices();
