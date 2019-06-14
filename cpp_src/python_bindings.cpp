@@ -101,6 +101,17 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     m.def(("calc_gap_angle_class"+std::to_string(DIM)+std::string("D")).c_str(), &calc_gap_angle_class<DIM>, py::arg("cell_list"),py::arg("alpha_vals"),py::arg("comp"),py::arg("Embedding"),py::arg("num_angles")=128,py::arg("verbose")=false); 
 
 }
+
+template <int DIM> void init_voronoi_templates(py::module &m) {
+
+    py::class_<Voronoi<DIM> >(m, (std::string("Voronoi")+std::to_string(DIM)+std::string("D")).c_str())
+        .def(py::init<int, RXVec, RDMat, bool>())
+        .def("get_cell_centroids", &Voronoi<DIM>::get_cell_centroids)
+        .def("get_embedding", &Voronoi<DIM>::get_embedding);
+
+
+}
+
 #endif
 
 
