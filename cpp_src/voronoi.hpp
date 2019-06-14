@@ -33,9 +33,9 @@ template <int DIM>
 Voronoi<DIM>::Voronoi() {}
 
 template <int DIM>
-Voronoi<DIM>::Voronoi(int NV, RXVec vert_pos, RDMat box_mat, bool periodic) {
+Voronoi<DIM>::Voronoi(int NV, RXVec vert_pos, RXVec rad2, RDMat box_mat, bool periodic) {
   embed = Embedding<DIM>(NV, vert_pos, box_mat, periodic);
-  comp = construct_alpha_complex(embed,XVec::Zero(NV), false);
+  comp = construct_alpha_complex(embed,rad2, false);
   construct_voronoi_vertices();
   construct_cell_areas_and_centroids();
 }
