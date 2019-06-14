@@ -306,6 +306,8 @@ PYBIND11_MODULE(phom, m) {
     init_alpha_templates<3>(m);
     init_alpha_templates<4>(m);
 
+    init_voronoi_templates<2>(m);
+
     m.def("calc_radial_edge_counts", &calc_radial_edge_counts,
           py::arg("cell_list"), py::arg("edge_types"), py::arg("comp"), py::arg("max_dist")=-1);
 
