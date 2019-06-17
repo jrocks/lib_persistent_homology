@@ -44,7 +44,7 @@ template <int DIM>
 void Voronoi<DIM>::construct_voronoi_vertices() {
   voronoi_vertices = XVec::Zero(DIM*comp.ndcells[2]);
   for (int v = 0; v < comp.ndcells[2]; v++) {
-    auto neighb_cells = comp.get_cofaces(v+comp.dcell_range[2].first,0);
+    auto neighb_cells = comp.get_faces(v+comp.dcell_range[2].first,0);
     std::vector<int> neighb_cells_vec(neighb_cells.begin(), neighb_cells.end());
     voronoi_vertices.segment<DIM>(DIM*v) = std::get<1>(calc_circumsphere(neighb_cells_vec,
         embed, rad2));
@@ -70,7 +70,7 @@ void Voronoi<DIM>::construct_cell_areas_and_centroids() {
       cell_areas[c] += 0.5*(vert_pos[i](0)*vert_pos[(i+1) % n](1)-vert_pos[(i+1) % n](0)*vert_pos[i](1));
     }
 
-    for (int i = 0; i < vert_pos.size(); i++) {
+    for (unsigned int i = 0; i < vert_pos.size(); i++) {
       double temp = ((1.0)/(6.0*cell_areas[c]))*(vert_pos[i](0)*vert_pos[(i+1) % n](1)-vert_pos[(i+1) % n](0)*vert_pos[i](1));
       cell_centroids.segment<DIM>(DIM*c) += temp*(vert_pos[i] + vert_pos[(i+1)%n]);
     }
