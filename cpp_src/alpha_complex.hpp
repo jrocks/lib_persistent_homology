@@ -373,10 +373,8 @@ template <int DIM> XVec calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed
                         }
                     }
 
-                    x = a + bvec;
+                    x = a + embed.box_mat*bvec;
                 }
-
-                x = embed.box_mat * x;
 
                 if(!verts.count(vi) && calc_power_distance(alpha, a, x, weights[vi]) < 0.0) {
                     conflict = true;
@@ -392,11 +390,6 @@ template <int DIM> XVec calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed
 
 
         if(!conflict) {
-
-            // if(comp.get_dim(c) < DIM+1) {
-            //     py::print(comp.get_dim(c), alpha, a);
-            // }
-
             continue;
         }
 
