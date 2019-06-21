@@ -267,6 +267,7 @@ PYBIND11_MODULE(phom, m) {
     init_embedding_templates<2>(m);
     init_embedding_templates<3>(m);
     init_embedding_templates<4>(m);
+    init_embedding_templates<5>(m);
 
     // Graph complex
 
@@ -290,6 +291,7 @@ PYBIND11_MODULE(phom, m) {
     init_corner_templates<2>(m);
     init_corner_templates<3>(m);
     init_corner_templates<4>(m);
+    init_corner_templates<5>(m);
     // Cubical complex
 
     m.def("construct_cubical_complex", &construct_cubical_complex);
@@ -328,7 +330,7 @@ PYBIND11_MODULE(phom, m) {
     init_deform_templates<2>(m);
     init_deform_templates<3>(m);
     init_deform_templates<4>(m);
-
+    init_deform_templates<5>(m);
     // Morse complex
 
     m.def("get_star_decomp", &get_star_decomp,
@@ -390,6 +392,7 @@ PYBIND11_MODULE(phom, m) {
     init_search_templates<2>(m);
     init_search_templates<3>(m);
     init_search_templates<4>(m);
+    init_search_templates<5>(m);
 
     m.def("perform_bfs", &perform_bfs);
     m.def("calc_comp_pair_dists", &calc_comp_pair_dists);
