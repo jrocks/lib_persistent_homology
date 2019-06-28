@@ -307,7 +307,7 @@ PYBIND11_MODULE(phom, m) {
     init_alpha_templates<2>(m);
     init_alpha_templates<3>(m);
     init_alpha_templates<4>(m);
-
+    init_alpha_templates<5>(m);
     init_voronoi_templates<2>(m);
 
     m.def("calc_radial_edge_counts", &calc_radial_edge_counts,

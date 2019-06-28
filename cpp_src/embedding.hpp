@@ -74,6 +74,12 @@ public:
         return box_mat * dx;
         
     }
+   
+    //takes in real, returns real
+    inline DVec get_diff_realpos(DVec const &xi, DVec const &xj) { 
+        DMat inv = box_mat.inverse() ;
+        return get_diff(inv*xi, inv*xj); 
+    }
     
 };
 
