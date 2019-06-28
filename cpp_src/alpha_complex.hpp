@@ -374,6 +374,9 @@ template <int DIM> XVec calc_alpha_vals(CellComplex &comp, Embedding<DIM> &embed
                     }
 
                     x = a + embed.box_mat*bvec;
+                } else {
+                    
+                    x = embed.box_mat * x;
                 }
 
                 if(!verts.count(vi) && calc_power_distance(alpha, a, x, weights[vi]) < 0.0) {
