@@ -109,6 +109,7 @@ template <int DIM> void init_voronoi_templates(py::module &m) {
         .def_readonly("comp", &Voronoi<DIM>::comp)
         .def_readonly("embed", &Voronoi<DIM>::embed)
         .def("get_cell_centroids", &Voronoi<DIM>::get_cell_centroids)
+        .def("get_cell_areas", &Voronoi<DIM>::get_cell_areas)
         .def("get_embedding", &Voronoi<DIM>::get_embedding);
 
 
