@@ -111,6 +111,11 @@ XVec Voronoi<DIM>::get_cell_centroids() const {
   return cell_centroids;
 }
 
+template <int DIM>
+XVec Voronoi<DIM>::get_cell_areas() const {
+  return cell_areas;
+}
+
 template<int DIM>
 Embedding<DIM> Voronoi<DIM>::get_embedding() const {
   return embed;
