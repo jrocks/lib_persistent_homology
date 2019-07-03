@@ -27,6 +27,7 @@ public:
 
 
   XVec get_cell_centroids() const;
+  XVec get_cell_areas() const;
   Embedding<DIM> get_embedding() const;
 };
 
