@@ -22,11 +22,13 @@ public:
     int NV;
     // box matrix (multiply by pos to get actual embedded position)
     DMat box_mat;
+    // inverse box matrix
+    DMat box_mat_inv;
     // boundary conditions
     bool periodic;
     
     Embedding(int NV, RXVec vert_pos, RDMat box_mat, bool periodic) :
-        dim(DIM), vert_pos(vert_pos), NV(NV), box_mat(box_mat), periodic(periodic) {}
+        dim(DIM), vert_pos(vert_pos), NV(NV), box_mat(box_mat), box_mat_inv(box_mat.inverse()), periodic(periodic) {}
     
     // Get virtual position
     inline DVec get_vpos(int vi) {
@@ -49,7 +51,9 @@ public:
     // Return virtual coords
     inline DVec get_vdiff(DVec const &xi, DVec const &xj) {
         
-        DVec dx = xj - xi;
+        DVec dx;            
+        
+        dx = xj - xi;
         
         if(periodic) {
             
@@ -65,13 +69,51 @@ public:
         
     }
     
+    inline DVec get_vdiff(int vi, int vj) {
+
+        DVec xi = get_vpos(vi);
+        DVec xj = get_vpos(vj);
+        
+        return get_vdiff(xi, xj);
+        
+    }
+    
     // Takes in virtual coords
     // Returns real coords
-    inline DVec get_diff(DVec const  &xi, DVec const &xj) {
+    inline DVec get_diff(DVec const &xi, DVec const &xj) {
         
-        DVec dx =  get_vdiff(xi, xj);
+        DVec dx;
+            
+        dx = get_vdiff(xi, xj);
         
         return box_mat * dx;
+        
+    }
+    
+    // Maybe implement version like this:
+    // Or have one get_diff function with two template parameters (input virtual or real, output virtual or real)
+    // Then in python side have get_vdiffv, get_vdiffr, get_rdiffv, get_rdiffr
+    
+//      template<bool VIRTUAL=true> inline DVec get_diff(DVec const &xi, DVec const &xj) {
+        
+//         DVec dx;
+            
+//         if(VIRTUAL) {
+//             dx = get_vdiff(xi, xj);
+//         } else {
+//             dx = get_vdiff(box_mat_inv*xi, box_mat_inv*xj);
+//         }
+        
+//         return box_mat * dx;
+        
+//     }
+    
+    inline DVec get_diff(int vi, int vj) {
+
+        DVec xi = get_vpos(vi);
+        DVec xj = get_vpos(vj);
+        
+        return get_diff(xi, xj);
         
     }
    

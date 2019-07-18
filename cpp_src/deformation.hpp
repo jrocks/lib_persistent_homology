@@ -68,7 +68,7 @@ template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &vert
 }
 
 
-template <int DIM> DMat def_grad_to_strain(DMat F, bool linear=true) {
+template <int DIM> DMat def_grad_to_strain(DMat &F, bool linear=true) {
     
     DMat eps;
     if(linear) {
@@ -82,7 +82,7 @@ template <int DIM> DMat def_grad_to_strain(DMat F, bool linear=true) {
 }
 
 
-template <int DIM> std::tuple<DMat, DMat> decompose_def_grad(DMat F, bool linear=true) {
+template <int DIM> std::tuple<DMat, DMat> decompose_def_grad(DMat &F, bool linear=true) {
     
     
     if(linear) {
@@ -120,9 +120,9 @@ template <int DIM> XVec calc_tri_strains(RXVec disp, CellComplex &comp, Embeddin
         std::vector<int> verts(vset.begin(), vset.end());
                 
         DMat F;
-        std::tie(F, std::ignore) = calc_def_grad(verts, disp, embed, false);
+        std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
         
-        DMat eps  = def_grad_to_strain(F, linear);
+        DMat eps  = def_grad_to_strain<DIM>(F, linear);
         
         strains[comp.get_label(c)] = eps.norm();
                         
@@ -152,8 +152,8 @@ template <int DIM> std::tuple<XVec, XVec> calc_delaunay_D2min_strain(RXVec disp,
         
         
         DMat F;
-        std::tie(F, D2min[vi]) = calc_def_grad(verts, disp, embed, true);
-        DMat eps  = def_grad_to_strain(F, linear);
+        std::tie(F, D2min[vi]) = calc_def_grad<DIM>(verts, disp, embed, true);
+        DMat eps  = def_grad_to_strain<DIM>(F, linear);
         
         strains[vi] = eps.norm();
 
@@ -179,7 +179,7 @@ template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp,
         
         
         DMat F;
-        std::tie(F, std::ignore) = calc_def_grad(verts, disp, embed, false);
+        std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
         
         DMat dR  = 0.5*(F - F.transpose());
         
@@ -236,8 +236,8 @@ template <int DIM> std::tuple<XVec, XVec> calc_grouped_delaunay_D2min_strain(std
 
 
         DMat F;
-        std::tie(F, D2min[gi]) = calc_def_grad(verts, disp, embed, true);
-        DMat eps  = def_grad_to_strain(F, linear);
+        std::tie(F, D2min[gi]) = calc_def_grad<DIM>(verts, disp, embed, true);
+        DMat eps  = def_grad_to_strain<DIM>(F, linear);
 
         strains[gi] = eps.norm();
 
@@ -292,15 +292,14 @@ template <int DIM> XVec subtract_global_motion(RXVec disp, Embedding<DIM> &embed
         DMat dR;
         DMat eps;
         
-        std::tie(dR, eps) = decompose_def_grad(F, linear);
+        std::tie(dR, eps) = decompose_def_grad<DIM>(F, linear);
     } else {
         
         DMat R;
         DMat U;
+                
+        std::tie(R, U) = decompose_def_grad<DIM>(F, linear);
         
-        
-        std::tie(R, U) = decompose_def_grad(F, linear);
-
         for(int vi = 0; vi < embed.NV; vi++) {
             
             DVec bvec = embed.get_diff(xcm, embed.get_vpos(vi));

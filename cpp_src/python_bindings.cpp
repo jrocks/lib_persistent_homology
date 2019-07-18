@@ -3,7 +3,7 @@
 
 #include "cell_complex.hpp"
 #include "graph_complex.hpp"
-#include "corner_complex.hpp"
+// #include "corner_complex.hpp"
 #include "cubical_complex.hpp"
 #include "morse_complex.hpp"
 #include "extended_complex.hpp"
@@ -48,8 +48,10 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         .def("get_vpos", &Embedding<DIM>::get_vpos)
         .def("get_pos", &Embedding<DIM>::get_pos)
         .def("transform", &Embedding<DIM>::transform)
-        .def("get_vdiff", &Embedding<DIM>::get_vdiff)
-        .def("get_diff", &Embedding<DIM>::get_diff);
+        .def("get_vdiff", (DVec (Embedding<DIM>::*)(int, int)) &Embedding<DIM>::get_vdiff)
+        .def("get_vdiff", (DVec (Embedding<DIM>::*)(DVec const &, DVec const &)) &Embedding<DIM>::get_vdiff)
+        .def("get_diff", (DVec (Embedding<DIM>::*)(int, int)) &Embedding<DIM>::get_diff)
+        .def("get_diff", (DVec (Embedding<DIM>::*)(DVec const &, DVec const &)) &Embedding<DIM>::get_diff);
 
 
 }
@@ -63,21 +65,21 @@ template <int DIM> void init_graph_templates(py::module &m) {
 
 }
 
-template <int DIM> void init_corner_templates(py::module &m) {
+// template <int DIM> void init_corner_templates(py::module &m) {
 
-    m.def((std::string("construct_corner_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &construct_corner_complex<DIM>);
+//     m.def((std::string("construct_corner_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &construct_corner_complex<DIM>);
 
-    m.def((std::string("find_corners_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &find_corners<DIM>);
-    m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_corner_strains<DIM>, py::arg("corners"), py::arg("disp"), py::arg("embed"), py::arg("strain")=false);
+//     m.def((std::string("find_corners_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &find_corners<DIM>);
+//     m.def((std::string("calc_corner_strains_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &calc_corner_strains<DIM>, py::arg("corners"), py::arg("disp"), py::arg("embed"), py::arg("strain")=false);
 
-    m.def((std::string("calc_corner_flatness_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_corner_flatness<DIM>);
+//     m.def((std::string("calc_corner_flatness_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &calc_corner_flatness<DIM>);
 
 
-}
+// }
 
 #ifdef ALPHA
 template <int DIM> void init_alpha_templates(py::module &m) {
@@ -185,18 +187,38 @@ template <int DIM> void init_protein_templates(py::module &m) {
 //     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
 //           &shrink_alpha_complex<DIM>, py::arg("comp"), py::arg("filt"), py::arg("max_dist"), py::arg("threshold")=0.0, py::arg("verbose")=false);
 
-    m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &shrink_alpha_complex<DIM>);
-
-    m.def((std::string("calc_neighborhood_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_neighborhood_D2min_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+//     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &shrink_alpha_complex<DIM>);
 
 
-    m.def((std::string("get_contact_network_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &get_contact_network<DIM>);
+
+//     m.def((std::string("get_contact_network_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &get_contact_network<DIM>);
 
     m.def((std::string("transform_coords_")+std::to_string(DIM)+std::string("D")).c_str(),
           &transform_coords<DIM>);
+    
+    m.def((std::string("calc_com_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_com<DIM>);
+    
+    m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_rmsd<DIM>);
+    
+    m.def((std::string("calc_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    
+    m.def((std::string("calc_local_strain_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_local_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    
+    m.def((std::string("calc_local_strain_order2_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_local_strain_order2<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    
+    m.def((std::string("calc_basin_boundary_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_basin_boundary_dists<DIM>);
+    
+    m.def((std::string("calc_basin_com_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_basin_com_dists<DIM>);
+
 
 }
 
@@ -267,8 +289,8 @@ PYBIND11_MODULE(phom, m) {
     init_embedding_templates<1>(m);
     init_embedding_templates<2>(m);
     init_embedding_templates<3>(m);
-    init_embedding_templates<4>(m);
-    init_embedding_templates<5>(m);
+//     init_embedding_templates<4>(m);
+//     init_embedding_templates<5>(m);
 
     // Graph complex
 
@@ -288,11 +310,11 @@ PYBIND11_MODULE(phom, m) {
 
     // Corner complex
 
-    init_corner_templates<1>(m);
-    init_corner_templates<2>(m);
-    init_corner_templates<3>(m);
-    init_corner_templates<4>(m);
-    init_corner_templates<5>(m);
+//     init_corner_templates<1>(m);
+//     init_corner_templates<2>(m);
+//     init_corner_templates<3>(m);
+//     init_corner_templates<4>(m);
+//     init_corner_templates<5>(m);
     // Cubical complex
 
     m.def("construct_cubical_complex", &construct_cubical_complex);
@@ -307,9 +329,8 @@ PYBIND11_MODULE(phom, m) {
 
     init_alpha_templates<2>(m);
     init_alpha_templates<3>(m);
-    init_alpha_templates<4>(m);
-    init_alpha_templates<5>(m);
-    init_voronoi_templates<2>(m);
+//     init_alpha_templates<4>(m);
+//     init_alpha_templates<5>(m);
 
     m.def("calc_radial_edge_counts", &calc_radial_edge_counts,
           py::arg("cell_list"), py::arg("edge_types"), py::arg("comp"), py::arg("max_dist")=-1);
@@ -324,14 +345,21 @@ PYBIND11_MODULE(phom, m) {
 
     m.def("calc_radial_cycle_distribution", &calc_radial_cycle_distribution,
           py::arg("cell_list"), py::arg("alpha_vals"), py::arg("comp"), py::arg("vertex_types"), py::arg("max_dist")=-1, py::arg("verbose")=false);
+    
+    
+    // Voronoi complex
+    
+//     init_voronoi_templates<2>(m);
+
+    
 
 #endif
 
     // Deformation calculations
     init_deform_templates<2>(m);
     init_deform_templates<3>(m);
-    init_deform_templates<4>(m);
-    init_deform_templates<5>(m);
+//     init_deform_templates<4>(m);
+//     init_deform_templates<5>(m);
     // Morse complex
 
     m.def("get_star_decomp", &get_star_decomp,
@@ -392,8 +420,8 @@ PYBIND11_MODULE(phom, m) {
 
     init_search_templates<2>(m);
     init_search_templates<3>(m);
-    init_search_templates<4>(m);
-    init_search_templates<5>(m);
+//     init_search_templates<4>(m);
+//     init_search_templates<5>(m);
 
     m.def("perform_bfs", &perform_bfs);
     m.def("calc_comp_pair_dists", &calc_comp_pair_dists);
@@ -527,22 +555,27 @@ PYBIND11_MODULE(phom, m) {
     m.def("calc_dist_mat", &calc_dist_mat);
     m.def("calc_dist_mat_norms", &calc_dist_mat_norms);
 
+    
+    // Protein algorithms
 
     init_protein_templates<2>(m);
     init_protein_templates<3>(m);
+    
+    m.def("merge_basins", &merge_basins);
+    
 
 //     m.def("find_optimal_hinge", &find_optimal_hinge,
 //           py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
 //           py::arg("n_basins")=2, py::arg("verbose")=false);
-    m.def("find_hinge_persistence_pairs", &find_hinge_persistence_pairs,
-          py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
-          py::arg("n_basins")=2, py::arg("min_size")=1, py::arg("reset")=false, py::arg("verbose")=false);
-    m.def("simplify_morse_complex",
-          (void (*)(std::vector<std::pair<int, int> >&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool))
-          &simplify_morse_complex,
-          py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"),
-          py::arg("comp"), py::arg("reset")=false, py::arg("verbose") = false);
+//     m.def("find_hinge_persistence_pairs", &find_hinge_persistence_pairs,
+//           py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"), py::arg("comp"),
+//           py::arg("n_basins")=2, py::arg("min_size")=1, py::arg("reset")=false, py::arg("verbose")=false);
+//     m.def("simplify_morse_complex",
+//           (void (*)(std::vector<std::pair<int, int> >&, RXiVec, RXiVec, Filtration&, CellComplex&, bool, bool))
+//           &simplify_morse_complex,
+//           py::arg("pairs"), py::arg("V"), py::arg("coV"), py::arg("filt"),
+//           py::arg("comp"), py::arg("reset")=false, py::arg("verbose") = false);
 
-    m.def("merge_basins", &merge_basins);
+    
 
 };
