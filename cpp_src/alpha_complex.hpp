@@ -74,7 +74,14 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
         simplex_to_index.emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
     }
-
+    
+    if((int)tri.number_of_vertices() < NV) {
+        py::print("Error: Incompatible verticles.");
+        py::print(tri.number_of_hidden_vertices(), " vertices are hidden and ", 
+                  NV - tri.number_of_vertices() + tri.number_of_hidden_vertices(), " vertices are redundant.");
+        
+        return CellComplex(DIM, true, oriented);
+    }
 
     if(embed.periodic) {
 
