@@ -66,6 +66,12 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
         WPoint w(Point(coords.begin(), coords.end()), weights[i]);
 
         auto vertex = tri.insert(w);
+        
+        if ((int)tri.number_of_vertices() < i+1) {
+            py::print("Error: Incompatible verticles.");
+            return CellComplex(DIM, true, oriented);
+        }
+        
         vertex->data() = i;
 
         std::vector<int> facets;
@@ -73,14 +79,6 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
         alpha_comp.add_cell(i, 0, facets, coeffs);
 
         simplex_to_index.emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
-    }
-    
-    if((int)tri.number_of_vertices() < NV) {
-        py::print("Error: Incompatible verticles.");
-        py::print(tri.number_of_hidden_vertices(), " vertices are hidden and ", 
-                  NV - tri.number_of_vertices() - tri.number_of_hidden_vertices(), " vertices are redundant.");
-        
-        return CellComplex(DIM, true, oriented);
     }
 
     if(embed.periodic) {
