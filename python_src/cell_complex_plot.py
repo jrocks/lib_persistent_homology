@@ -261,7 +261,7 @@ def show_verts(ax, comp, embed, nodes, styles={}, alpha=1.0, zorder=None, marker
     
   
     
-def show_vec_field(ax, comp, embed, vec_field, zorder=None, boundary_cutoff=0.01, color='k', kwargs=dict()):
+def show_vec_field(ax, comp, embed, vec_field, subset=None, zorder=None, boundary_cutoff=0.01, color='k', kwargs=dict()):
     
     box_mat = embed.box_mat
     L = np.diagonal(embed.box_mat)
@@ -283,9 +283,14 @@ def show_vec_field(ax, comp, embed, vec_field, zorder=None, boundary_cutoff=0.01
     V = []
     norm = []
     
-    for c in range(*comp.dcell_range[0]):
-        
-        
+    
+    if subset is not None:
+        cell_list = subset
+    else:
+        cell_list = range(*comp.dcell_range[0])
+    
+    for c in cell_list:
+ 
         vi = comp.get_label(c)
         
         vpos = embed.get_vpos(vi)

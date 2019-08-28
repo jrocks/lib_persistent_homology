@@ -183,7 +183,7 @@ template <int DIM> CellComplex shrink_alpha_complex(CellComplex &comp, Embedding
         
         auto betti = calc_betti_numbers(comp_tmp);
         
-        py::print(i, c, eq_lengths[comp.get_label(c)], betti);
+//         py::print(i, c, eq_lengths[comp.get_label(c)], betti);
         
         if(betti[0] > 1 || betti[comp.dim-1] > 0) {
             rem_cells.pop_back();

@@ -187,8 +187,8 @@ template <int DIM> void init_protein_templates(py::module &m) {
 //     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
 //           &shrink_alpha_complex<DIM>, py::arg("comp"), py::arg("filt"), py::arg("max_dist"), py::arg("threshold")=0.0, py::arg("verbose")=false);
 
-//     m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
-//           &shrink_alpha_complex<DIM>);
+    m.def((std::string("shrink_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &shrink_alpha_complex<DIM>);
 
 
 
