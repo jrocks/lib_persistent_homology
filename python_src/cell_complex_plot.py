@@ -446,17 +446,10 @@ def show_voronoi(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cu
                     np.array([-1.0, -1.0])]    
     
     
-    if embed.periodic:
-        vert_pos = np.zeros([9*embed.NV, 2], float)
-        for vi in range(embed.NV):
-            for i, image in enumerate(image_offsets):
-                vert_pos[embed.NV*i+vi, :] = box_mat.dot(embed.get_vpos(vi)+image) / L
-                
-    else:
-        vert_pos = np.zeros([embed.NV, 2], float)
-        for vi in range(embed.NV):
-            vert_pos[vi, :] = embed.get_pos(vi) / L
-            
+    vert_pos = np.zeros([9*embed.NV, 2], float)
+    for vi in range(embed.NV):
+        for i, image in enumerate(image_offsets):
+            vert_pos[embed.NV*i+vi, :] = box_mat.dot(embed.get_vpos(vi)+image) / L
             
             
     vor = spatial.Voronoi(vert_pos)
@@ -477,10 +470,48 @@ def show_voronoi(ax, comp, embed, subset=None, styles={}, alpha=1.0, boundary_cu
         for j in range(len(region)):
             corners[j] = vor.vertices[region[j]]
             
+          
             
-        patch_list.append(patches.Polygon(corners))
-        patch_index.append(comp.get_label(vi))
+        if embed.periodic:
             
+            vposi = embed.get_vpos(vi)
+            posi = box_mat.dot(vposi) / L
+            
+            test_duplicates = ((posi < boundary_cutoff).any() or (posi > 1.0-boundary_cutoff).any())
+            
+            if test_duplicates:
+                                
+                for offset in image_offsets:
+                    oposi = box_mat.dot(vposi+offset) / L
+                    
+                    
+                    # this logic may be off
+                    if ((oposi > -boundary_cutoff).all() and (oposi < 1.0+boundary_cutoff).all()):
+                        
+                        corners_tmp = np.copy(corners)
+                        # first coordinate may be wrong in corners_tmp since first coordinate does not get offset
+                        for j in range(len(region)):
+                            
+                            vposj = vor.vertices[region[j]]
+                            vbvec = embed.get_vdiff(vposi+offset, vposj)
+                            bvec = box_mat.dot(vbvec) / L
+                            posj = oposi + bvec
+                            
+                            corners_tmp[j] = posj
+                            
+                        
+                        patch_list.append(patches.Polygon(corners_tmp))
+                        patch_index.append(comp.get_label(vi))
+                    
+            else:
+                                
+                patch_list.append(patches.Polygon(corners))
+                patch_index.append(comp.get_label(vi))
+                
+        else:
+            patch_list.append(patches.Polygon(corners))
+            patch_index.append(comp.get_label(vi))
+                
                     
         
     colors = []    

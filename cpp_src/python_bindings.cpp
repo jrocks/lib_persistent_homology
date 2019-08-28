@@ -43,6 +43,7 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         .def_readonly("dim", &Embedding<DIM>::dim)
         .def_readonly("NV", &Embedding<DIM>::NV)
         .def_readonly("box_mat", &Embedding<DIM>::box_mat)
+        .def_readonly("box_mat_inv", &Embedding<DIM>::box_mat_inv)
         .def_readonly("periodic", &Embedding<DIM>::periodic)
         .def(py::init<int, RXVec, RDMat, bool>())
         .def("get_vpos", &Embedding<DIM>::get_vpos)
