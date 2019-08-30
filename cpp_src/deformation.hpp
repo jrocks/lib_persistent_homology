@@ -58,7 +58,7 @@ template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &vert
 
         }
         
-        D2min /= verts.size();
+        D2min /= (verts.size() - 1);
     }
     
     
@@ -200,7 +200,7 @@ template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp,
 
         }
         
-        D2min[vi] /= verts.size();
+        D2min[vi] /= (verts.size()-1);
         
     }
 

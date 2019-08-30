@@ -328,7 +328,7 @@ template <int DIM> double calc_rmsd(RXVec X1, RXVec X2) {
 
     }
     
-    rmsd /= X1.size() / DIM;
+    rmsd /= (X1.size() / DIM-1);
     
     return sqrt(rmsd);
     
@@ -414,12 +414,18 @@ template <int DIM> XVec calc_local_rmsd(RXVec disp, Embedding<DIM> &embed, doubl
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
 
-            lrmsd(vi) += (R*bvec - (bvec+du)).squaredNorm();
+            if(linear) {
+                lrmsd(vi) += (R*bvec - du).squaredNorm();
+            } else {
+                lrmsd(vi) += (R*bvec - (bvec+du)).squaredNorm();
+            }
+            
+            
                 
         }
         
-        lrmsd(vi) /= verts.size();
-
+        lrmsd(vi) /= (verts.size()-1);
+        
     }
 
     return lrmsd.cwiseSqrt();
@@ -568,7 +574,7 @@ template <int DIM> std::tuple<DMat, Eigen::Matrix<double, DIM, DIM*DIM>, double>
 
         }
         
-        D2min /= verts.size();
+        D2min /= (verts.size()-1);
     }
     
     
