@@ -68,7 +68,7 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
         auto vertex = tri.insert(w);
         
         if ((int)tri.number_of_vertices() < i+1) {
-            py::print("Error: Incompatible verticles.");
+            py::print("Error: Incompatible vertices.");
             return CellComplex(DIM, true, oriented);
         }
         

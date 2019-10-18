@@ -8,6 +8,7 @@
 #include <queue>
 #include <tuple> 
 #include <algorithm>
+#include <random>
 
 #include "eigen_macros.hpp"
 #include "cell_complex.hpp"
@@ -202,6 +203,87 @@ template <int DIM> CellComplex shrink_alpha_complex(CellComplex &comp, Embedding
 
 
 
+
+
+
+template <int DIM> XVec transform_coords(RXVec X, RDMat F, RDVec u) {
+    
+    XVec x = XVec::Zero(X.size());
+    
+    for(int vi = 0; vi < X.size() / DIM; vi++) {
+        x.segment<DIM>(DIM*vi) = F * X.segment<DIM>(DIM*vi) + u;
+    }
+    
+    return x;
+    
+}
+
+
+template <int DIM> DVec calc_com(RXVec X) {
+    
+    DVec com = DVec::Zero();
+    
+    for(int vi = 0; vi < X.size() / DIM; vi++) {
+        com += X.segment<DIM>(DIM*vi);
+    }
+    
+    com /= X.size() / DIM;
+    
+    return com;
+    
+}
+
+
+// template <int DIM> double calc_rmsd(RXVec X1, RXVec X2) {
+    
+//     DMat X = DMat::Zero();
+//     DMat Y = DMat::Zero();
+    
+//     int vi = 0;
+
+//     DVec O1 = X1.segment<DIM>(DIM*vi);
+//     DVec O2 = X2.segment<DIM>(DIM*vi);
+
+
+//     for(int j = 1; j < X1.size() / DIM; j++) {
+        
+//         int vj = j;
+
+        
+//         DVec dX = X1.segment<DIM>(DIM*vj) - O1;
+//         DVec dx = X2.segment<DIM>(DIM*vj) - O2;
+        
+//         X += dX * dX.transpose();
+//         Y += dx * dX.transpose();
+
+
+//     }
+    
+//     DMat F = Y * X.inverse();
+    
+//     DMat R;
+//     std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, false);
+    
+//     double rmsd = 0.0;
+//     for(int j = 1; j < X1.size() / DIM; j++) {
+            
+//         int vj = j;
+        
+//         DVec dX = X1.segment<DIM>(DIM*vj) - O1;
+//         DVec dx = X2.segment<DIM>(DIM*vj) - O2;
+
+//         rmsd += (R*dX - dx).squaredNorm();
+
+//     }
+    
+//     rmsd /= (X1.size() / DIM-1);
+    
+//     return sqrt(rmsd);
+    
+// }
+
+
+
 template <int DIM> std::tuple<std::vector<int>,
 std::map<std::vector<int>, std::vector<int> >, 
 std::map<std::vector<int>, std::vector<std::vector<int> > > > get_neighbor_grid(double grid_length, Embedding<DIM> &embed) {
@@ -257,84 +339,6 @@ std::map<std::vector<int>, std::vector<std::vector<int> > > > get_neighbor_grid(
 
 
 
-
-template <int DIM> XVec transform_coords(RXVec X, RDMat F, RDVec u) {
-    
-    XVec x = XVec::Zero(X.size());
-    
-    for(int vi = 0; vi < X.size() / DIM; vi++) {
-        x.segment<DIM>(DIM*vi) = F * X.segment<DIM>(DIM*vi) + u;
-    }
-    
-    return x;
-    
-}
-
-
-template <int DIM> DVec calc_com(RXVec X) {
-    
-    DVec com = DVec::Zero();
-    
-    for(int vi = 0; vi < X.size() / DIM; vi++) {
-        com += X.segment<DIM>(DIM*vi);
-    }
-    
-    com /= X.size() / DIM;
-    
-    return com;
-    
-}
-
-
-template <int DIM> double calc_rmsd(RXVec X1, RXVec X2) {
-    
-    DMat X = DMat::Zero();
-    DMat Y = DMat::Zero();
-    
-    int vi = 0;
-
-    DVec O1 = X1.segment<DIM>(DIM*vi);
-    DVec O2 = X2.segment<DIM>(DIM*vi);
-
-
-    for(int j = 1; j < X1.size() / DIM; j++) {
-        
-        int vj = j;
-
-        
-        DVec dX = X1.segment<DIM>(DIM*vj) - O1;
-        DVec dx = X2.segment<DIM>(DIM*vj) - O2;
-        
-        X += dX * dX.transpose();
-        Y += dx * dX.transpose();
-
-
-    }
-    
-    DMat F = Y * X.inverse();
-    
-    DMat R;
-    std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, false);
-    
-    double rmsd = 0.0;
-    for(int j = 1; j < X1.size() / DIM; j++) {
-            
-        int vj = j;
-        
-        DVec dX = X1.segment<DIM>(DIM*vj) - O1;
-        DVec dx = X2.segment<DIM>(DIM*vj) - O2;
-
-        rmsd += (R*dX - dx).squaredNorm();
-
-    }
-    
-    rmsd /= (X1.size() / DIM-1);
-    
-    return sqrt(rmsd);
-    
-}
-
-
 template <int DIM> std::vector<int> get_grid_index(int vi, Embedding<DIM> &embed, std::vector<int> &grid_size) {
     
     DVec L = embed.box_mat.diagonal();    
@@ -384,53 +388,412 @@ template <int DIM> std::vector<int> get_grid_neighbors(int vi, Embedding<DIM> &e
     
 }
 
-
-template <int DIM> XVec calc_local_rmsd(RXVec disp, Embedding<DIM> &embed, double max_dist, bool linear=true) {
+template <int DIM> double calc_rmsd(std::vector<int> &verts, RXVec disp, Embedding<DIM> &embed, bool linear=true) {
     
-    auto grid_info = get_neighbor_grid<DIM>(max_dist, embed);
+    
+    double rmsd = 0.0;
+
+        
+    DMat F;
+    std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
+
+    DMat R;
+    std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, linear);
+
+    int vi = verts[0];
+    
+    DVec O = embed.get_vpos(vi);
+    DVec uO = disp.segment<DIM>(DIM*vi);
+
+    for(std::size_t j = 1; j < verts.size(); j++) {
+
+        int vj = verts[j];
+
+        DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+
+        DVec du = disp.segment<DIM>(DIM*vj) - uO;
+
+
+        if(linear) {
+            rmsd += (R*bvec - du).squaredNorm();
+        } else {
+            rmsd += (R*bvec - (bvec+du)).squaredNorm();
+        }
+        
+    }
+
+    rmsd /= (verts.size()-1);
+        
+
+    return sqrt(rmsd);
+
+}
+
+
+template <int DIM> XVec calc_local_rmsd(RXVec disp, Embedding<DIM> &embed, SpacePartition<DIM> &part, double max_dist, bool linear=true) {
+    
+//     auto grid_info = get_neighbor_grid<DIM>(max_dist, embed);
     
     XVec lrmsd = XVec::Zero(embed.NV);
 
     for(int vi = 0; vi < embed.NV; vi++) {
         
-        auto verts = get_grid_neighbors<DIM>(vi, embed, max_dist, grid_info);
-        
-        DMat F;
-        std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
-        
-        DMat R;
-        std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, linear);
-        
-        
-        DVec O = embed.get_vpos(vi);
-        DVec uO = disp.segment<DIM>(DIM*vi);
-        
-        for(std::size_t j = 1; j < verts.size(); j++) {
-            
-            int vj = verts[j];
-
-            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
-
-            DVec du = disp.segment<DIM>(DIM*vj) - uO;
-            
-
-            if(linear) {
-                lrmsd(vi) += (R*bvec - du).squaredNorm();
-            } else {
-                lrmsd(vi) += (R*bvec - (bvec+du)).squaredNorm();
-            }
-            
-            
+//         auto verts = get_grid_neighbors<DIM>(vi, embed, max_dist, grid_info);
+        auto verts = part.get_neighbors(vi, max_dist);
                 
-        }
-        
-        lrmsd(vi) /= (verts.size()-1);
+        lrmsd(vi) = calc_rmsd<DIM>(verts, disp, embed, linear);
         
     }
 
-    return lrmsd.cwiseSqrt();
+    return lrmsd;
 
 }
+
+
+// def calc_bulk_motion(nodes, embed, disp):
+    
+
+//     DIM = embed.dim
+    
+//     xcm = np.zeros(DIM, float)
+//     ucm = np.zeros(DIM, float)
+//     for ni in nodes:
+//         xcm += embed.get_pos(ni)
+//         ucm += disp[DIM*ni: DIM*ni+DIM]
+//     xcm /= len(nodes)
+//     ucm /= len(nodes)
+    
+//     X = np.zeros([DIM, DIM], float)
+//     Y = np.zeros([DIM, DIM], float)
+//     for ni in nodes:
+//         dxi = embed.get_pos(ni) - xcm
+//         dui = disp[DIM*ni: DIM*ni+DIM] - ucm
+//         X += np.outer(dxi, dxi)
+//         Y += np.outer(dxi+dui, dxi)
+        
+//     F = Y.dot(la.inv(X))
+    
+//     D2min = 0.0
+//     for ni in nodes:
+//         D2min += la.norm(ucm + (F-np.identity(DIM)).dot(embed.get_pos(ni) - xcm) - disp[DIM*ni: DIM*ni+DIM])**2
+//     D2min /= len(nodes)
+        
+// #     print("D2min", D2min)
+        
+//     return (xcm, ucm, F)
+
+
+
+template <int DIM> std::tuple<DVec, DVec, DMat> calc_bulk_motion(std::set<int> &verts, RXVec disp, Embedding<DIM> &embed, bool linear=true) {
+    
+    DVec xcm = DVec::Zero();
+    DVec ucm = DVec::Zero();
+    
+    for(auto vi: verts) {
+        xcm += embed.get_pos(vi);
+        ucm += disp.segment<DIM>(DIM*vi);
+    }
+    
+    xcm /= verts.size();
+    ucm /= verts.size();
+    
+    DMat X = DMat::Zero();
+    DMat Y = DMat::Zero();
+    for(auto vi: verts) {
+        DVec dxi = embed.get_pos(vi) - xcm;
+        DVec dui = disp.segment<DIM>(DIM*vi) - ucm;
+        X += dxi * dxi.transpose();
+        Y += (dxi + dui) * dxi.transpose();
+    }
+    
+    DMat F = Y * X.inverse();
+    
+    return std::make_tuple(xcm, ucm, F);
+    
+}
+
+// def calc_overlap(disp, embed, b1, b2):
+    
+//     DIM = embed.dim
+    
+//     disp_pred = np.zeros(DIM*embed.NV, float)
+//     xcm1, ucm1, F1 = calc_bulk_motion(b1, embed, disp)
+//     R1, U1 = phom.decompose_def_grad_3D(F1, linear=False)
+    
+//     for vi in b1:
+//         disp_pred[DIM*vi:DIM*vi+DIM] = (R1 - np.identity(DIM)).dot(embed.get_pos(vi) - xcm1)+ucm1
+
+//     xcm2, ucm2, F2 = calc_bulk_motion(b2, embed, disp)
+//     R2, U2 = phom.decompose_def_grad_3D(F2, linear=False)
+
+//     for vi in b2:
+//         disp_pred[DIM*vi:DIM*vi+DIM] = (R2 - np.identity(DIM)).dot(embed.get_pos(vi) - xcm2)+ucm2
+    
+//     return disp.dot(disp_pred) / la.norm(disp) / la.norm(disp_pred)
+
+
+
+template <int DIM> double calc_hinge_overlap(std::map<int, std::set<int> > &sectors, RXVec disp, Embedding<DIM> &embed, bool linear=true) {
+    
+    XVec disp_pred = XVec::Zero(DIM*embed.NV);
+    
+    for(auto pair: sectors) {
+        auto sector = pair.second;
+        DVec xcm, ucm;
+        DMat F, R;
+        std::tie(xcm, ucm, F) = calc_bulk_motion<DIM>(sector, disp, embed, linear);
+        std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, linear);
+
+        for(auto vi: sector) {
+            disp_pred.segment<DIM>(DIM*vi) = (R - DMat::Identity()) * (embed.get_pos(vi) - xcm) + ucm;
+        }
+        
+    }
+    
+//     DVec xcm1, ucm1;
+//     DMat F1, R1;
+//     std::tie(xcm1, ucm1, F1) = calc_bulk_motion<DIM>(sector1, disp, embed, linear);
+//     std::tie(R1, std::ignore) = decompose_def_grad<DIM>(F1, linear);
+    
+//     for(auto vi: sector1) {
+//         disp_pred.segment<DIM>(DIM*vi) = (R1 - DMat::Identity()) * (embed.get_pos(vi) - xcm1) + ucm1;
+//     }
+    
+//     DVec xcm2, ucm2;
+//     DMat F2, R2;
+//     std::tie(xcm2, ucm2, F2) = calc_bulk_motion<DIM>(sector2, disp, embed, linear);
+//     std::tie(R2, std::ignore) = decompose_def_grad<DIM>(F2, linear);
+    
+//     for(auto vi: sector2) {
+//         disp_pred.segment<DIM>(DIM*vi) = (R2 - DMat::Identity()) * (embed.get_pos(vi) - xcm2) + ucm2;
+//     }
+    
+    return disp.dot(disp_pred) / disp.norm() / disp_pred.norm();
+    
+}
+
+
+template <int DIM> Embedding<DIM> get_net_embed(RXVec X) {
+    
+    int NV = X.size() / DIM;    
+        
+    XVec Lmin = XMatMap(X.data(), NV, DIM).rowwise().minCoeff();
+    XVec Lmax = XMatMap(X.data(), NV, DIM).rowwise().maxCoeff();
+    
+    double L = (Lmax - Lmin).maxCoeff();
+
+    DMat box_mat = L * DMat::Identity();
+
+    XVec vert_pos = XVec::Zero(DIM*NV);
+    
+    for(int i = 0; i < NV; i++) {
+        vert_pos.segment<DIM>(DIM*i) =(X.segment<DIM>(DIM*i) - Lmin) / L;
+    }
+    
+    return Embedding<DIM>(NV, vert_pos, box_mat, false);
+    
+}
+
+
+template <int DIM> std::vector<double> calc_err(std::function<double(RXVec, Embedding<DIM>&)> f, RXVec disp, Embedding<DIM> &embed, RXVec sigma_ref, RXVec sigma_def, int n_iters) {
+    
+//     double q_true = f(disp, embed);
+    
+//     py::print("True Value:", q_true, py::arg("flush")=true);
+        
+    std::default_random_engine generator;
+    std::normal_distribution<double> normal(0.0,1.0);
+    
+    XVec deltaX_ref = XVec::Zero(DIM*embed.NV);
+    XVec deltaX_def = XVec::Zero(DIM*embed.NV);
+    
+//     XVec q = XVec::Zero(n_iters);
+    std::vector<double> q;
+        
+    XVec X_ref = XVec::Zero(DIM*embed.NV);
+    for(int vi = 0; vi < embed.NV; vi++) {
+        X_ref.segment<DIM>(DIM*vi) = embed.get_pos(vi);
+    }
+      
+    
+//     int n_above = 0;
+    for(int n = 0; n < n_iters; n++) {
+        
+//         py::print("n:", n, py::arg("flush")=true);
+        
+        for(int i = 0; i < DIM*embed.NV; i++) {
+            deltaX_ref(i) = normal(generator) * sigma_ref(i/DIM);
+            deltaX_def(i) = normal(generator)* sigma_def(i/DIM);
+        }
+    
+        XVec X_ref_prime = X_ref+deltaX_ref;
+        auto embed_prime = get_net_embed<DIM>(X_ref_prime);
+        
+        XVec disp_prime = disp + deltaX_def-deltaX_ref;
+        
+        q.push_back(f(disp_prime, embed_prime));  
+        
+//         q(n) = f(disp_prime, embed_prime);  
+        
+//         if(q(n) > q_true) {
+//             n_above++;
+//         }
+        
+//         py::print("Value:", q(n), py::arg("flush")=true);
+    }
+    
+    return q;
+    
+//     std::sort(q.data(), q.data()+q.size());
+    
+    
+
+//     double q_mean = q.sum() / n_iters;
+//     double q_std = sqrt((q- q_mean*XVec::Ones(n_iters)).squaredNorm() / (n_iters-1));
+
+//     double q_mean_err = q_mean / sqrt(n_iters);
+//     double q_std_err = q_std*q_std * sqrt(2.0/(n_iters-1));
+    
+//     double p = 1.0 * n_above / n_iters; 
+    
+//     double q_median = q(int(0.5*q.size()));
+//     double q_25 = q(int(0.25*q.size()));
+//     double q_75 = q(int(0.75*q.size()));
+    
+//     std::vector<double> results;
+//     results.push_back(q_true);
+//     results.push_back(p);
+//     results.push_back(q_mean);
+//     results.push_back(q_mean_err);
+//     results.push_back(q_std);
+//     results.push_back(q_std_err);
+//     results.push_back(q_median);
+//     results.push_back(q_25);
+//     results.push_back(q_75);
+    
+//     return results;
+    
+    
+}
+
+template <int DIM> std::vector<double> calc_lrmsd_diff_err(int v1, int v2, RXVec disp, Embedding<DIM> &embed, SpacePartition<DIM> &part, double max_dist, RXVec sigma_ref, RXVec sigma_def, int n_iters, bool linear=true) {
+    
+//     auto grid_info = get_neighbor_grid<DIM>(max_dist, embed);
+//     auto verts1 = get_grid_neighbors<DIM>(v1, embed, max_dist, grid_info);
+//     auto verts2 = get_grid_neighbors<DIM>(v2, embed, max_dist, grid_info);
+    
+    auto verts1 = part.get_neighbors(v1, max_dist);
+    auto verts2 = part.get_neighbors(v2, max_dist);
+   
+    auto f = [&verts1, &verts2, max_dist, linear](RXVec disp_prime, Embedding<DIM> &embed_prime) {
+        return calc_rmsd<DIM>(verts2, disp_prime, embed_prime, linear) - calc_rmsd<DIM>(verts1, disp_prime, embed_prime, linear);
+    };
+    
+    return calc_err<DIM>(f, disp, embed, sigma_ref, sigma_def, n_iters);
+
+}
+
+
+template <int DIM> std::vector<double> calc_hinge_overlap_err(std::map<int, std::set<int> > &sectors, RXVec disp, Embedding<DIM> &embed, RXVec sigma_ref, RXVec sigma_def, int n_iters, bool linear=true) {
+    
+    auto f = [&sectors, linear](RXVec disp_prime, Embedding<DIM> &embed_prime) {
+        return calc_hinge_overlap<DIM>(sectors, disp_prime, embed_prime, linear);            
+    };
+    
+    return calc_err<DIM>(f, disp, embed, sigma_ref, sigma_def, n_iters);
+
+}
+
+
+
+
+
+
+
+
+
+// template <int DIM> std::tuple<double, double> calc_rmsd_err(std::vector<int> &verts, RXVec disp, RXVec sigma, int n_iters, Embedding<DIM> &embed, double max_dist, bool linear=true) {
+    
+//     std::default_random_engine generator;
+//     std::normal_distribution<double> normal(0.0,1.0);
+    
+//     XVec rmsd = XVec::Zero(embed.NV);
+
+//     for(int n = 0; n < n_iters; n++) {
+        
+//         XVec delta = XVec::Zero(disp.size());
+        
+//         for(int i = 0; i < disp.size(); i++) {
+//             delta(i) = normal(generator);
+//         }
+        
+//         XVec disp_prime = disp + delta.cwiseProduct(sigma);
+    
+//         rmsd(n) = calc_rmsd<DIM>(verts, disp_prime, embed, max_dist, linear);
+        
+//     }
+
+//     double rmsd_mean = rmsd.sum() / n_iters;
+//     double rmsd_std = sqrt((rmsd - rmsd_mean*XVec::Ones(n_iters)).squaredNorm() / n_iters);
+
+//     return std::make_tuple(rmsd_mean, rmsd_std);
+
+// }
+
+
+
+// template <int DIM> std::tuple<XVec, XVec> calc_local_rmsd_err(RXVec disp, RXVec sigma, int n_iters, Embedding<DIM> &embed, double max_dist, bool linear=true) {
+    
+//     auto grid_info = get_neighbor_grid<DIM>(max_dist, embed);
+    
+//     XVec lrmsd = XVec::Zero(embed.NV);
+//     XVec lrmsd_err = XVec::Zero(embed.NV);
+
+//     for(int vi = 0; vi < embed.NV; vi++) {
+        
+//         auto verts = get_grid_neighbors<DIM>(vi, embed, max_dist, grid_info);
+        
+//         std::tie(lrmsd(vi), lrmsd_err(vi)) = calc_rmsd_err<DIM>(verts, disp, embed, max_dist, linear);
+        
+//     }
+
+//     return std::make_tupele(lrmsd, lrmsd_err);
+
+// }
+
+
+
+
+// template <int DIM> std::tuple<double, double, double> calc_hinge_overlap_err(std::set<int> &sector1, std::set<int> &sector2, RXVec disp, RXVec sigma, int n_iters, Embedding<DIM> &embed, double max_dist, bool linear=true) {
+    
+//     std::default_random_engine generator;
+//     std::normal_distribution<double> normal(0.0,1.0);
+    
+//     double overlap_true = calc_hinge_overlap<DIM>(sector1, sector2, disp, embed, max_dist, linear);
+    
+//     XVec overlap = XVec::Zero(embed.NV);
+
+//     for(int n = 0; n < n_iters; n++) {
+        
+//         XVec delta = XVec::Zero(disp.size());
+        
+//         for(int i = 0; i < disp.size(); i++) {
+//             delta(i) = normal(generator);
+//         }
+        
+//         XVec disp_prime = disp + delta.cwiseProduct(sigma);
+    
+//         overlap(n) = calc_hinge_overlap<DIM>(sector1, sector2, disp_prime, embed, max_dist, linear);       
+//     }
+
+//     double overlap_mean = overlap.sum() / n_iters;
+//     double overlap_std = sqrt((overlap- overlap_mean*XVec::Ones(n_iters)).squaredNorm() / n_iters);
+
+//     return std::make_tuple(overlap_true, overlap_mean, overlap_std);
+
+// }
+
+
 
 template <int DIM> XVec calc_local_strain(RXVec disp, Embedding<DIM> &embed, double max_dist, bool linear=true) {
     

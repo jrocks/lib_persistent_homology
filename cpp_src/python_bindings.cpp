@@ -1,4 +1,5 @@
 #include "embedding.hpp"
+#include "space_partition.hpp"
 #include "filtration.hpp"
 
 #include "cell_complex.hpp"
@@ -53,6 +54,15 @@ template <int DIM> void init_embedding_templates(py::module &m) {
         .def("get_vdiff", (DVec (Embedding<DIM>::*)(DVec const &, DVec const &)) &Embedding<DIM>::get_vdiff)
         .def("get_diff", (DVec (Embedding<DIM>::*)(int, int)) &Embedding<DIM>::get_diff)
         .def("get_diff", (DVec (Embedding<DIM>::*)(DVec const &, DVec const &)) &Embedding<DIM>::get_diff);
+    
+    py::class_<SpacePartition<DIM>>(m, (std::string("SpacePartition")+std::to_string(DIM)+std::string("D")).c_str())
+        .def("get_neighbors", &SpacePartition<DIM>::get_neighbors);
+    
+    py::class_<NeighborGrid<DIM>, SpacePartition<DIM> >(m, (std::string("NeighborGrid")+std::to_string(DIM)+std::string("D")).c_str())
+        .def(py::init<Embedding<DIM>&, double>());
+    
+//     py::class_<KDTree<DIM>, SpacePartition<DIM> >(m, (std::string("KDTree")+std::to_string(DIM)+std::string("D")).c_str())
+//         .def(py::init<Embedding<DIM>& >());
 
 
 }
@@ -129,6 +139,9 @@ template <int DIM> void init_deform_templates(py::module &m) {
 
     m.def((std::string("def_grad_to_strain_")+std::to_string(DIM)+std::string("D")).c_str(), &def_grad_to_strain<DIM>,
          py::arg("F"), py::arg("linear")=true);
+    
+    m.def((std::string("decompose_def_grad_")+std::to_string(DIM)+std::string("D")).c_str(), &decompose_def_grad<DIM>,
+         py::arg("F"), py::arg("linear")=true);
 
     m.def((std::string("subtract_global_motion_")+std::to_string(DIM)+std::string("D")).c_str(), &subtract_global_motion<DIM>,
          py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
@@ -202,23 +215,42 @@ template <int DIM> void init_protein_templates(py::module &m) {
     m.def((std::string("calc_com_")+std::to_string(DIM)+std::string("D")).c_str(),
           &calc_com<DIM>);
     
+    m.def((std::string("calc_hinge_overlap_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_hinge_overlap<DIM>,
+         py::arg("sector"), py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
+    
+    
+//     m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &calc_rmsd<DIM>);
+    
     m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_rmsd<DIM>);
-    
+      &calc_rmsd<DIM>, py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
+
     m.def((std::string("calc_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("linear")=true);
+        
+//     m.def((std::string("calc_rmsd_err_")+std::to_string(DIM)+std::string("D")).c_str(),
+//       &calc_rmsd_err<DIM>, py::arg("verts"), py::arg("disp"), py::arg("sigma"), py::arg("n_iters"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
     
-    m.def((std::string("calc_local_strain_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_local_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    m.def((std::string("calc_lrmsd_diff_err_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_lrmsd_diff_err<DIM>, py::arg("v1"), py::arg("v2"), 
+          py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("sigma_ref"), py::arg("sigma_def"), py::arg("n_iters"), py::arg("linear")=true);
     
-    m.def((std::string("calc_local_strain_order2_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_local_strain_order2<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    m.def((std::string("calc_hinge_overlap_err_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_hinge_overlap_err<DIM>, py::arg("sector"), 
+          py::arg("disp"), py::arg("embed"), py::arg("sigma_ref"), py::arg("sigma_def"), py::arg("n_iters"), py::arg("linear")=true);
     
-    m.def((std::string("calc_basin_boundary_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_basin_boundary_dists<DIM>);
+//     m.def((std::string("calc_local_strain_")+std::to_string(DIM)+std::string("D")).c_str(),
+//       &calc_local_strain<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
     
-    m.def((std::string("calc_basin_com_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_basin_com_dists<DIM>);
+//     m.def((std::string("calc_local_strain_order2_")+std::to_string(DIM)+std::string("D")).c_str(),
+//       &calc_local_strain_order2<DIM>, py::arg("disp"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
+    
+//     m.def((std::string("calc_basin_boundary_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &calc_basin_boundary_dists<DIM>);
+    
+//     m.def((std::string("calc_basin_com_dists_")+std::to_string(DIM)+std::string("D")).c_str(),
+//           &calc_basin_com_dists<DIM>);
 
 
 }

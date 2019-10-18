@@ -16,6 +16,7 @@ typedef Eigen::Ref<XiVec > RXiVec;
 
 // Map to interface raw array buffers with eigen vectors
 typedef Eigen::Map<XVec > XVecMap;
+typedef Eigen::Map<XMat > XMatMap;
 typedef Eigen::Map<Eigen::ArrayXd > XArrMap;
     
 // DIM-dimensional fixed length vectors and matrices
