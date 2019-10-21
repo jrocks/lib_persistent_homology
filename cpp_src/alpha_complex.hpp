@@ -26,7 +26,7 @@ namespace py = pybind11;
 
 
 template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
-                                                       std::vector<double> &weights, bool oriented=false) {
+                                                       std::vector<double> &weights, bool oriented=false, int dim_cap=DIM) {
 
 
     // d-dimensional Kernel used to define Euclidean space (R^d)
@@ -153,7 +153,7 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 //     }
 
     // Iterate through each corner and add all higher-dimensional faces of corner simplices
-    for(int d = 1; d <= DIM; d++) {
+    for(int d = 1; d <= dim_cap; d++) {
 
         int label = 0;
 
@@ -163,16 +163,18 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
             std::vector<int> vertices;
             for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
                 // Need to dereference first, since vit is a pointer to a vertex handle
-                // Mode by NV to take care of periodic BCs if turned on
+                // Mod by NV to take care of periodic BCs if turned on
                 int vi = (*vit)->data();
                 vertices.push_back(vi % NV);
 
+                // Is at least one vertex contained in the central image?
                 if(vi < NV) {
                     has_central_image = true;
                 }
 
             }
 
+            // If none of the vertices are in the central image, then skip this cell
             if(!has_central_image) {
                 continue;
             }

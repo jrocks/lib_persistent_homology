@@ -98,7 +98,7 @@ template <int DIM> void init_alpha_templates(py::module &m) {
     m.def((std::string("calc_circumsphere_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_circumsphere<DIM>);
 
     m.def((std::string("construct_alpha_complex_")+std::to_string(DIM)+std::string("D")).c_str(), &construct_alpha_complex<DIM>,
-         py::arg("embed"), py::arg("weights"), py::arg("oriented")=false);
+         py::arg("embed"), py::arg("weights"), py::arg("oriented")=false, py::arg("dim_cap")=DIM);
 
     m.def((std::string("calc_alpha_vals_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_alpha_vals<DIM>,
          py::arg("comp"), py::arg("embed"), py::arg("weights"), py::arg("alpha0")=-1.0);
@@ -152,6 +152,10 @@ template <int DIM> void init_deform_templates(py::module &m) {
          py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
 
 
+    m.def((std::string("calc_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("linear")=true, py::arg("weighted")=false);
+        
+    
     m.def((std::string("calc_tri_strains_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_tri_strains<DIM>,
          py::arg("disp"), py::arg("comp"), py::arg("embed"), py::arg("linear")=true);
 
@@ -160,8 +164,8 @@ template <int DIM> void init_deform_templates(py::module &m) {
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
 
 
-    m.def((std::string("calc_delaunay_rigid_D2min_")+std::to_string(DIM)+std::string("D")).c_str(),
-          &calc_delaunay_rigid_D2min<DIM>,
+    m.def((std::string("calc_delaunay_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+          &calc_delaunay_local_rmsd<DIM>,
          py::arg("disp"),  py::arg("comp"), py::arg("embed"), py::arg("max_dist") = 2, py::arg("linear")=true);
 
     m.def((std::string("calc_grouped_delaunay_D2min_strain_")+std::to_string(DIM)+std::string("D")).c_str(),
@@ -231,9 +235,7 @@ template <int DIM> void init_protein_templates(py::module &m) {
 //     m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
 //       &calc_rmsd<DIM>, py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
 
-    m.def((std::string("calc_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("linear")=true, py::arg("weighted")=false);
-        
+   
 //     m.def((std::string("calc_rmsd_err_")+std::to_string(DIM)+std::string("D")).c_str(),
 //       &calc_rmsd_err<DIM>, py::arg("verts"), py::arg("disp"), py::arg("sigma"), py::arg("n_iters"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
     

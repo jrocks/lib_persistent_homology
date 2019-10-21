@@ -4,6 +4,8 @@
 
 
 #include <vector>
+#include <set>
+
 #include "eigen_macros.hpp"
 #include "embedding.hpp"
 #include "cell_complex.hpp"
@@ -175,12 +177,58 @@ template <int DIM> std::tuple<XVec, XVec> calc_delaunay_D2min_strain(RXVec disp,
 
 }
 
-template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2, bool linear=true) {
+
+template <int DIM> double calc_rmsd(std::vector<int> &verts, RXVec disp, Embedding<DIM> &embed, RXVec weight, bool linear=true) {
+    
+    
+    double rmsd = 0.0;
+
+        
+    DMat F;
+    std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, weight, false);
+
+    DMat R;
+    std::tie(R, std::ignore) = decompose_def_grad<DIM>(F, linear);
+
+    int vi = verts[0];
+    
+//     DVec O = embed.get_vpos(vi);
+    DVec uO = disp.segment<DIM>(DIM*vi);
+
+    for(std::size_t j = 1; j < verts.size(); j++) {
+
+        int vj = verts[j];
+
+//         DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+        DVec bvec = embed.get_diff(vi, vj);
+
+        DVec du = disp.segment<DIM>(DIM*vj) - uO;
 
 
-    XVec D2min = XVec::Zero(comp.ndcells[0]);
+        if(linear) {
+            rmsd += weight(j)*(R*bvec - du).squaredNorm();
+        } else {
+            rmsd += weight(j)*(R*bvec - (bvec+du)).squaredNorm();
+        }
+        
+    }
+
+//     rmsd /= (verts.size()-1);
+    rmsd /= weight.sum();
+        
+
+    return sqrt(rmsd);
+
+}
+
+
+template <int DIM> XVec calc_delaunay_local_rmsd(RXVec disp, CellComplex &comp, Embedding<DIM> &embed, int max_dist=2, bool linear=true) {
+
+    
+    XVec lrmsd = XVec::Zero(embed.NV);
 
     for(int vi = 0; vi < comp.ndcells[0]; vi++) {
+        
 
         auto vset = find_neighbors(vi, comp, max_dist, 0);
         vset.erase(vi);
@@ -189,36 +237,123 @@ template <int DIM> XVec calc_delaunay_rigid_D2min(RXVec disp, CellComplex &comp,
         verts.insert(verts.begin(), vi);
         
         
-        DMat F;
-        std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
-        
-        DMat dR  = 0.5*(F - F.transpose());
-        
-        
-        DVec O = embed.get_vpos(vi);
-        DVec uO = disp.segment<DIM>(DIM*vi);
-        
-        for(std::size_t j = 1; j < verts.size(); j++) {
-            
-            int vj = verts[j];
-
-            DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
-
-            DVec du = disp.segment<DIM>(DIM*vj) - uO;
-            
-
-            D2min[vi] += (dR*bvec - du).squaredNorm();
-
-        }
-        
-        D2min[vi] /= (verts.size()-1);
+        XVec weights = XVec::Ones(verts.size());
+        weights(0) = 0;
+                
+        lrmsd(vi) = calc_rmsd<DIM>(verts, disp, embed, weights, linear);
         
     }
 
-    return D2min;
+    return lrmsd;
+
+    
+    
+    
+
+//     XVec D2min = XVec::Zero(comp.ndcells[0]);
+
+//     for(int vi = 0; vi < comp.ndcells[0]; vi++) {
+
+//         auto verts = find_neighbors(vi, comp, max_dist, 0);
+//         verts.erase(vi);
+        
+//         std::vector<int> verts(verts.begin(), verts.end());
+//         verts.insert(verts.begin(), vi);
+        
+        
+//         DMat F;
+//         std::tie(F, std::ignore) = calc_def_grad<DIM>(verts, disp, embed, false);
+        
+//         DMat dR  = 0.5*(F - F.transpose());
+        
+        
+//         DVec O = embed.get_vpos(vi);
+//         DVec uO = disp.segment<DIM>(DIM*vi);
+        
+//         for(std::size_t j = 1; j < verts.size(); j++) {
+            
+//             int vj = verts[j];
+
+//             DVec bvec = embed.get_diff(O, embed.get_vpos(vj));
+
+//             DVec du = disp.segment<DIM>(DIM*vj) - uO;
+            
+
+//             D2min[vi] += (dR*bvec - du).squaredNorm();
+
+//         }
+        
+//         D2min[vi] /= (verts.size()-1);
+        
+//     }
+
+//     return D2min;
 
 
 }
+
+
+
+
+template <int DIM> XVec calc_local_rmsd(RXVec disp, Embedding<DIM> &embed, SpacePartition<DIM> &part, double max_dist, bool linear=true, bool weighted=false) {
+    
+//     auto grid_info = get_neighbor_grid<DIM>(max_dist, embed);
+    
+    XVec lrmsd = XVec::Zero(embed.NV);
+
+    for(int vi = 0; vi < embed.NV; vi++) {
+        
+//         auto verts = get_grid_neighbors<DIM>(vi, embed, max_dist, grid_info);
+        auto verts = part.get_neighbors(vi, max_dist);
+        
+        XVec weights = XVec::Ones(verts.size());
+        weights(0) = 0;
+        if(weighted) {
+            for(std::size_t j = 1; j < verts.size(); j++) {
+                DVec bvec = embed.get_diff(vi, verts[j]);
+                weights(j) = exp(-bvec.squaredNorm() / pow(max_dist/2, 2.0) / 2);
+            }
+        }
+                
+        lrmsd(vi) = calc_rmsd<DIM>(verts, disp, embed, weights, linear);
+        
+    }
+
+    return lrmsd;
+
+}
+
+
+
+template <int DIM> std::tuple<DVec, DVec, DMat> calc_bulk_motion(std::set<int> &verts, RXVec disp, Embedding<DIM> &embed, bool linear=true) {
+    
+    DVec xcm = DVec::Zero();
+    DVec ucm = DVec::Zero();
+    
+    for(auto vi: verts) {
+        xcm += embed.get_pos(vi);
+        ucm += disp.segment<DIM>(DIM*vi);
+    }
+    
+    xcm /= verts.size();
+    ucm /= verts.size();
+    
+    DMat X = DMat::Zero();
+    DMat Y = DMat::Zero();
+    for(auto vi: verts) {
+        DVec dxi = embed.get_pos(vi) - xcm;
+        DVec dui = disp.segment<DIM>(DIM*vi) - ucm;
+        X += dxi * dxi.transpose();
+        Y += (dxi + dui) * dxi.transpose();
+    }
+    
+    DMat F = Y * X.inverse();
+    
+    return std::make_tuple(xcm, ucm, F);
+    
+}
+
+
 
 
 // Remember that the first vertex in each group is the reference point - need reference if there is non-affine motion
