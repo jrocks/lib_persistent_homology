@@ -15,6 +15,17 @@ namespace py = pybind11;
 
 template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &verts, RXVec disp, Embedding<DIM> &embed, bool calc_D2min=false) {
     
+    XVec weight = XVec::Ones(verts.size());
+    weight(0) = 0;
+
+    return calc_def_grad<DIM>(verts, disp, embed, weight, calc_D2min);
+    
+    
+}
+
+
+template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &verts, RXVec disp, Embedding<DIM> &embed, RXVec weight, bool calc_D2min=false) {
+    
 
     DMat X = DMat::Zero();
     DMat Y = DMat::Zero();
@@ -25,7 +36,6 @@ template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &vert
     DVec O = embed.get_vpos(vi);
     DVec uO = disp.segment<DIM>(DIM*vi);
 
-
     for(std::size_t j = 1; j < verts.size(); j++) {
         
         int vj = verts[j];
@@ -34,8 +44,8 @@ template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &vert
 
         DVec du = disp.segment<DIM>(DIM*vj) - uO;
         
-        X += bvec * bvec.transpose();
-        Y += (bvec + du) * bvec.transpose();
+        X += weight(j)*bvec * bvec.transpose();
+        Y += weight(j)*(bvec + du) * bvec.transpose();
 
 
     }
@@ -54,11 +64,12 @@ template <int DIM> std::tuple<DMat, double> calc_def_grad(std::vector<int> &vert
             DVec du = disp.segment<DIM>(DIM*vj) - uO;
             
 
-            D2min += (F*bvec - (bvec+du)).squaredNorm();
+            D2min += weight(j)*(F*bvec - (bvec+du)).squaredNorm();
 
         }
         
-        D2min /= (verts.size() - 1);
+//         D2min /= (verts.size() - 1);
+        D2min /= weight.sum();
     }
     
     

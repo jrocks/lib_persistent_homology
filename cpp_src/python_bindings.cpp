@@ -134,7 +134,12 @@ template <int DIM> void init_voronoi_templates(py::module &m) {
 template <int DIM> void init_deform_templates(py::module &m) {
 
 
-    m.def((std::string("calc_def_grad_")+std::to_string(DIM)+std::string("D")).c_str(), &calc_def_grad<DIM>,
+    m.def((std::string("calc_def_grad_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          (std::tuple<DMat, double> (*) (std::vector<int>&, RXVec, Embedding<DIM>&, RXVec, bool)) &calc_def_grad<DIM>,
+         py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("weights"), py::arg("calc_D2min")=false);
+    
+    m.def((std::string("calc_def_grad_")+std::to_string(DIM)+std::string("D")).c_str(), 
+          (std::tuple<DMat, double> (*) (std::vector<int>&, RXVec, Embedding<DIM>&, bool)) &calc_def_grad<DIM>,
          py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("calc_D2min")=false);
 
     m.def((std::string("def_grad_to_strain_")+std::to_string(DIM)+std::string("D")).c_str(), &def_grad_to_strain<DIM>,
@@ -223,18 +228,18 @@ template <int DIM> void init_protein_templates(py::module &m) {
 //     m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
 //           &calc_rmsd<DIM>);
     
-    m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_rmsd<DIM>, py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
+//     m.def((std::string("calc_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
+//       &calc_rmsd<DIM>, py::arg("verts"), py::arg("disp"), py::arg("embed"), py::arg("linear")=true);
 
     m.def((std::string("calc_local_rmsd_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("linear")=true);
+      &calc_local_rmsd<DIM>, py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("linear")=true, py::arg("weighted")=false);
         
 //     m.def((std::string("calc_rmsd_err_")+std::to_string(DIM)+std::string("D")).c_str(),
 //       &calc_rmsd_err<DIM>, py::arg("verts"), py::arg("disp"), py::arg("sigma"), py::arg("n_iters"), py::arg("embed"), py::arg("max_dist"), py::arg("linear")=true);
     
-    m.def((std::string("calc_lrmsd_diff_err_")+std::to_string(DIM)+std::string("D")).c_str(),
-      &calc_lrmsd_diff_err<DIM>, py::arg("v1"), py::arg("v2"), 
-          py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), py::arg("sigma_ref"), py::arg("sigma_def"), py::arg("n_iters"), py::arg("linear")=true);
+    m.def((std::string("calc_lrmsd_err_")+std::to_string(DIM)+std::string("D")).c_str(),
+      &calc_lrmsd_err<DIM>, py::arg("vi"), py::arg("disp"), py::arg("embed"), py::arg("part"), py::arg("max_dist"), 
+          py::arg("sigma_ref"), py::arg("sigma_def"), py::arg("n_iters"), py::arg("linear")=true, py::arg("weighted")=true);
     
     m.def((std::string("calc_hinge_overlap_err_")+std::to_string(DIM)+std::string("D")).c_str(),
       &calc_hinge_overlap_err<DIM>, py::arg("sector"), 
