@@ -311,7 +311,7 @@ template <int DIM> XVec calc_local_rmsd(RXVec disp, Embedding<DIM> &embed, Space
         if(weighted) {
             for(std::size_t j = 1; j < verts.size(); j++) {
                 DVec bvec = embed.get_diff(vi, verts[j]);
-                weights(j) = exp(-bvec.squaredNorm() / pow(max_dist/2, 2.0) / 2);
+                weights(j) = exp(-bvec.squaredNorm() / pow(max_dist/3, 2.0) / 2);
             }
         }
                 
