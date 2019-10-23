@@ -19,6 +19,7 @@
 #include "cell_complex.hpp"
 #include "filtration.hpp"
 #include "search.hpp"
+#include "space_partition.hpp"
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -26,7 +27,7 @@ namespace py = pybind11;
 
 
 template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
-                                                       std::vector<double> &weights, bool oriented=false, int dim_cap=DIM) {
+                                                       std::vector<double> &weights, bool oriented=false, int dim_cap=DIM, double grid_length=-1) {
 
 
     // d-dimensional Kernel used to define Euclidean space (R^d)
@@ -673,20 +674,31 @@ template <int DIM> CellComplex join_dtriangles(CellComplex &comp, RXVec alpha_va
 std::unordered_map<int, std::unordered_map<int, std::unordered_map<std::string, int> > >
     calc_radial_edge_counts(std::vector<int> &cell_list, std::vector<std::string> &edge_types, 
                             CellComplex &comp, int max_dist=-1) {
-
+    
     // particle->dist->edge_type->count
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<std::string, int> > > edge_count;
 
     for(int c: cell_list) {
 
-        auto dists = calc_comp_point_dists(c, comp, max_dist);
+        // Always search one extra so that reach both vertices of each edge
+        auto dists = calc_comp_point_dists(c, comp, max_dist + 1);
 
         for(int i = comp.dcell_range[1].first; i < comp.dcell_range[1].second; i++) {
             if(dists[i] <= 0) {
                 continue;
             }
                 
-            edge_count[c][dists[i]][edge_types[comp.get_label(i)]]++;
+            auto verts = comp.get_facets(i);
+            
+            int vi = verts[0];
+            int vj = verts[1];
+            
+            if(dists[vi]==-1 || dists[vj]==-1) {
+                continue;
+            }
+            
+//             edge_count[c][dists[i]][edge_types[comp.get_label(i)]]++;
+            edge_count[c][dists[vi]/2 + dists[vj]/2][edge_types[comp.get_label(i)]]++;
         }
 
     }
@@ -736,6 +748,7 @@ template <int DIM> std::unordered_map<int, std::tuple<std::map<int, int>, std::m
             } else {
                 overlaps[dists[i]]++;
             }
+            
         }
 
         gap_distribution[c] = std::make_tuple(gaps, overlaps);
