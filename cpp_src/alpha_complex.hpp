@@ -27,7 +27,7 @@ namespace py = pybind11;
 
 
 template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
-                                                       std::vector<double> &weights, bool oriented=false, int dim_cap=DIM, double grid_length=-1) {
+                                                       std::vector<double> &weights, bool oriented=false, int dim_cap=DIM) {
 
 
     // d-dimensional Kernel used to define Euclidean space (R^d)
