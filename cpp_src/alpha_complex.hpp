@@ -153,7 +153,6 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
 //     }
     
-    
     std::vector<std::vector<int> >  valid_tris;
     
     if(embed.periodic) {
@@ -191,24 +190,33 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
             // Sort verts to ensure consistency
             std::sort(verts.begin(), verts.end());
 
+            
+            
+            // Record max lattice distance between any pair of nodes
+            int max_dist = 0;
+            for(std::size_t vi = 0; vi < verts.size(); vi++) {
+                for(std::size_t vj = vi + 1; vj < verts.size(); vj++) {
+                    int dist = int((images[vi]-images[vj]).squaredNorm());
+                    if(dist > max_dist){
+                        max_dist = dist;
+                    }
+                }
+            }
+            
             // If exists, increase count
             if(tri_count.count(verts)) {
                 tri_count[verts]++;
+                
+                // Avoid weird edge cases where same vertices form different triangles
+                // Using different combinations of images
+                // Use triangle that has lowest lattice distance
+                if(max_dist < cross_dist[verts]) {
+                    cross_dist[verts] = max_dist;
+                }
 
             // Else add to count
             } else {
                 tri_count[verts] = 1;
-
-                // Record max lattice distance between any pair of nodes
-                int max_dist = 0;
-                for(std::size_t vi = 0; vi < verts.size(); vi++) {
-                    for(std::size_t vj = vi + 1; vj < verts.size(); vj++) {
-                        int dist = int((images[vi]-images[vj]).squaredNorm());
-                        if(dist > max_dist){
-                            max_dist = dist;
-                        }
-                    }
-                }
 
                 cross_dist[verts] = max_dist;    
 
@@ -216,6 +224,8 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
 
         }
+        
+        
 
         // Iterate through each found triangle
         for(auto pair: tri_count) {
@@ -223,7 +233,7 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
             auto verts = pair.first;
             auto count = pair.second;
             auto dist = cross_dist[verts];
-                        
+      
             
             // If number of replicates = 2^(crossing dist - DIM), then is valid triangle
             if(count == int(pow(2, DIM-dist))) {
