@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <utility>
+#include <bitset>
 
 #include "eigen_macros.hpp"
 #include "embedding.hpp"
@@ -23,8 +24,6 @@
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
-
-
 
 template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
                                                        std::vector<double> &weights, bool oriented=false, int dim_cap=DIM) {
@@ -86,7 +85,8 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
 
         // First create list of images represented by the offset from the main image
-        std::vector<double> offset{-1, 0, 1};
+        // There will be 2^d images
+        std::vector<double> offset{0, 1};
 
         std::vector<std::vector<double> > image_list(1, std::vector<double>());
 
@@ -113,12 +113,12 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
         std::vector<double> zero_image(DIM, 0);
         image_list.erase(std::remove(image_list.begin(), image_list.end(), zero_image), image_list.end());
 
-        // Add each image to the triangulation
+        // Add each of the additionalimages to the triangulation
         int vi = NV;
         for(auto image: image_list) {
 
             DVec offset = XVecMap(image.data(), DIM);
-
+            
             for(int i = 0; i < NV; i++) {
 
                 DVec pos = embed.box_mat * (embed.get_vpos(i) + offset);
@@ -131,7 +131,7 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
                 vi++;
             }
-
+            
         }
 
 
@@ -152,46 +152,128 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 //         }
 
 //     }
+    
+    
+    std::vector<std::vector<int> >  valid_tris;
+    
+    if(embed.periodic) {
+            
+        // Number of appearances for each triangle
+        std::map<std::vector<int> , int> tri_count;
+        // How the cell crosses between images
+        // Max number of steps on a cubic lattice of images between two vertices comprising triangle
+        // 0: no crossing - contained within a single image
+        // 1: crosses through an edge in 2d or a cell in 3d - i.e. two neighboring image
+        // 2: crosses through a vertex in 2d or an edge in 3d - two diagonally adjacent images
+        // 3: crosses through a vertex in 3d
+        std::map<std::vector<int> , int> cross_dist;
 
-    // Iterate through each corner and add all higher-dimensional faces of corner simplices
+        // Iterate through all max dim simplices (triangles, tetrahedra, etc.)
+        for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
+
+            std::vector<int> verts;
+            std::vector<DiVec> images;
+            for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
+                // Need to dereference first, since vit is a pointer to a vertex handle
+                int vi = (*vit)->data(); 
+                verts.push_back(vi % NV);
+
+                // Get the image coordinates (binary representatin of vi / NV)
+                std::bitset<DIM> bit_rep(vi / NV);
+                DiVec im = DiVec::Zero();
+                for(int m = 0; m < DIM; m++) {
+                    im(m) = bit_rep[DIM-1-m]; 
+                }
+
+                images.push_back(im);
+            }
+
+            // Sort verts to ensure consistency
+            std::sort(verts.begin(), verts.end());
+
+            // If exists, increase count
+            if(tri_count.count(verts)) {
+                tri_count[verts]++;
+
+            // Else add to count
+            } else {
+                tri_count[verts] = 1;
+
+                // Record max lattice distance between any pair of nodes
+                int max_dist = 0;
+                for(std::size_t vi = 0; vi < verts.size(); vi++) {
+                    for(std::size_t vj = vi + 1; vj < verts.size(); vj++) {
+                        int dist = int((images[vi]-images[vj]).squaredNorm());
+                        if(dist > max_dist){
+                            max_dist = dist;
+                        }
+                    }
+                }
+
+                cross_dist[verts] = max_dist;    
+
+            }
+
+
+        }
+
+        // Iterate through each found triangle
+        for(auto pair: tri_count) {
+
+            auto verts = pair.first;
+            auto count = pair.second;
+            auto dist = cross_dist[verts];
+                        
+            
+            // If number of replicates = 2^(crossing dist - DIM), then is valid triangle
+            if(count == int(pow(2, DIM-dist))) {
+                valid_tris.push_back(verts);
+            }
+
+        }
+
+
+    } else {
+        
+        // Iterate through all max dim simplices (triangles, tetrahedra, etc.)
+        for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
+
+            std::vector<int> verts;
+            std::vector<DiVec> images;
+            for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
+                // Need to dereference first, since vit is a pointer to a vertex handle
+                int vi = (*vit)->data(); 
+                verts.push_back(vi % NV);
+            }
+            
+            valid_tris.push_back(verts);
+
+        } 
+        
+    }
+    
+
+    // Iterate through cells by dimension
     for(int d = 1; d <= dim_cap; d++) {
 
         int label = 0;
 
-        for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
+        // Iterate through all max dim simplices (triangles, tetrahedra, etc.)
+        for(auto verts: valid_tris) {
 
-            bool has_central_image = false;
-            std::vector<int> vertices;
-            for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
-                // Need to dereference first, since vit is a pointer to a vertex handle
-                // Mod by NV to take care of periodic BCs if turned on
-                int vi = (*vit)->data();
-                vertices.push_back(vi % NV);
-
-                // Is at least one vertex contained in the central image?
-                if(vi < NV) {
-                    has_central_image = true;
-                }
-
-            }
-
-            // If none of the vertices are in the central image, then skip this cell
-            if(!has_central_image) {
-                continue;
-            }
 
             // Iterate through every size d+1 subset
 
             // A mask to pick out exactly d+1 verts
             std::vector<bool> mask(d+1, true);
-            mask.resize(vertices.size(), false);
+            mask.resize(verts.size(), false);
             do {
 
-                // Find vertices in simplex
+                // Find verts in simplex
                 std::vector<int> simplex;
-                for(std::size_t j = 0; j < vertices.size(); j++) {
+                for(std::size_t j = 0; j < verts.size(); j++) {
                     if(mask[j]) {
-                        simplex.push_back(vertices[j]);
+                        simplex.push_back(verts[j]);
                     }
                 }
 
@@ -223,14 +305,218 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
 
     }
 
-    // }
-
     alpha_comp.construct_cofacets();
     alpha_comp.make_compressed();
 
     return alpha_comp;
 
 }
+
+// template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
+//                                                        std::vector<double> &weights, bool oriented=false, int dim_cap=DIM) {
+
+
+//     // d-dimensional Kernel used to define Euclidean space (R^d)
+//     typedef CGAL::Epick_d< CGAL::Dimension_tag<DIM> > Kernel;
+
+//     // Triangulation data structure
+//     // Template info is explicitly defined in order to stick an integer label into each Triangulation_vertex
+//     typedef CGAL::Triangulation_data_structure<
+//                 typename Kernel::Dimension,
+//                 CGAL::Triangulation_vertex<CGAL::Regular_triangulation_traits_adapter<Kernel>, int>,
+//                 CGAL::Triangulation_full_cell<CGAL::Regular_triangulation_traits_adapter<Kernel> > >
+//                     Triangulation_data_structure;
+
+//     // Regular Delaunay triangulation
+//     typedef CGAL::Regular_triangulation<Kernel, Triangulation_data_structure> Regular_triangulation;
+//     // d-dimensional point
+//     typedef typename Kernel::Point_d Point;
+//     // d-dimensional weighted point
+//     typedef typename Kernel::Weighted_point_d WPoint;
+
+
+//     // Triangulation object
+//     Regular_triangulation tri(DIM);
+
+//     // Map of lists of vertices of all simplices to index of simplex in alpha complex
+//     std::map<std::vector<int> , int> simplex_to_index;
+
+//     CellComplex alpha_comp(DIM, true, oriented);
+
+//     int NV = embed.NV;
+
+//     // Add all vertices to cell complex
+//     for(int i = 0; i < NV; i++) {
+
+//         DVec pos = embed.get_pos(i);
+//         std::vector<double> coords(pos.data(), pos.data()+DIM);
+//         WPoint w(Point(coords.begin(), coords.end()), weights[i]);
+
+//         auto vertex = tri.insert(w);
+        
+//         if ((int)tri.number_of_vertices() < i+1) {
+//             py::print("Error: Incompatible vertices.");
+//             return CellComplex(DIM, true, oriented);
+//         }
+        
+//         vertex->data() = i;
+
+//         std::vector<int> facets;
+//         std::vector<int> coeffs;
+//         alpha_comp.add_cell(i, 0, facets, coeffs);
+
+//         simplex_to_index.emplace(std::piecewise_construct, std::forward_as_tuple(1, i), std::forward_as_tuple(i));
+//     }
+
+//     if(embed.periodic) {
+
+
+//         // First create list of images represented by the offset from the main image
+//         std::vector<double> offset{-1, 0, 1};
+
+//         std::vector<std::vector<double> > image_list(1, std::vector<double>());
+
+//         // Calculate cartesion product of offset
+//         for(int d = 0; d < DIM; d++) {
+//             std::vector<std::vector<double> > new_image_list;
+
+//             for(auto image: image_list) {
+//                 for(auto off: offset) {
+
+//                     auto copy = image;
+//                     copy.push_back(off);
+
+//                     new_image_list.push_back(copy);
+
+//                 }
+//             }
+
+//             image_list = new_image_list;
+
+//         }
+
+//         // Delete the main image as it already exists
+//         std::vector<double> zero_image(DIM, 0);
+//         image_list.erase(std::remove(image_list.begin(), image_list.end(), zero_image), image_list.end());
+
+//         // Add each image to the triangulation
+//         int vi = NV;
+//         for(auto image: image_list) {
+
+//             DVec offset = XVecMap(image.data(), DIM);
+
+//             for(int i = 0; i < NV; i++) {
+
+//                 DVec pos = embed.box_mat * (embed.get_vpos(i) + offset);
+
+//                 std::vector<double> coords(pos.data(), pos.data()+DIM);
+//                 WPoint w(Point(coords.begin(), coords.end()), weights[i]);
+
+//                 auto vertex = tri.insert(w);
+//                 vertex->data() = vi;
+
+//                 vi++;
+//             }
+
+//         }
+
+
+//     }
+
+
+
+//     // py::print("Regular triangulation successfully computed: " , tri.number_of_vertices(), " vertices, ",
+//     // tri.number_of_finite_full_cells()," finite cells.");
+
+// //     for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
+// //         py::print("Cell:");
+
+// //         for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
+// //             // Need to dereference first, since vit is a pointer to a vertex handle
+// //             py::print((*vit)->data());
+
+// //         }
+
+// //     }
+
+//     // Iterate through each corner and add all higher-dimensional faces of corner simplices
+//     for(int d = 1; d <= dim_cap; d++) {
+
+//         int label = 0;
+
+//         for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
+
+//             bool has_central_image = false;
+//             std::vector<int> vertices;
+//             for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
+//                 // Need to dereference first, since vit is a pointer to a vertex handle
+//                 // Mod by NV to take care of periodic BCs if turned on
+//                 int vi = (*vit)->data();
+//                 vertices.push_back(vi % NV);
+
+//                 // Is at least one vertex contained in the central image?
+//                 if(vi < NV) {
+//                     has_central_image = true;
+//                 }
+
+//             }
+
+//             // If none of the vertices are in the central image, then skip this cell
+//             if(!has_central_image) {
+//                 continue;
+//             }
+
+//             // Iterate through every size d+1 subset
+
+//             // A mask to pick out exactly d+1 verts
+//             std::vector<bool> mask(d+1, true);
+//             mask.resize(vertices.size(), false);
+//             do {
+
+//                 // Find vertices in simplex
+//                 std::vector<int> simplex;
+//                 for(std::size_t j = 0; j < vertices.size(); j++) {
+//                     if(mask[j]) {
+//                         simplex.push_back(vertices[j]);
+//                     }
+//                 }
+
+//                 // Sorted list of vertices of cell
+//                 std::sort(simplex.begin(), simplex.end());
+
+//                 // If simplex already exists in graph complex, then skip
+//                 if(simplex_to_index.count(simplex)) {
+//                     continue;
+//                 }
+
+//                 simplex_to_index[simplex] = alpha_comp.ncells;
+
+//                 // Find facets
+//                 std::vector<int> facets;
+//                 std::vector<int> coeffs;
+//                 for(std::size_t j = 0; j < simplex.size(); j++) {
+//                     std::vector<int> facet(simplex);
+//                     facet.erase(facet.begin()+j);
+//                     facets.push_back(simplex_to_index[facet]);
+//                     coeffs.push_back(-2*(j%2)+1);
+//                 }
+//                 alpha_comp.add_cell(label, d, facets, coeffs);
+//                 label++;
+
+//             } while(std::prev_permutation(mask.begin(), mask.end()));
+
+//         }
+
+//     }
+
+//     // }
+
+//     alpha_comp.construct_cofacets();
+//     alpha_comp.make_compressed();
+
+//     return alpha_comp;
+
+// }
 
 
 template <int DIM> double calc_power_distance(double alpha, DVec a, DVec pos, double weight=0.0) {
