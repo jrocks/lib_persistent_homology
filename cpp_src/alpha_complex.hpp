@@ -156,89 +156,157 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
     std::vector<std::vector<int> >  valid_tris;
     
     if(embed.periodic) {
-            
-        // Number of appearances for each triangle
-        std::map<std::vector<int> , int> tri_count;
-        // How the cell crosses between images
-        // Max number of steps on a cubic lattice of images between two vertices comprising triangle
-        // 0: no crossing - contained within a single image
-        // 1: crosses through an edge in 2d or a cell in 3d - i.e. two neighboring image
-        // 2: crosses through a vertex in 2d or an edge in 3d - two diagonally adjacent images
-        // 3: crosses through a vertex in 3d
-        std::map<std::vector<int> , int> cross_dist;
-
+        
+        
+        // Map of triangles (defined by vertices) -> combination of images (up to periodic BCs) -> (# spanned lattice dimensions, count)
+        std::map<std::vector<int> , std::map<std::vector<int>, std::tuple<int, int> > > tri_info;
+        
         // Iterate through all max dim simplices (triangles, tetrahedra, etc.)
         for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
 
             std::vector<int> verts;
-            std::vector<DiVec> images;
+            std::vector<int> images;
             for(auto vit = it->vertices_begin(); vit != it->vertices_end(); vit++) {
                 // Need to dereference first, since vit is a pointer to a vertex handle
                 int vi = (*vit)->data(); 
                 verts.push_back(vi % NV);
-
-                // Get the image coordinates (binary representatin of vi / NV)
-                std::bitset<DIM> bit_rep(vi / NV);
-                DiVec im = DiVec::Zero();
-                for(int m = 0; m < DIM; m++) {
-                    im(m) = bit_rep[DIM-1-m]; 
-                }
-
-                images.push_back(im);
+                
+                images.push_back(vi / NV);
+                
             }
 
             // Sort verts to ensure consistency
             std::sort(verts.begin(), verts.end());
-
             
+            // Sort images for consistency
+            std::sort(images.begin(), images.end());
             
-            // Record max lattice distance between any pair of nodes
-            int max_dist = 0;
-            for(std::size_t vi = 0; vi < verts.size(); vi++) {
-                for(std::size_t vj = vi + 1; vj < verts.size(); vj++) {
-                    int dist = int((images[vi]-images[vj]).squaredNorm());
-                    if(dist > max_dist){
-                        max_dist = dist;
+            // Binary representation of images
+            std::vector<std::bitset<DIM> > bin_images;
+            for(int im: images) {
+                bin_images.emplace_back(im);
+            }
+            
+            // Calcuate number of spanned lattice dimensions
+            int spanned_dims = 0;
+            for(int d = 0; d < DIM; d++) {
+                
+                int coord = bin_images[0][d];
+                for(int vi = 1; vi < DIM+1; vi++) {
+                    if(bin_images[vi][d] != coord) {
+                        spanned_dims++;
+                        break;
                     }
                 }
             }
             
-            // If exists, increase count
-            if(tri_count.count(verts)) {
-                tri_count[verts]++;
+            // Check if triangle with these vertices exists
+            if(tri_info.count(verts)) {
                 
-                // Avoid weird edge cases where same vertices form different triangles
-                // Using different combinations of images
-                // Use triangle that has lowest lattice distance
-                if(max_dist < cross_dist[verts]) {
-                    cross_dist[verts] = max_dist;
+                // Check if periodic image of triangle exists
+                // Iterate through number of different directions to translate, depending on max dist
+                
+                bool exists = false;
+                for(int d = 0; d <= DIM-spanned_dims; d++) {
+                    
+                    // Mask to pick out d direction to translate
+                    std::vector<bool> mask(d, true);
+                    mask.resize(DIM, false);
+                    // Iterate through every permutation of translations n d directions
+                    do {
+                        
+                        std::vector<int> translated_images(DIM+1);
+                        
+                        // Iterate through each vertex in triangle
+                        for(int vi = 0; vi < DIM+1; vi++) {
+                            std::bitset<DIM> bin_copy = bin_images[vi];
+                            // Translate using binary representation
+                            for(int m = 0; m < DIM; m++) {
+                                if(mask[m]) {
+                                    bin_copy.flip(m);
+                                }
+                            }
+                            
+                            translated_images[vi] = int(bin_copy.to_ulong());
+                            
+                        }
+                        
+                        
+                        // Sort for consistency
+                        std::sort(translated_images.begin(), translated_images.end());
+                        
+                        
+                        // Check if this combination of images exists for this triangle
+                        if(tri_info[verts].count(translated_images)) {
+                            // If so, then increment count and break
+                            std::get<1>(tri_info[verts][translated_images])++;
+                            exists = true;
+                            break;
+                        }
+                        
+                        
+                    } while(std::prev_permutation(mask.begin(), mask.end()));
+                    
+                    
+                    if(exists) {
+                        break;
+                    }
+                    
                 }
-
-            // Else add to count
+                
+                // If translated version was not found, then add
+                if(!exists) {
+                    tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1));
+                }
+                
+                
             } else {
-                tri_count[verts] = 1;
-
-                cross_dist[verts] = max_dist;    
-
+                // If triangle doesn't exist then add
+                tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1));
+                
             }
-
-
+            
         }
-        
+            
+
         
 
         // Iterate through each found triangle
-        for(auto pair: tri_count) {
+        // This is slightly less than optimal due to checking for validity.
+        for(auto pair: tri_info) {
 
             auto verts = pair.first;
-            auto count = pair.second;
-            auto dist = cross_dist[verts];
-      
             
-            // If number of replicates = 2^(crossing dist - DIM), then is valid triangle
-            if(count == int(pow(2, DIM-dist))) {
-                valid_tris.push_back(verts);
+            bool is_valid = false;
+            
+            // Iterate through each possible version of the triangle
+            for(auto tri_pair: pair.second) {
+                
+                auto images = tri_pair.first;
+                int dist;
+                int count;
+                std::tie(dist, count) = tri_pair.second;
+                
+                if(is_valid) {
+                    py::print("Warning: Valid triangle has additional representations.");
+                }
+                
+                
+                // If number of replicates = 2^(crossing dist - DIM), then is valid triangle
+                if(count == int(pow(2, DIM-dist))) {
+                    if(!is_valid) {
+                        is_valid = true;
+                        valid_tris.push_back(verts);
+                    } else{
+                        py::print("Warning: More than one valid version of triangle present!");
+                        py::print("tri info:", verts, images, count, dist);
+                    }
+                    
+                }
+                
             }
+            
+            
 
         }
 
