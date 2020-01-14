@@ -158,8 +158,10 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
     if(embed.periodic) {
         
         
-        // Map of triangles (defined by vertices) -> combination of images (up to periodic BCs) -> (# spanned lattice dimensions, count)
-        std::map<std::vector<int> , std::map<std::vector<int>, std::tuple<int, int> > > tri_info;
+        // std::vector<int> test = {1263, 5621, 6341, 7209};
+        
+        // Map of triangles (defined by vertices) -> combination of images (up to periodic BCs) -> (# spanned lattice dimensions, orientations, count)
+        std::map<std::vector<int> , std::map<std::vector<int>, std::tuple<int, int, int> > > tri_info;
         
         // Iterate through all max dim simplices (triangles, tetrahedra, etc.)
         for(auto it = tri.finite_full_cells_begin(); it != tri.finite_full_cells_end(); it++) {
@@ -180,6 +182,10 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
             
             // Sort images for consistency
             std::sort(images.begin(), images.end());
+            
+            // if(verts == test) {
+            //     py::print(verts, images);
+            // }
             
             // Binary representation of images
             std::vector<std::bitset<DIM> > bin_images;
@@ -203,8 +209,9 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
             // Check if triangle with these vertices exists
             if(tri_info.count(verts)) {
                 
+                
                 // Check if periodic image of triangle exists
-                // Iterate through number of different directions to translate, depending on max dist
+                // Iterate through number of different directions to translate, depending on number spanned dimensions
                 
                 bool exists = false;
                 for(int d = 0; d <= DIM-spanned_dims; d++) {
@@ -212,7 +219,7 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
                     // Mask to pick out d direction to translate
                     std::vector<bool> mask(d, true);
                     mask.resize(DIM, false);
-                    // Iterate through every permutation of translations n d directions
+                    // Iterate through every permutation of translations in d directions
                     do {
                         
                         std::vector<int> translated_images(DIM+1);
@@ -239,7 +246,24 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
                         // Check if this combination of images exists for this triangle
                         if(tri_info[verts].count(translated_images)) {
                             // If so, then increment count and break
-                            std::get<1>(tri_info[verts][translated_images])++;
+                            std::get<2>(tri_info[verts][translated_images])++;
+                            
+                            // Check if untranslated image overlaps with previous observed image (meaning this image is actually a separate orientation)
+                            for(auto vi: translated_images) {
+                                
+                                bool complete = false;
+                                for(auto vj: images) {
+                                    if(vi == vj) {
+                                        std::get<1>(tri_info[verts][translated_images])++;
+                                        complete = true;
+                                        break;
+                                    }
+                                }
+                                if(complete) {
+                                    break;
+                                }
+                            }
+                            
                             exists = true;
                             break;
                         }
@@ -256,13 +280,13 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
                 
                 // If translated version was not found, then add
                 if(!exists) {
-                    tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1));
+                    tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1, 1));
                 }
                 
                 
             } else {
                 // If triangle doesn't exist then add
-                tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1));
+                tri_info[verts].emplace(images, std::forward_as_tuple(spanned_dims, 1, 1));
                 
             }
             
@@ -284,21 +308,27 @@ template <int DIM> CellComplex construct_alpha_complex(Embedding<DIM> &embed,
                 
                 auto images = tri_pair.first;
                 int dist;
+                int orientations;
                 int count;
-                std::tie(dist, count) = tri_pair.second;
+                std::tie(dist, orientations, count) = tri_pair.second;
                 
-                if(is_valid) {
-                    py::print("Warning: Valid triangle has additional representations.");
-                }
+                // if(test == verts) {
+                //     py::print(verts, images, dist, orientations, count, count/orientations, "?=", int(pow(2, DIM-dist)));
+                // }
                 
-                
-                // If number of replicates = 2^(crossing dist - DIM), then is valid triangle
-                if(count == int(pow(2, DIM-dist))) {
+                // If number of replicates/orientations = 2^(crossing dist - DIM), then is valid triangle
+                if(count/orientations == int(pow(2, DIM-dist))) {
+                    
+                    if(orientations > 1) {
+                        py::print("Warning: Valid triangle with more than one observed orientation. This is not a problem, but is worth reporting to Jason.");
+                    }
+                    
+                    
                     if(!is_valid) {
                         is_valid = true;
                         valid_tris.push_back(verts);
                     } else{
-                        py::print("Warning: More than one valid version of triangle present!");
+                        py::print("Warning: More than one valid version of triangle present! Report to Jason.");
                         py::print("tri info:", verts, images, count, dist);
                     }
                     
